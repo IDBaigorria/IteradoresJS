@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superestructura JSON</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Superestructura JSON</h2>
+    
+    <div class="input-group">
+        <label>Guardar como:</label>
+        <input type="text" id="nombreGuardar" value="mi-superestructura" placeholder="Nombre del archivo">
+        <button onclick="guardar()">💾 Guardar JSON</button>
+    </div>
+
+    <div class="input-group">
+        <button onclick="cargar()">📂 Cargar JSON</button>
+    </div>
+
+    <div class="input-group">
+        <label>Cargar desde URL:</label>
+        <input type="text" id="urlCargar" placeholder="https://ejemplo.com/archivo.json">
+        <button onclick="cargarDesdeUrl()">🔗 Cargar desde URL</button>
+    </div>
+
+    <div class="status">
+        <strong>Estado:</strong> <span id="estado">Listo</span><br>
+        <strong>Último guardado:</strong> <span id="ultimoGuardado">Ninguno</span>
+    </div>
+
+    <script>
+        // Inicializar el sistema
+        if (typeof PerdurarSuperestructuraStringJSON !== 'undefined') {
+            PerdurarSuperestructuraStringJSON.inicializar();
+        }
+
+        function actualizarEstado(mensaje, esError = false) {
+            document.getElementById('estado').textContent = mensaje;
+            document.getElementById('estado').style.color = esError ? 'red' : 'green';
+        }
+
+        async function guardar() {
+            const nombre = document.getElementById('nombreGuardar').value || 'superestructura';
+            
+            try {
+                actualizarEstado('Guardando...');
+                
+                // Usar la clase real si está disponible, sino demo
+                const exito = typeof PerdurarSuperestructuraStringJSON !== 'undefined' 
+                    ? PerdurarSuperestructuraStringJSON.guardar(nombre)
+                    : guardarDemo(nombre);
+                
+                if (exito) {
+                    document.getElementById('ultimoGuardado').textContent = nombre;
+                    actualizarEstado('Guardado exitoso');
+                } else {
+                    actualizarEstado('Error al guardar', true);
+                }
+            } catch (error) {
+                actualizarEstado('Error: ' + error.message, true);
+            }
+        }
+
+        async function cargar() {
+            try {
+                actualizarEstado('Cargando...');
+                
+                if (typeof PerdurarSuperestructuraJSON !== 'undefined') {
+                    const exito = await PerdurarSuperestructuraStringJSON.cargar();
+                    actualizarEstado(exito ? 'Carga exitosa' : 'Error en carga');
+                } else {
+                    // Simular carga para demo
+                    actualizarEstado('Funcionalidad de carga lista (demo)');
+                    alert('En una implementación real, esto cargaría un archivo JSON');
+                }
+            } catch (error) {
+                actualizarEstado('Error: ' + error.message, true);
+            }
+        }
+
+        async function cargarDesdeUrl() {
+            const url = document.getElementById('urlCargar').value;
+            
+            if (!url) {
+                actualizarEstado('Ingresa una URL válida', true);
+                return;
+            }
+            
+            try {
+                actualizarEstado('Cargando desde URL...');
+                
+                if (typeof PerdurarSuperestructuraJSON !== 'undefined') {
+                    const exito = await PerdurarSuperestructuraJSON.cargar_desde_url(url);
+                    actualizarEstado(exito ? 'Carga desde URL exitosa' : 'Error en carga');
+                } else {
+                    // Simular carga desde URL para demo
+                    actualizarEstado('Carga desde URL simulada');
+                    alert('URL: ' + url + '\n\nEn una implementación real, esto cargaría desde la URL');
+                }
+            } catch (error) {
+                actualizarEstado('Error: ' + error.message, true);
+            }
+        }
+
+        // Función demo para guardar (cuando no hay clase real)
+        function guardarDemo(nombre) {
+            const estructuraDemo = {
+                metadata: {
+                    version: '1.0',
+                    fecha_creacion: new Date().toISOString(),
+                    total_nodos: 3
+                },
+                nodos: [
+                    {
+                        id: 'nodo_1',
+                        dato: 'Nodo de ejemplo 1',
+                        adyacentes: { 'enlace': 'nodo_2' }
+                    },
+                    {
+                        id: 'nodo_2', 
+                        dato: 'Nodo de ejemplo 2',
+                        adyacentes: {}
+                    },
+                    {
+                        id: 'nodo_3',
+                        dato: 'Nodo de ejemplo 3',
+                        adyacentes: { 'referencia': 'nodo_1' }
+                    }
+                ]
+            };
+
+            try {
+                const json = JSON.stringify(estructuraDemo, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = `${nombre}.json`;
+                document.body.appendChild(enlace);
+                enlace.click();
+                document.body.removeChild(enlace);
+                
+                URL.revokeObjectURL(url);
+                return true;
+            } catch (error) {
+                console.error('Error en demo:', error);
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>
