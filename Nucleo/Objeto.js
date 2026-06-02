@@ -311,7 +311,7 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @returns {void}
    */
   static _error(error) {
-    console.log(error);
+   // console.log(error);
     if (this._activar_rec_errores) { // acceso a la config estática
       if (typeof error !== "string") {
         this.agregar_error(
@@ -952,7 +952,7 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @returns {void}
    */
   static _alerta(alerta) {
-    console.log(alerta);
+    //console.log(alerta);
     if (this._activar_rec_alertas) { // acceso a la config estática
       if (typeof alerta !== "string") {
         this.agregar_alerta(

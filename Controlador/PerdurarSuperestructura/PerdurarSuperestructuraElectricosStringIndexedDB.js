@@ -221,6 +221,7 @@ static #abrir_BD() {
         const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {
             const enlaces = {};
             nodo.por_cada_adyacente_ejecutar((adyacente, enlace) => {
+                //aca debo modificar para insertar los pesos
                 enlaces[enlace] = adyacente.id();
             });
             return enlaces;

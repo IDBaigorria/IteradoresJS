@@ -41,7 +41,7 @@ console.log("Nodo");
  * ver bien la estrucura
  * 
  * ## DINAMICOS ##
- * Hay que agregar por_cada_fase_ejecutar y establecer_fase
+ * Hay que agregar por_cada_fase_ejecutar y _fase
  * ### MODIFIFICACIONES ###
  * 
  * ## INTERFAZ ADYACENTES ##
@@ -105,34 +105,83 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      **********************************************************************************************/
 
     /** 
-     * Fase de trabajo
+     * Fase de trabajo actual (global)
      * @type {String}
      * @protected
+     * @static
      */
-    static _fase='a';
-	/**
-	 * Un array con key igual a los nombres de la fases y valor booleanto true si el nombre de fase fue utilizado
-	 * en algun momento
-	 * @var array
-	 */
-	static _fases= new Set(['']);;
+    static _fase_actual = 'a';
+
     /**
-     * Establece la "fase" en la que trabajan todos los nodos
-     * 
-     * @param {String} token token de autorizacion
-     * @param {String} fase string con el nombre de la fase
+     * Conjunto de nombres de fases que han sido utilizados alguna vez.
+     * Se usa para mantener un histórico y poder iterar sobre todas las fases.
+     * @type {Set<String>}
+     * @static
      */
-    static establecer_fase(token, fase){
+    static _fases = new Set(['a']);
+
+    /**
+     * Establece la fase global en la que trabajan todos los nodos.
+     * Requiere token de autorización.
+     *
+     * @param {String} token Token de autorización
+     * @param {String} fase Nombre de la nueva fase (no vacío)
+     * @returns {void}
+     * @static
+     */
+    static _fase(token, fase) {
+        console.log("!FFFFFFFFFFF");
         if (typeof fase !== 'string' || !fase.trim()) {
             NodoElectrico._error("Nombre de fase inválido: debe ser un string no vacío");
             return;
         }
         const fase_normalizada = fase.trim();
-        if (this.verificar_token(token)){
-            this._fase=fase_normalizada;
-            this._fases.add(faseNormalizada);
-        }else{
+        // Nota: verificar_token es un método estático heredado de Nodo.
+        // Como el mixin copia métodos estáticos, podemos usar this.verificar_token (this = NodoElectrico)
+        // o NodoElectrico.verificar_token, o incluso Nodo.verificar_token (más explícito).
+        if (NodoElectrico.verificar_token(token)) {
+            this._fase_actual = fase_normalizada;
+            this._fases.add(fase_normalizada);
+        } else {
             this._alerta("INTENTO DE ACCESO NO AUTORIZADO");
+        }
+    }
+
+    /**
+     * Devuelve la fase global actual.
+     *
+     * @returns {String} Nombre de la fase actual
+     * @static
+     */
+    static fase() {
+
+        return this._fase_actual;
+    }
+
+    /**
+     * Ejecuta una función por cada fase registrada en el sistema (global).
+     * Este método es estático y recorre TODAS las fases que se hayan usado alguna vez.
+     * Requiere token de seguridad.
+     *
+     * @param {string} token   Token de autorización
+     * @param {Function} funcion Función que recibe (fase)
+     * @returns {void}
+     * @static
+     *
+     * @example
+     * NodoElectrico.por_cada_fase_global_ejecutar(token, (fase) => {
+     *     console.log(`Fase global: ${fase}`);
+     * });
+     * @since V1.2.6
+     */
+    static por_cada_fase_global_ejecutar(token, funcion) {
+        if (!this.verificar_token(token)) {
+            this._alerta("INTENTO DE ACCESO NO AUTORIZADO");
+            return;
+        }
+
+        for (const fase of this._fases) {
+            funcion(fase);
         }
     }
     /**********************************************************************************************
@@ -140,55 +189,73 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * 
      *  Metodos relacionados con la fase 
      **********************************************************************************************/
-/**
-     * Ejecuta una función por cada fase registrada en el nodo (Interfaz {@link Nodos.Interfaces.Fase Fase}).
+
+    /**
+     * Ejecuta una función por cada fase que tiene actividad en este nodo.
      *
-     * Permite iterar sobre todas las fases registradas en el nodo ejecutando una función
-     * callback en cada una. Requiere token de seguridad por ser una operación sensible.
-     * 
+     * Una fase tiene "actividad" en el nodo si existe al menos un adyacente o un incidente
+     * en esa fase. El método recorre las estructuras internas `_adyacentes` e `_incidentes`
+     * para extraer las fases presentes, evitando duplicados, y ejecuta el callback por cada una.
+     *
+     * Requiere token de seguridad por ser una operación sensible.
+     *
      * ---
      * 🔗 Métodos relacionados:
-     * - {@link Nodos.NodoElectrico.establecer_fase establecer_fase}
+     * - {@link Nodos.NodoElectrico._fase _fase}
+     * - {@link Nodos.NodoElectrico.fase fase}
      *
      * ---
      * @example
      * // Ejemplo de uso:
+     * const nodo = NodoElectrico.crear();
      * nodo.por_cada_fase_ejecutar(token, (fase) => {
-     *     console.log(`Procesando fase: ${fase}`);
+     *     console.log(`El nodo tiene actividad en la fase: ${fase}`);
      * });
      *
-     * @note Requiere token de seguridad válido.
      * @param {string} token Token de autorización
-     * @param {Function} funcion Función a ejecutar en cada fase
+     * @param {Function} funcion Función a ejecutar en cada fase, recibe el nombre de la fase.
      * @return {void}
      * @public
-     * @since 0.0.1
+     * @since V1.2.6
      */
     por_cada_fase_ejecutar(token, funcion) {
-      /*  if (!this.constructor.verificar_token(token)) {
+        // Verificar token usando el método estático heredado (a través del constructor)
+        if (!this.constructor.verificar_token(token)) {
             this.constructor._alerta("INTENTO DE ACCESO NO AUTORIZADO");
             return;
         }
-        
-        // Implementación: iterar sobre todas las fases registradas
-        if (this.#S && this.#S.size > 0) {
-            for (const [fase, adyacentes] of this.#S) {
-                if (adyacentes && adyacentes.size > 0) {
-                    funcion(fase);
+
+        // Conjunto para almacenar fases únicas
+        const fases_unicas = new Set();
+
+        // Recorrer adyacentes (estructura: Map<fase, Map<enlace, Nodo>>)
+        if (this._adyacentes && this._adyacentes.size > 0) {
+            for (const [fase, adyacentes_por_fase] of this._adyacentes) {
+                if (adyacentes_por_fase && adyacentes_por_fase.size > 0) {
+                    fases_unicas.add(fase);
                 }
             }
         }
-        
-        if (this.#E && this.#E.size > 0) {
-            for (const [fase, incidentes] of this.#E) {
-                if (incidentes && incidentes.size > 0) {
-                    // Evitar duplicados si ya se procesó esta fase desde #S
-                    if (!this.#S || !this.#S.has(fase)) {
-                        funcion(fase);
+
+        // Recorrer incidentes (estructura: Map<idNodo, Map<fase, Map<enlace, Nodo>>>)
+        if (this._incidentes && this._incidentes.size > 0) {
+            for (const fases_por_nodo of this._incidentes.values()) {
+                if (fases_por_nodo && fases_por_nodo.size > 0) {
+                    for (const fase of fases_por_nodo.keys()) {
+                        // Verificar que realmente haya incidentes en esa fase
+                        const incidentes_por_fase = fases_por_nodo.get(fase);
+                        if (incidentes_por_fase && incidentes_por_fase.size > 0) {
+                            fases_unicas.add(fase);
+                        }
                     }
                 }
             }
-        }*/
+        }
+
+        // Ejecutar la función para cada fase única encontrada
+        for (const fase of fases_unicas) {
+            funcion(fase);
+        }
     }
     /**********************************************************************************************
      *  INTERFAZ FABRICA DE NODOS ELECTRICOS (ESTATICA)
@@ -814,11 +881,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      */
     static ejecutar_cuando_agota_por_defecto_por_fase = new Map();
 
-    /**
-     * Fase actual (equivalente a self::$fase)
-     * @type {string}
-     */
-    static fase = "default";
 
 
     //──────────────────────────────────────────────
@@ -834,7 +896,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {void}
      */
     static _ejecutar_cuando_satura_por_fase(funcion, fase = null) {
-        const f = fase ?? NodoElectrico.fase;
+        const f = fase ?? NodoElectrico._fase_actual;
         NodoElectrico.ejecutar_cuando_satura_por_defecto_por_fase.set(f, funcion);
     }
 
@@ -846,7 +908,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {Function|null}
      */
     static ejecutar_cuando_satura_por_fase(fase = null) {
-        const f = fase ?? NodoElectrico.fase;
+        const f = fase ?? NodoElectrico._fase_actual;
         return NodoElectrico.ejecutar_cuando_satura_por_defecto_por_fase.get(f) ?? null;
     }
 
@@ -861,7 +923,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (this.ejecutar_cuando_satura === null) {
             this.ejecutar_cuando_satura = new Map();
         }
-        this.ejecutar_cuando_satura.set(NodoElectrico.fase, funcion);
+        this.ejecutar_cuando_satura.set(NodoElectrico._fase_actual, funcion);
     }
 
     /**
@@ -870,7 +932,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {Function|null}
      */
     ejecutar_cuando_satura() {
-        return this.ejecutar_cuando_satura?.get(NodoElectrico.fase) ?? null;
+        return this.ejecutar_cuando_satura?.get(NodoElectrico._fase_actual) ?? null;
     }
 
     /**
@@ -883,7 +945,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (this.ejecutar_cuando_agota === null) {
             this.ejecutar_cuando_agota = new Map();
         }
-        this.ejecutar_cuando_agota.set(NodoElectrico.fase, funcion);
+        this.ejecutar_cuando_agota.set(NodoElectrico._fase_actual, funcion);
     }
 
     /**********************************************************************************************
@@ -956,7 +1018,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return false;
         } 
           console.log("m3");
-        const faseactual =NodoElectrico._fase;
+        const faseactual =NodoElectrico._fase_actual;
         if (!this._adyacentes.has(faseactual)){
             return false;
         }
@@ -1093,7 +1155,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return null;
        } 
         console.log("s5");
-        const faseactual =NodoElectrico._fase;
+        const faseactual =NodoElectrico._fase_actual;
         if (!this._adyacentes.has(faseactual)){
             return null;
         }
@@ -1168,7 +1230,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
       if (!this.tiene_adyacente()) {
           return new Map();
       } else {
-          return new Map(this._adyacentes.get(NodoElectrico._fase));
+          return new Map(this._adyacentes.get(NodoElectrico._fase_actual));
       }
     }
     /**
@@ -1214,8 +1276,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @public
      */
     cantidad_de_adyacentes() {
-        if (this._adyacentes !== undefined && this._adyacentes.size > 0 && this._adyacentes.has(NodoElectrico._fase)) {
-            return this._adyacentes.get(NodoElectrico._fase).size;
+        if (this._adyacentes !== undefined && this._adyacentes.size > 0 && this._adyacentes.has(NodoElectrico._fase_actual)) {
+            return this._adyacentes.get(NodoElectrico._fase_actual).size;
         } else {
             return 0;
         }
@@ -1276,7 +1338,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (!this._adyacentes) {
             this._adyacentes = new Map();
         }
-        const fase=NodoElectrico._fase;
+        const fase=NodoElectrico._fase_actual;
         if (!this._adyacentes.has(fase)){
             this._adyacentes.set(fase, new Map());
         }
@@ -1358,7 +1420,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             this._adyacentes = new Map();
         }
         
-        const fase = NodoElectrico._fase;
+        const fase = NodoElectrico._fase_actual;
         if (!this._adyacentes.has(fase)) {
             this._adyacentes.set(fase, new Map());
         }
@@ -1436,7 +1498,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return null;
         }
         
-        const fase = NodoElectrico._fase;
+        const fase = NodoElectrico._fase_actual;
         if (!this._adyacentes.has(fase)) {
             this.constructor._alerta("No hay adyacentes para eliminar en la fase");
             return null;
@@ -1536,7 +1598,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return null;
         }
         
-        const fase = NodoElectrico._fase;
+        const fase = NodoElectrico._fase_actual;
         if (!this._adyacentes.has(fase)) {
             this.constructor._alerta("No hay adyacentes para eliminar en la fase");
             return null;
@@ -1552,6 +1614,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         }
         return copia;
     }
+    
    /**
      * Ejecuta una función por cada nodo adyacente (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
@@ -1601,7 +1664,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         }
 
         const resultados = new Map();
-        const adyacentes = this._adyacentes.get(NodoElectrico._fase);
+        const adyacentes = this._adyacentes.get(NodoElectrico._fase_actual);
         
         for (const [enlace, nodo] of adyacentes) {
             if (nodo) {
@@ -1682,7 +1745,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return false;
         } 
         const idincidentes=this._incidentes;
-        const fase=NodoElectrico._fase;
+        const fase=NodoElectrico._fase_actual;
         for(const [idincidente, fases] of idincidentes){
             if(fases.has(fase)){
                 const res=fases.size;
@@ -1743,7 +1806,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             const id=String(nodo.id());
             if (this._incidentes.has(id)){
                 const fases=this._incidentes.get(id);
-                if (fases.has(NodoElectrico._fase)){
+                if (fases.has(NodoElectrico._fase_actual)){
                     return true;
                 }
             }
@@ -1800,7 +1863,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (!this._incidentes.size) {
             return null;
         } 
-        const faseactual =NodoElectrico._fase;
+        const faseactual =NodoElectrico._fase_actual;
         if (this._incidentes[faseactual]===undefined){
             return null;
         }
@@ -1872,7 +1935,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         const res= new Map();
         if (this._incidentes!==undefined){
             const idincidentes=this._incidentes;
-            const faseactual=NodoElectrico._fase;
+            const faseactual=NodoElectrico._fase_actual;
             for(const [idincidente, fases] of idincidentes){
                 if (fases.has(faseactual)){
                     const fase=fases.get(faseactual);
@@ -1930,7 +1993,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (this._incidentes !== undefined && this._incidentes.size > 0){
             let total=0;
             const idsincidentes=this._incidentes;
-            const fase=NodoElectrico._fase;
+            const fase=NodoElectrico._fase_actual;
             for (const  [idincidente, fases ] of idsincidentes) {
                 if (fases.has(fase)){
                     let incidentes=fases.get(fase);
@@ -2011,7 +2074,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (!this._incidentes) {
             this._incidentes = new Map();
         }
-        const fase=NodoElectrico._fase;
+        const fase=NodoElectrico._fase_actual;
         if (!this._incidentes[fase]){
             this._incidentes[fase]=new Map();
         }
@@ -2075,7 +2138,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             this._incidentes.set(idstring, new Map());
         }   
         const fases=this._incidentes.get(idstring);
-        const fase = NodoElectrico._fase;
+        const fase = NodoElectrico._fase_actual;
         if (!fases.has(fase)){
             fases.set(fase, new Map());
         }
@@ -2125,7 +2188,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return null;
         }
         
-        const fase = NodoElectrico._fase;
+        const fase = NodoElectrico._fase_actual;
         if (!this._incidentes.has(String(incidente.id()))) {
             this.constructor._alerta("No existe ese incidente");
             return null;
@@ -2201,7 +2264,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         }
 
         const resultados = new Map();
-        const fase =NodoElectrico._fase;
+        const fase =NodoElectrico._fase_actual;
         for (const [idincidente,fases] of this._incidentes){
             if (fases.has(fase)){
                 const incidentesres=new Map()

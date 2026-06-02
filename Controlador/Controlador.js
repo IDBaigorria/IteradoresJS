@@ -1,4 +1,4 @@
-import { Conf } from '../Configuracion/index.js';
+import { Conf, Entorno } from '../Configuracion/index.js';
 import { Objeto } from "../Nucleo/index.js";
 import { Nodo } from '../Nodos/Nodo.js';
 import{PerdurarSuperestructura, PerdurarSuperestructuraStringIndexedDB, PerdurarSuperestructuraStringJSON, PerdurarSuperestructuraStringXML, PerdurarSuperestructuraElectricosStringIndexedDB} from './PerdurarSuperestructura/index.js';
@@ -162,7 +162,57 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             }
        // }
     }
+    // ──────────────────────────────────────────────────────────
+    // MÉTODO PARA PRUEBAS: ejecutar_prueba
+    // ──────────────────────────────────────────────────────────
 
+    /**
+     * Ejecuta una función de prueba inyectando el token de seguridad.
+     *
+     * Este método está diseñado exclusivamente para entornos de desarrollo y pruebas.
+     * Permite que código externo (como suites de prueba) pueda invocar operaciones
+     * que requieren el token de seguridad sin necesidad de conocerlo.
+     *
+     * El token se pasa como único argumento a la función callback, la cual puede
+     * usarlo para llamar a métodos protegidos como NodoElectrico._fase()
+     * o NodoElectrico.por_cada_nodo_ejecutar().
+     *
+     *
+     * 🔗 Métodos relacionados que requieren token:
+     * - {@link Nodos.NodoElectrico._fase}
+     * - {@link Nodos.NodoElectrico.por_cada_nodo_ejecutar}
+     * - {@link Nodos.NodoElectrico.por_cada_fase_ejecutar}
+     *
+     * ---
+     * @example
+     * ```javascript
+     * // Ejemplo de uso en test.js
+     * Controlador.ejecutar_prueba((token) => {
+     *     NodoElectrico._fase(token, 'fase_test');
+     *     NodoElectrico.por_cada_fase_ejecutar(token, (fase) => {
+     *         console.log(`Fase: ${fase}`);
+     *     });
+     * });
+     * ```
+     *
+     * @param {Function} callback Función que recibirá el token como único parámetro.
+     *                            La función debe respetar la firma: `(token: string) => void`.
+     * @returns {void}
+     * 
+     * @since 0.2.6
+     * @static
+     */
+    static ejecutar_prueba(callback) {
+        if (!Entorno.permite_pruebas()) {
+            this._alerta('ejecutar_prueba() no está disponible en entorno de producción');
+            return;
+        }
+        if (!this.token) {
+            this._error('Controlador no registrado. Llame a Controlador.registrar() primero.');
+            return;
+        }
+        callback(this.token);
+    }
 
 }
 

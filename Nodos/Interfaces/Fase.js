@@ -7,50 +7,57 @@
  * @memberof Nodos.Interfaces
  */
 class Fase {
-    //ESTATICOS/////////////////////////////////////////////////////////////
+    // ================== ESTÁTICOS ==================
     /**
-     * Establece la fase en la que van a trabajar todos los nodos
-     * 
-     * Se necesita acceso autorizado por token
-     * @param {String} token autorizacion
-     * @param {String} fase nombre de la fase
+     * Establece la fase en la que van a trabajar todos los nodos.
+     * Se necesita acceso autorizado por token.
+     *
+     * @param {String} token Token de autorización
+     * @param {String} fase  Nombre de la nueva fase
+     * @throws {Error} Debe ser implementado por la clase que herede.
      */
-    establecer_fase(token, fase){
-        throw new Error("Método establecer_fase() debe ser implementado por la clase que herede.");        
+    static _fase(token, fase) {
+        throw new Error("Método _fase() debe ser implementado por la clase que herede.");
     }
 
-    //INSTANCIA////////////////////////////////////////////////////////////////////
-/**
-     * Ejecuta una función por cada fase registrada en el nodo (Interfaz Fase).
+    /**
+     * Devuelve la fase actual de trabajo (global).
+     * No requiere token.
      *
-     * 🔗 Interfaz:
-     * - {@link Nodos.Interfaces.Fase Fase}
-     *
-     * Permite iterar sobre todas las fases registradas en el nodo ejecutando una función
-     * callback en cada una. Requiere token de seguridad por ser una operación sensible.
-     * 
-     * ---
-     * 🔗 Métodos relacionados:
-     * - {@link Nodos.Interfaces.Fase#method_establecer_fase establecer_fase}
-     *
-     * ---
-     * Ejemplo de uso:
-     * ```php
-     * $nodo->por_cada_fase_ejecutar($token, function($fase) {
-     *     echo "Procesando fase: $fase";
-     * });
-     * ```
-     *
-     * @note Requiere token de seguridad válido.
-     * @param {String} token Token de autorización
-     * @param {Function}callable Función a ejecutar en cada fase
-     * @return void
-     * @public
-     * @since 1.2.0
+     * @returns {String}
+     * @throws {Error} Debe ser implementado por la clase que herede.
      */
-    por_cada_fase_ejecutar(token, funcion){
+    static fase() {
+        throw new Error("Método fase() debe ser implementado por la clase que herede.");
+    }
+
+    /**
+     * Ejecuta una función por cada fase registrada en el sistema (global).
+     * Requiere token de seguridad.
+     *
+     * @param {string} token   Token de autorización
+     * @param {Function} funcion Función que recibe (fase: string) => void
+     * @returns {void}
+     * @throws {Error} Debe ser implementado por la clase que herede.
+     * @since V1.2.6
+     */
+    static por_cada_fase_global_ejecutar(token, funcion) {
+        throw new Error("Método por_cada_fase_global_ejecutar() debe ser implementado por la clase que herede.");
+    }
+
+    // ================== INSTANCIA ==================
+    /**
+     * Ejecuta una función por cada fase en la que el nodo tiene actividad.
+     * Requiere token de seguridad.
+     *
+     * @param {String} token   Token de autorización
+     * @param {Function} funcion Función a ejecutar en cada fase (recibe el nombre de la fase)
+     * @returns {void}
+     * @throws {Error} Debe ser implementado por la clase que herede.
+     */
+    por_cada_fase_ejecutar(token, funcion) {
         throw new Error("Método por_cada_fase_ejecutar() debe ser implementado por la clase que herede.");
     }
 }
 
-export {Fase}
+export { Fase };
