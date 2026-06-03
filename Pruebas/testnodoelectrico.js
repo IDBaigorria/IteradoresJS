@@ -6,7 +6,7 @@ if (!Entorno.es_desarrollo()) {
 }
 
 console.log('🚀 Inicio de pruebas para NodoElectrico (JS)');
-
+/*
 // ──────────────────────────────────────────────────────────
 // 1. PRUEBAS EXHAUSTIVAS DE LA INTERFAZ FASE
 // ──────────────────────────────────────────────────────────
@@ -91,41 +91,128 @@ Controlador.ejecutar_prueba((token) => {
     console.log('   (Si no se ve ningún listado, correcto)');
 });
 
-console.groupEnd();
-/*
+console.groupEnd();*/
 // ──────────────────────────────────────────────────────────
-// 2. FÁBRICA DE NODOS ELÉCTRICOS
+// 2. PRUEBAS EXHAUSTIVAS DE FÁBRICA DE NODOS ELÉCTRICOS
 // ──────────────────────────────────────────────────────────
 console.group('🔹 Fábrica de Nodos Eléctricos');
 
-const nodo_vacio = NodoElectrico.crear();
-console.log('crear() -> id:', nodo_vacio.id(), 'dato:', nodo_vacio.dato());
+// 2.1 Creación básica
+console.log('▶ 2.1 Creación básica');
+const nodoVacio = NodoElectrico.crear();
+console.log('   crear() -> id:', nodoVacio.id(), 'dato:', nodoVacio.dato());
 
-const nodo_con_dato = NodoElectrico.crear_con_dato('Hola JS');
-console.log('crear_con_dato() -> id:', nodo_con_dato.id(), 'dato:', nodo_con_dato.dato());
+const nodoConCapacidad = NodoElectrico.crear(500, 0.3);
+console.log('   crear(500, 0.3) -> capacidad:', nodoConCapacidad.capacidad, 'fuga:', nodoConCapacidad.fuga);
 
-const nodo_con_id = NodoElectrico.crear_con_id('especial_js');
-console.log('crear_con_id() -> id:', nodo_con_id?.id(), 'es_especial:', nodo_con_id?.es_especial());
+// 2.2 Crear con dato (con y sin capacidad/fuga)
+console.log('▶ 2.2 crear_con_dato');
+const nodoConDato = NodoElectrico.crear_con_dato('Hola JS');
+console.log('   crear_con_dato("Hola JS") -> id:', nodoConDato.id(), 'dato:', nodoConDato.dato());
 
-const nodo_completo = NodoElectrico.crear_con_dato_e_id('Dato especial', 'id_compuesto');
-console.log('crear_con_dato_e_id() -> id:', nodo_completo?.id(), 'dato:', nodo_completo?.dato());
+const nodoConDatoYCapacidad = NodoElectrico.crear_con_dato('Sensor', false, 1000, 0.5);
+console.log('   crear_con_dato("Sensor", false, 1000, 0.5) -> capacidad:', nodoConDatoYCapacidad.capacidad, 'fuga:', nodoConDatoYCapacidad.fuga);
 
+// 2.3 Crear con ID especial
+console.log('▶ 2.3 crear_con_id');
+const nodoConIdValido = NodoElectrico.crear_con_id('especial_js');
+console.log('   crear_con_id("especial_js") -> id:', nodoConIdValido?.id(), 'es_especial:', nodoConIdValido?.es_especial());
+
+const nodoConIdInvalido = NodoElectrico.crear_con_id(122); // No cumple es_id_especial
+console.log('   crear_con_id("no_especial") (debe fallar) ->', nodoConIdInvalido === null ? 'null (correcto)' : 'ERROR: debería ser null');
+
+// 2.4 Crear con dato e ID especial
+console.log('▶ 2.4 crear_con_dato_e_id');
+const nodoCompleto = NodoElectrico.crear_con_dato_e_id('Dato especial', 'id_compuesto');
+console.log('   crear_con_dato_e_id() -> id:', nodoCompleto?.id(), 'dato:', nodoCompleto?.dato());
+
+const nodoCompletoInvalido = NodoElectrico.crear_con_dato_e_id('Dato', 3545);
+console.log('   crear_con_dato_e_id con ID inválido ->', nodoCompletoInvalido === null ? 'null (correcto)' : 'ERROR: debería ser null');
+
+// 2.5 Método nodo() (con diferentes entradas)
+console.log('▶ 2.5 nodo()');
 const nodo0 = NodoElectrico.nodo();
-console.log('nodo() sin params -> id:', nodo0.id(), 'dato:', nodo0.dato());
+console.log('   nodo() sin params -> id:', nodo0.id(), 'dato:', nodo0.dato());
 
-const nodo1 = NodoElectrico.nodo('Texto', (n, es_nodo) => {
-    console.log(`Callback: es_nodo = ${es_nodo}, nodo id = ${n.id()}`);
+const nodo1 = NodoElectrico.nodo('Texto', (n, esNodo) => {
+    console.log(`   callback: esNodo = ${esNodo}, nodo id = ${n.id()}`);
 });
-console.log('nodo() con callback -> id:', nodo1.id());
+console.log('   nodo("Texto", callback) -> id:', nodo1.id());
 
-const nodo2 = NodoElectrico.nodo(nodo1, (n, es_nodo) => {
-    console.log(`Callback reutilizando nodo: es_nodo = ${es_nodo}, mismo id = ${n.id()}`);
+const nodo2 = NodoElectrico.nodo(nodo1, (n, esNodo) => {
+    console.log(`   callback reutilizando: esNodo = ${esNodo}, id = ${n.id()}`);
 });
-console.log('nodo() reutilizando nodo -> id:', nodo2.id());
+console.log('   nodo(nodo1, callback) -> id:', nodo2.id(), '(debe coincidir con nodo1)');
 
-console.log('Cantidad de nodos:', NodoElectrico.cantidad_de_nodos());
+const nodoNull = NodoElectrico.nodo(null);
+console.log('   nodo(null) -> dato:', nodoNull.dato(), '(debería ser null)');
+
+// 2.6 Capacidad y fuga por defecto vs personalizada
+console.log('▶ 2.6 Verificar capacidad y fuga por defecto');
+const nodoDefault = NodoElectrico.crear();
+console.log('   capacidad por defecto:', nodoDefault.capacidad, '(esperado:', Conf.CAPACIDAD_NODO_ELECTRICO, ')');
+console.log('   fuga por defecto:', nodoDefault.fuga, '(esperado:', Conf.FUGA_NODO_ELECTRICO, ')');
+
+// 2.7 Conteo de nodos y superestructura
+console.log('▶ 2.7 Conteo de nodos y superestructura');
+const cantidadAntes = NodoElectrico.cantidad_de_nodos();
+console.log('   cantidad_de_nodos() antes de crear más:', cantidadAntes);
+const tempNode = NodoElectrico.crear();
+console.log('   después de crear 1 nodo más:', NodoElectrico.cantidad_de_nodos(), '(debe ser', cantidadAntes + 1, ')');
+NodoElectrico.eliminar(tempNode);
+console.log('   después de eliminarlo:', NodoElectrico.cantidad_de_nodos(), '(debe volver a', cantidadAntes, ')');
+
+// 2.8 Prueba de eliminación (nodo sin referencias)
+console.log('▶ 2.8 Eliminar nodo sin referencias');
+const nodoEliminar = NodoElectrico.crear_con_dato('Para eliminar');
+const idEliminar = nodoEliminar.id();
+console.log('   Nodo creado, id:', idEliminar);
+const resultadoEliminar = NodoElectrico.eliminar(nodoEliminar);
+console.log('   eliminar() ->', resultadoEliminar === true ? 'true (correcto)' : 'ERROR');
+console.log('   ¿Sigue en superestructura?', Nodo.existe(idEliminar) ? 'SÍ (error)' : 'NO (correcto)');
+
+// 2.9 Eliminar nodo con referencias (debe fallar)
+console.log('▶ 2.9 Eliminar nodo con referencias');
+const nodoA = NodoElectrico.crear_con_dato('A');
+const nodoB = NodoElectrico.crear_con_dato('B');
+nodoA._adyacente_en(nodoB, 'enlaceAB');
+const resultadoEliminarConRef = NodoElectrico.eliminar(nodoB);
+console.log('   eliminar(nodoB) (tiene incidente desde nodoA) ->', resultadoEliminarConRef === false ? 'false (correcto)' : 'ERROR');
+// Limpiar para no afectar otras pruebas
+nodoA.eliminar_adyacente('enlaceAB');
+
+// 2.10 eliminar_autoenlazado (obsoleto, pero se prueba)
+console.log('▶ 2.10 eliminar_autoenlazado');
+const nodoAuto = NodoElectrico.crear_con_dato('Autoenlazado');
+nodoAuto._adyacente(nodoAuto); // autoenlace
+console.log('   Nodo con autoenlace, referencias:', nodoAuto.cantidad_de_incidentes_global());
+const resAuto = NodoElectrico.eliminar_autoenlazado(nodoAuto);
+console.log('   eliminar_autoenlazado() ->', resAuto === true ? 'true (correcto)' : 'ERROR');
+console.log('   ¿Sigue en superestructura?', Nodo.existe(nodoAuto.id()) ? 'SÍ (error)' : 'NO (correcto)');
+
+
+
+// 2.11 Probar getters globales de adyacentes/incidentes
+console.log('▶ 2.11 cantidad_de_adyacentes_global y cantidad_de_incidentes_global');
+const nodoGlobal = NodoElectrico.crear();
+const aux1 = NodoElectrico.crear();
+const aux2 = NodoElectrico.crear();
+Controlador.ejecutar_prueba((token) => {
+    NodoElectrico._fase(token, 'faseX');
+    nodoGlobal._adyacente_en(aux1, 'x');   // aux1 recibe un incidente
+    NodoElectrico._fase(token, 'faseY');
+    nodoGlobal._adyacente_en(aux2, 'y');   // aux2 recibe un incidente
+});
+console.log('   adyacentes global de nodoGlobal (debe ser 2):', nodoGlobal.cantidad_de_adyacentes_global());
+console.log('   adyacentes fase actual de nodoGlobal (debe ser 1, faseY):', nodoGlobal.cantidad_de_adyacentes());
+console.log('   incidentes de aux1 (debe ser 0):', aux1.cantidad_de_incidentes());
+console.log('   incidentes de aux2 (debe ser 1):', aux2.cantidad_de_incidentes());
+console.log('   incidentes global de aux1 (debe ser 1):', aux1.cantidad_de_incidentes_global());
+console.log('   incidentes global de aux2 (debe ser 1):', aux2.cantidad_de_incidentes_global());
+console.log('Cantidad final de nodos:', NodoElectrico.cantidad_de_nodos());
 console.groupEnd();
 
+/*
 // ──────────────────────────────────────────────────────────
 // 3. ADYACENTES
 // ──────────────────────────────────────────────────────────

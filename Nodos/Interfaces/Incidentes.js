@@ -1,5 +1,5 @@
 /**
- * Interfaz que define el manejo de datos en un nodo.
+ * Interfaz que define el manejo de incidentes en un nodo.
  *
  * Permite establecer y recuperar un valor almacenado en el nodo.
  * Estos métodos son implementados por la clase {@link Nodos.Nodo Nodo}.
@@ -183,6 +183,23 @@ class Incidentes {
      */
     por_cada_incidente_ejecutar(funcion, ...parametros) {
         throw new Error("Método por_cada_adyacente_ejecutar(funcion, ...parametros) debe ser implementado por la clase que herede.");
+    }
+
+    /**
+     * Devuelve la cantidad total de nodos incidentes (entrantes) sumando todas las fases.
+     *
+     * Este método es útil cuando se trabaja con múltiples fases y se necesita conocer
+     * el grado de entrada total del nodo, independientemente de la fase actual.
+     *
+     * La implementación es **opcional**; si la clase no soporta fases, puede lanzar
+     * una excepción o simplemente devolver lo mismo que `cantidad_de_incidentes()`.
+     *
+     * @returns {number} Número total de incidentes (todas las fases).
+     * @public
+     * @since V1.2.7
+     */
+    cantidad_de_incidentes_global() {
+        throw new Error("Método cantidad_de_incidentes_global() debe ser implementado por la clase que herede.");
     }
 }
 

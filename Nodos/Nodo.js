@@ -1703,6 +1703,29 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
         return this._adyacentes ? this._adyacentes.size : 0;
     }
 
+    /**
+     * Devuelve la cantidad total de adyacentes (salientes) de forma global.
+     *
+     * **NOTA:** En la clase base `Nodo` no existe el concepto de fases o similar,
+     * por lo que este método es meramente **testimonial** para cumplir con la interfaz.
+     * Su comportamiento es idéntico a {@link Nodo#cantidad_de_adyacentes cantidad_de_adyacentes()}
+     * (cuenta los adyacentes en la única estructura disponible).
+     *
+     * En subclases con soporte de fases (como `NodoElectrico`), este método debe ser
+     * sobrescrito para devolver la suma de adyacentes en **todas** las fases.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodo#cantidad_de_adyacentes cantidad_de_adyacentes()}
+     *
+     * @returns {number} Número total de adyacentes (idéntico a cantidad_de_adyacentes)
+     * @public
+     * @since V1.2.7
+     */
+    cantidad_de_adyacentes_global() {
+        return this.cantidad_de_adyacentes();
+    }
+
 
     
     /**
@@ -1946,6 +1969,30 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
           return this._referencias;
       
     }
+
+    /**
+     * Devuelve la cantidad total de incidentes (entrantes) de forma global.
+     *
+     * **NOTA:** En la clase base `Nodo` no existe el concepto de fases o similar,
+     * por lo que este método es meramente **testimonial** para cumplir con la interfaz.
+     * Su comportamiento es idéntico a {@link Nodo#cantidad_de_incidentes cantidad_de_incidentes()}
+     * (cuenta los incidentes en la única estructura disponible).
+     *
+     * En subclases con soporte de fases (como `NodoElectrico`), este método debe ser
+     * sobrescrito para devolver la suma de incidentes en **todas** las fases.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodo#cantidad_de_incidentes cantidad_de_incidentes()}
+     *
+     * @returns {number} Número total de incidentes (idéntico a cantidad_de_incidentes)
+     * @public
+     * @since V1.2.7
+     */
+    cantidad_de_incidentes_global() {
+        return this.cantidad_de_incidentes();
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///// Interfaz de Acceso a Superestructura y Nodos Especiales //////////////////////////////////////////
@@ -2035,6 +2082,39 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
     }
 
     /**
+     * Verifica si existe un nodo con el identificador dado en la superestructura.
+     *
+     * A diferencia de {@link Nodos.Nodo.nodo_por_id nodo_por_id()}, este método
+     * no genera alertas ni devuelve el nodo. Solo retorna un booleano.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.Nodo.nodo_por_id nodo_por_id()}
+     *
+     * ---
+     * 🔗 Otros métodos relacionados:
+     * - {@link Nodos.Nodo.hay_nodos_en_superestructura hay_nodos_en_superestructura()}
+     * - {@link Nodos.Nodo.agregar_a_superestructura agregar_a_superestructura()}
+     *
+     * ---
+     * @example
+     * if (Nodo.existe("A12")) {
+     *     const nodo = Nodo.nodo_por_id("A12");
+     *     console.log("Nodo encontrado:", nodo.id());
+     * } else {
+     *     console.log("El nodo no existe");
+     * }
+     *
+     * @param {string} id Identificador del nodo a verificar.
+     * @return {boolean} `true` si existe un nodo con ese id, `false` en caso contrario.
+     * @static
+     * @since V1.2.7
+     */
+    static existe(id) {
+        return Nodo._superestructura.has(id);
+    }
+
+        /**
      * Ejecuta una función de callback sobre todos los nodos existentes en la superestructura.
      *
      * @param {string} token Token de seguridad que autoriza la operación.

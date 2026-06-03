@@ -280,6 +280,55 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @private
      */
     #energia;
+    /**
+     * Devuelve la capacidad máxima de energía del nodo.
+     *
+     * Este valor se establece en el momento de la creación del nodo
+     * (a través de los métodos estáticos de fábrica) y no puede modificarse
+     * durante la vida del nodo.
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#fuga fuga()}
+     * - {@link Nodos.NodoElectrico#energia energia()}
+     *
+     * ---
+     * @example
+     * const nodo = NodoElectrico.crear(1000, 0.5);
+     * console.log(nodo.capacidad()); // 1000
+     *
+     * @returns {number} Capacidad máxima del nodo (unidades de energía).
+     * @public
+     * @since V1.2.7
+     */
+    capacidad() {
+        return this.#capacidad;
+    }
+
+    /**
+     * Devuelve la fuga de energía por ciclo del nodo.
+     *
+     * Este valor se establece en la creación del nodo (a través de los métodos
+     * estáticos de fábrica). Representa la cantidad de energía que el nodo pierde
+     * espontáneamente en cada ciclo de simulación.
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#capacidad capacidad()}
+     * - {@link Nodos.NodoElectrico#energia energia()}
+     *
+     * ---
+     * @example
+     * const nodo = NodoElectrico.crear(1000, 0.5);
+     * console.log(nodo.fuga()); // 0.5
+     *
+     * @returns {number} Fuga de energía del nodo por ciclo.
+     * @public
+     * @since V1.2.7
+     */
+    fuga() {
+        return this.#fuga;
+    }
    /**
      * Crea una nueva instancia de {@link Nodos.NodoElectrico} (Interfaz {@link Nodos.Interfaces.FabricaDeNodosElectricos FabricaDeNodosElectricos}).
      *
@@ -321,6 +370,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @example
      * const n1 = Nodos.NodoElectrico.crear();
      * const n2 = Nodos.NodoElectrico.crear();
+     *  // Crear un nodo con capacidad 500 y fuga 0.5
+     * const nodoConEnergia = NodoElectrico.crear(500, 0.5);
      *
      * console.log("Nodos actuales:", Nodos.NodoElectrico.cantidad_de_nodos());
      * // Esperado: 2
@@ -365,6 +416,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * // Ejemplo de uso:
      * const nodo = Nodos.NodoElectrico.crear_con_dato("Hola Mundo");
      * console.log(nodo.dato()); // Devuelve: "Hola Mundo"
+     * // Crear nodo con dato "Sensor" y capacidad y fuga personalizada
+     * const sensor = NodoElectrico.crear_con_dato("Sensor", false, 1000, 0.2);
      * 
      * @note Este método incrementa el contador estático de la clase
      *       {@link Nodos.Nodo.cantidad_de_nodos}, y lo agrega a la Superestructura 
@@ -446,7 +499,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * // Ejemplo de uso:
      * const nodo = Nodos.NodoElectrico.crear_con_id("soy_especial");
      * console.log(nodo.id()); // Devuelve: "soy_especial"
-     *
+     * // Crear nodo con id "Sensor" y capacidad y fuga personalizada
+     * const sensor = NodoElectrico.crear_con_id("Sensor", 1000, 0.2);
      * @note Este método incrementa el contador estático de la clase
      *       {@link Nodos.Nodo.cantidad_de_nodos} y lo agrega a la Superestructura.
      *
@@ -508,6 +562,9 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * const nodo = Nodos.NodoElectrico.crear_con_dato_e_id("Hola Mundo", "soy_especial");
      * console.log(nodo.dato()); // Devuelve: "Hola Mundo"
      * console.log(nodo.id());   // Devuelve: "soy_especial"
+     * // Crear nodo con dato "Sensor", id "Sensor01" y capacidad y fuga personalizada
+     * const sensor = NodoElectrico.crear_con_dato_e_id("Sensor", "Sensor01, 1000, 0.2);
+     * 
      *
      * @note Este método incrementa el contador estático de la clase
      *       {@link Nodos.Nodo.cantidad_de_nodos}, y lo registra en la Superestructura
@@ -629,6 +686,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * console.log(nodo4.id());//2
      * console.log(NodoElectrico.cantidad_de_nodos());//3
      * 
+     * // Caso 5: capacidad personalizada personalizada
+     * const sensor = NodoElectrico.nodo("Sensor", null, 1000, 0.2);
      *
      * @static
      * @param {*} [elemento=null] Valor a encapsular o nodo existente. Si se omite, se crea un nodo vacío.
@@ -709,66 +768,62 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *                         `null` si el parámetro no es válido.
      */
     static eliminar(nodo) {
-        // Validación: debe ser instancia de Nodos.Nodo
+        // Validación rápida
         if (!(nodo instanceof NodoElectrico)) {
             NodoElectrico._error("El parámetro no es de la clase NodoElectrico");
             return null;
         }
-        if (nodo._referencias === 0) {
-            if (nodo._adyacentes !== undefined) {
-                //dbo recorrer fase por fase
-                for (let [, adyacentes] of nodo._adyacentes) {
-                    //recorro cada adyacente de la fase
-                    for (let [, nodo2] of adyacentes) {
-                        nodo2._referencias--;
+
+        // Solo se puede eliminar si no tiene referencias (incidentes)
+        if (nodo._referencias !== 0) {
+            NodoElectrico._error("debe eliminar todos los enlaces que apuntan hacia el nodo antes de intentar eliminarlo");
+            return false;
+        }
+
+        const nodoId = nodo.id();
+
+        // 1. Eliminar de las estructuras globales
+        Nodo._superestructura.delete(nodoId);
+        Nodo._nodos_especiales.delete(nodoId);
+
+        // 2. Limpiar los enlaces salientes (adyacentes) del nodo y los incidentes en los nodos destino
+        if (nodo._adyacentes !== undefined && nodo._adyacentes.size > 0) {
+            for (const [fase, adyacentesMap] of nodo._adyacentes) {
+                if (adyacentesMap && adyacentesMap.size > 0) {
+                    for (const [enlace, nodoDestino] of adyacentesMap) {
+                        // Disminuir referencia del nodo destino
+                        nodoDestino._referencias--;
+
+                        // Eliminar el incidente en el nodo destino que apunta al nodo actual
+                        if (nodoDestino._incidentes !== undefined) {
+                            const incidentesPorId = nodoDestino._incidentes.get(nodoId);
+                            if (incidentesPorId) {
+                                const incidentesPorFase = incidentesPorId.get(fase);
+                                if (incidentesPorFase) {
+                                    incidentesPorFase.delete(enlace);
+                                    // Si la fase se quedó vacía, eliminar la entrada de fase
+                                    if (incidentesPorFase.size === 0) {
+                                        incidentesPorId.delete(fase);
+                                    }
+                                    // Si el nodo origen ya no tiene incidentes en ninguna fase, eliminar su entrada
+                                    if (incidentesPorId.size === 0) {
+                                        nodoDestino._incidentes.delete(nodoId);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                Nodo._superestructura.delete(nodoid);
-                Nodo._nodos_especiales.delete(nodoid);
             }
         }
 
-            /*   let nodoid=nodo.id()+"";//concateno con string vacio para hacer cast rapido
-               // Caso 1: Solo 1 referencia (superestructura principal)
-               if (nodo._referencias === 1) {
-                   Nodo._superestructura.delete(nodoid);//concateno con string vacio para hacer cast rapido
-     
-                   if (nodo._adyacentes!==undefined) {
-                       for (let [, nodo2] of nodo._adyacentes) {
-                           nodo2._referencias--;
-                       }
-                   }
-                   nodo.destructor();
-                   return true;
-               }
-     
-               // Caso 2: 2 referencias (posiblemente especial)
-               else if (nodo._referencias === 2) {
-                   if (nodo.es_especial()) {
-     
-                       Nodo._superestructura.delete(nodoid);
-                       Nodo._nodos_especiales.delete(nodoid);
-     
-                       if (nodo._adyacentes!==undefined) {
-                           for (let [, nodo2] of nodo._adyacentes) {
-                               nodo2._referencias--;
-                           }
-                       }
-                     nodo.destructor();
-                     return true;
-                   }else{
-                       Nodo._error("debe eliminar todos los enlaces que apuntan hacia el nodo antes de intentar eliminarlo");
-                       return null;
-                   }
-                   
-               }
-     
-               // Caso 3: Más de 2 referencias → no se elimina
-               else {
-                   Nodo._error("debe eliminar todos los enlaces que enlazan hacia el nodo antes de intentar eliminarlo");
-                   return false;
-               }*/
+        // Opcional: llamar a destructor si existe
+        if (typeof nodo.destructor === 'function') {
+            nodo.destructor();
         }
+
+        return true;
+    }
 
     /**
 	   * Elimina un nodo que solo tiene autoenlaces (Interfaz {@link Nodos.NodoElectrico.Interfaces.FabricaDeNodosElectricos FabricaDeNodosElectricos})
@@ -795,40 +850,76 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *                         `null` si el parámetro no es válido.     */
     static eliminar_autoenlazado(nodo) {
         if (!(nodo instanceof NodoElectrico)) {
-            NodoElectrico._error("el parámetro no es de la clase Nodo");
-            return false;
+            NodoElectrico._error("el parámetro no es de la clase NodoElectrico");
+            return null;
         }
 
-        // Contar enlaces que apuntan al mismo nodo (autoenlaces)
-        let contauto = 0;
-        let contcomunes = 0;
+        let contAuto = 0;
+        let contComunes = 0;
         const id = nodo.id();
+
+        // Contar autoenlaces y enlaces normales
         if (nodo._adyacentes !== undefined) {
-            //debo recorrer todos las fases
-            for (const [, adyacentes] of nodo._adyacentes) {
-                //recorreo cada nodo adyacente en la fase
-                for (const [, nodo2] of adyacentes) {
-                    if (id === nodo2.id()) {
-                        contauto++;
-                    } else {
-                        contcomunes++;//cuenta enlaces comunes, si tiene algun enlace no cumple lo de autoenlazado
+            for (const [, adyacentesMap] of nodo._adyacentes) {
+                if (adyacentesMap && adyacentesMap.size > 0) {
+                    for (const [, nodoDestino] of adyacentesMap) {
+                        if (id === nodoDestino.id()) {
+                            contAuto++;
+                        } else {
+                            contComunes++;
+                        }
                     }
                 }
             }
         }
 
-        // Calcular referencias externas (descontando autoenlaces)
-        const numref = nodo._referencias - contauto;
+        const referenciasExternas = nodo._referencias - contAuto;
 
-        if (numref === 0 && contcomunes === 0) {
-            // Caso normal
+        // Condición: sin referencias externas y sin enlaces a otros nodos
+        if (referenciasExternas === 0 && contComunes === 0) {
+            // Eliminar todos los autoenlaces (sin usar eliminar_adyacente)
+            if (nodo._adyacentes !== undefined) {
+                for (const [fase, adyacentesMap] of nodo._adyacentes) {
+                    if (adyacentesMap && adyacentesMap.size > 0) {
+                        // Recoger los enlaces que son autoenlaces
+                        const autoEnlaces = [];
+                        for (const [enlace, nodoDestino] of adyacentesMap) {
+                            if (nodoDestino.id() === id) {
+                                autoEnlaces.push({ fase, enlace });
+                            }
+                        }
+                        // Eliminarlos directamente
+                        for (const { fase, enlace } of autoEnlaces) {
+                            adyacentesMap.delete(enlace);
+                            // También eliminar el incidente en el mismo nodo (autoincidente)
+                            if (nodo._incidentes !== undefined) {
+                                const incidentesPorId = nodo._incidentes.get(id);
+                                if (incidentesPorId) {
+                                    const incidentesPorFase = incidentesPorId.get(fase);
+                                    if (incidentesPorFase) {
+                                        incidentesPorFase.delete(enlace);
+                                        if (incidentesPorFase.size === 0) incidentesPorId.delete(fase);
+                                        if (incidentesPorId.size === 0) nodo._incidentes.delete(id);
+                                    }
+                                }
+                            }
+                            nodo._referencias--; // cada autoenlace se resta de referencias
+                        }
+                    }
+                }
+            }
+
+            // Eliminar de estructuras globales
             Nodo._superestructura.delete(id);
             Nodo._nodos_especiales.delete(id);
-            nodo.destructor();
+
+            if (typeof nodo.destructor === 'function') {
+                nodo.destructor();
+            }
             return true;
         }
-        // No cumple condiciones para eliminar
-        return true;
+
+        return false;
     }
 
     /**********************************************************************************************
@@ -1281,6 +1372,60 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         } else {
             return 0;
         }
+    }
+
+        /**
+     * Devuelve la cantidad total de adyacentes (salientes) sumando todas las fases.
+     *
+     * A diferencia de {@link Nodos.NodoElectrico#cantidad_de_adyacentes cantidad_de_adyacentes()}
+     * que solo cuenta en la **fase actual**, este método recorre todas las fases
+     * en las que el nodo tiene actividad y suma la totalidad de enlaces salientes.
+     *
+     * Es especialmente útil cuando se trabaja con múltiples fases y se necesita
+     * conocer el grado de salida global del nodo, independientemente de la fase activa.
+     *
+     * La implementación es **opcional** según la interfaz, pero en `NodoElectrico`
+     * se implementa completamente.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.NodoElectrico#cantidad_de_adyacentes cantidad_de_adyacentes()}
+     * - {@link Nodos.NodoElectrico#cantidad_de_incidentes_global cantidad_de_incidentes_global()}
+     *
+     * ---
+     * 🔗 Otros métodos relacionados (adyacentes):
+     * - {@link Nodos.NodoElectrico#_adyacente _adyacente}
+     * - {@link Nodos.NodoElectrico#_adyacente_en _adyacente_en}
+     * - {@link Nodos.NodoElectrico#adyacentes adyacentes}
+     * - {@link Nodos.NodoElectrico#tiene_adyacente tiene_adyacente}
+     * - {@link Nodos.NodoElectrico#eliminar_adyacente eliminar_adyacente}
+     * - {@link Nodos.NodoElectrico#por_cada_adyacente_ejecutar por_cada_adyacente_ejecutar}
+     *
+     * ---
+     * @example
+     * // Supongamos dos fases con diferentes enlaces
+     * Controlador._fase(token, 'fase1');
+     * nodo._adyacente_en(otro, 'enlace1');
+     * Controlador._fase(token, 'fase2');
+     * nodo._adyacente_en(otro2, 'enlace2');
+     *
+     * console.log(nodo.cantidad_de_adyacentes_global()); // 2
+     * console.log(nodo.cantidad_de_adyacentes()); // 1 (solo fase actual 'fase2')
+     *
+     * @returns {number} Número total de adyacentes en todas las fases.
+     * @public
+     * @since V1.2.7
+     */
+    cantidad_de_adyacentes_global() {
+        let total = 0;
+        if (this._adyacentes !== undefined && this._adyacentes.size > 0) {
+            for (const adyacentesFase of this._adyacentes.values()) {
+                if (adyacentesFase && adyacentesFase.size > 0) {
+                    total += adyacentesFase.size;
+                }
+            }
+        }
+        return total;
     }
 
     /**
@@ -2004,6 +2149,30 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         } else {
             return 0;
         }
+    }
+
+
+
+    /**
+     * Devuelve la cantidad total de incidentes (entrantes) sumando todas las fases.
+     *
+     * @returns {number}
+     * @public
+     */
+    cantidad_de_incidentes_global() {
+        let total = 0;
+        if (this._incidentes !== undefined && this._incidentes.size > 0) {
+            for (const fasesPorNodo of this._incidentes.values()) {
+                if (fasesPorNodo && fasesPorNodo.size > 0) {
+                    for (const incidentesFase of fasesPorNodo.values()) {
+                        if (incidentesFase && incidentesFase.size > 0) {
+                            total += incidentesFase.size;
+                        }
+                    }
+                }
+            }
+        }
+        return total;
     }
 
         /**

@@ -35,6 +35,22 @@ class AccesoASuperestructura {
     static nodo_por_id(id) {
         throw new Error("Método nodo_por_id() debe ser implementado por la clase que herede.");
     }
+    /**
+     * Verifica si existe un nodo con el identificador dado en la superestructura.
+     *
+     * A diferencia de {@link Nodos.Interfaces.AccesoASuperestructura.nodo_por_id nodo_por_id()},
+     * este método no devuelve el nodo ni genera alertas; solo indica si existe o no.
+     * Es útil para comprobaciones rápidas sin riesgo de errores o mensajes en consola.
+     *
+     *
+     * @param {string} id Identificador del nodo a verificar.
+     * @return {boolean} `true` si existe un nodo con ese id, `false` en caso contrario.
+     * @static
+     * @since V1.2.7
+     */
+    static existe(id) {
+        throw new Error("Método existe() debe ser implementado por la clase que herede.");
+    }
 
     /**
      * Ejecuta una función sobre cada nodo existente en la superestructura.

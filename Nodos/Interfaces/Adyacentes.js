@@ -235,6 +235,23 @@ class Adyacentes {
     por_cada_adyacente_ejecutar(funcion, ...parametros) {
         throw new Error("Método por_cada_adyacente_ejecutar(funcion, ...parametros) debe ser implementado por la clase que herede.");
     }
+
+    /**
+     * Devuelve la cantidad total de nodos adyacentes (salientes).
+     *
+     * Este método es útil cuando se trabaja con múltiples fases y se necesita conocer
+     * el grado de salida total del nodo, independientemente de la fase actual.
+     *
+     * La implementación es **opcional**; si la clase no soporta fases, puede lanzar
+     * una excepción o simplemente devolver lo mismo que `cantidad_de_adyacentes()`.
+     *
+     * @returns {number} Número total de adyacentes (todas las fases).
+     * @public
+     * @since V1.2.7
+     */
+    cantidad_de_adyacentes_global() {
+        throw new Error("Método cantidad_de_adyacentes_global() debe ser implementado por la clase que herede.");
+    }
 }
 
 export {Adyacentes}
