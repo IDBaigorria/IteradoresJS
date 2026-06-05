@@ -157,6 +157,13 @@ class Conf {
    * @const 
    */
   static FUGA_NODO_ELECTRICO=0;
+  /**
+   * Tiempo base de un ciclo de simulación (en segundos).
+   * Se usa para calcular la fuga de energía proporcional al tiempo real.
+   * @type {number}
+   * @const 
+   */
+  static TIEMPO_CICLO= 1.0 // segundos
 
   /* =========================
    BLOQUE: ASTROS PRECONFIGURADOS (OPCIÓN MIXTA)

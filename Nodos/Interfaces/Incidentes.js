@@ -81,9 +81,9 @@ class Incidentes {
      * @param void
      * @return {?Map<string|number, Nodo>} Map con nodos incidentes o `null` si no existen
      */
-/*    incidentes(){
+    incidentes(){
         throw new Error("Método incidentes() debe ser implementado por la clase que herede.");
-    }*/
+    }
 
     /**
      * Asigna un incidente con nombre único.

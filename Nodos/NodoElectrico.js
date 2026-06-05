@@ -274,12 +274,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @private
      */
     #capacidad;
-    /**
-     * Nivel de energia actual.
-     * @type {Int}
-     * @private
-     */
-    #energia;
+
     /**
      * Devuelve la capacidad máxima de energía del nodo.
      *
@@ -922,123 +917,504 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         return false;
     }
 
-    /**********************************************************************************************
-     *  INTERFAZ ENERGIA (TEMPORAL)
-     **********************************************************************************************/
+    // =================================================================
+    // INTERFAZ ENERGÍA
+    // =================================================================
 
-    /////////////////////////////////////////
-    // Propiedades para la interfaz Energía
-    /////////////////////////////////////////
+    // -----------------------------------------------------------------
+    // Propiedades privadas (instancia)
+    // -----------------------------------------------------------------
 
     /**
-     * Energía del nodo
+     * Energía actual por fase.
      * @type {Map<string, number>}
      */
-    energia = new Map();
+    #energia = new Map();
 
     /**
-     * Capacidad de energía máxima del nodo (Constante)
-     * @type {number}
+     * Último timestamp (segundos) en que se aplicó fuga por fase.
+     * @type {Map<string, number>}
      */
-    capacidad = 256;
+    #ultima_fuga = new Map();
 
     /**
-     * Fuga de energía del nodo en el tiempo (Constante)
-     * @type {number}
+     * Callbacks de saturación registrados por instancia y fase.
+     * Estructura: Map<fase, { callback: Function, reemplazar: boolean }>
+     * @type {Map<string, { callback: Function, reemplazar: boolean }>}
      */
-    fuga = 0;
+    #ejecutar_cuando_satura = new Map();
 
     /**
-     * Funciones a ejecutar cuando se satura (por instancia)
-     * @type {Map<string, Function> | null}
+     * Callbacks de agotamiento registrados por instancia y fase.
+     * Estructura: Map<fase, { callback: Function, reemplazar: boolean }>
+     * @type {Map<string, { callback: Function, reemplazar: boolean }>}
      */
-    ejecutar_cuando_satura = null;
+    #ejecutar_cuando_agota = new Map();
+
+    // -----------------------------------------------------------------
+    // Propiedades estáticas privadas
+    // -----------------------------------------------------------------
 
     /**
-     * Funciones a ejecutar cuando se queda sin energía (por instancia)
-     * @type {Map<string, Function> | null}
-     */
-    ejecutar_cuando_agota = null;
-
-    /**
-     * Funciones por defecto al saturar por fase (compartidas por toda la fase)
+     * Callbacks por defecto de saturación asociados a una fase (estáticos).
      * @type {Map<string, Function>}
      */
-    static ejecutar_cuando_satura_por_defecto_por_fase = new Map();
+    static #ejecutar_cuando_satura_por_defecto_por_fase = new Map();
 
     /**
-     * Funciones por defecto al agotar por fase (compartidas por toda la fase)
+     * Callbacks por defecto de agotamiento asociados a una fase (estáticos).
      * @type {Map<string, Function>}
      */
-    static ejecutar_cuando_agota_por_defecto_por_fase = new Map();
-
-
-
-    //──────────────────────────────────────────────
-    // Métodos de configuración de callbacks
-    //──────────────────────────────────────────────
+    static #ejecutar_cuando_agota_por_defecto_por_fase = new Map();
 
     /**
-     * Asigna la función por defecto a ejecutar cuando un nodo se satura de energía
-     * en una fase. Si no se indica la fase, se usa la fase actual.
+     * Callback global cuando todas las fases del nodo están sin energía.
+     * @type {Function|null}
+     */
+    static #ejecutar_cuando_agota_global = null;
+
+    // -----------------------------------------------------------------
+    // Getters básicos
+    // -----------------------------------------------------------------
+
+    /**
+     * Devuelve la capacidad máxima de energía del nodo.
      *
-     * @param {Function} funcion - Función a ejecutar.
-     * @param {string|null} [fase=null] - Fase a la que aplicar la función.
+     * Este valor se establece en el momento de la creación del nodo
+     * (a través de los métodos estáticos de fábrica) y no puede modificarse
+     * durante la vida del nodo.
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#fuga fuga()}
+     * - {@link Nodos.NodoElectrico#energia energia()}
+     *
+     * ---
+     * @example
+     * const nodo = NodoElectrico.crear(1000, 0.5);
+     * console.log(nodo.capacidad()); // 1000
+     *
+     * @returns {number}
+     * @public
+     * @since V1.2.8
+     */
+    capacidad() {
+        return this.#capacidad;
+    }
+
+    /**
+     * Devuelve la fuga de energía por ciclo del nodo.
+     *
+     * Este valor se establece en la creación del nodo (a través de los métodos
+     * estáticos de fábrica). Representa la cantidad de energía que el nodo pierde
+     * espontáneamente en cada ciclo de simulación (definido por `Conf.TIEMPO_CICLO`).
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#capacidad capacidad()}
+     * - {@link Nodos.NodoElectrico#energia energia()}
+     *
+     * ---
+     * @example
+     * const nodo = NodoElectrico.crear(1000, 0.5);
+     * console.log(nodo.fuga()); // 0.5
+     *
+     * @returns {number}
+     * @public
+     * @since V1.2.8
+     */
+    fuga() {
+        return this.#fuga;
+    }
+
+    /**
+     * Devuelve la energía actual del nodo en la fase activa,
+     * aplicando previamente todas las fugas pendientes según el tiempo real transcurrido.
+     *
+     * Este método llama internamente a `#fugar()` para actualizar la energía
+     * de todas las fases antes de devolver el valor de la fase actual.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.NodoElectrico#_energia _energia()}
+     *
+     * ---
+     * @example
+     * const nodo = NodoElectrico.crear(100, 0);
+     * nodo._energia(100);
+     * // Esperar 2 segundos (2 ciclos) y luego consultar
+     * setTimeout(() => {
+     *     console.log(nodo.energia()); // 100 - (fuga * 2)
+     * }, 2000);
+     *
+     * @returns {number} Energía en la fase actual (0 <= valor <= capacidad)
+     * @public
+     * @since V1.2.8
+     */
+    energia() {
+        this.#fugar();
+        return this.#energia.get(NodoElectrico._fase_actual) ?? 0;
+    }
+
+    // -----------------------------------------------------------------
+    // Método privado de fuga
+    // -----------------------------------------------------------------
+
+    /**
+     * Aplica la fuga de energía basada en el tiempo real transcurrido.
+     *
+     * Para cada fase con energía registrada, calcula cuántos ciclos completos
+     * han pasado desde la última actualización (según `Conf.TIEMPO_CICLO`)
+     * y resta `fuga * ciclos`. Si la energía llega a 0, se ejecuta el callback
+     * de agotamiento correspondiente (instancia o fase). Al final, si todas
+     * las fases tienen energía 0, se ejecuta el callback global.
+     *
+     * Este método es llamado automáticamente desde `energia()` y `_energia()`.
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#_energia _energia()}
+     * - {@link Nodos.NodoElectrico#energia energia()}
+     *
+     * ---
      * @returns {void}
+     * @private
+     * @since V1.2.8
+     */
+    #fugar() {
+        const ahora = Date.now() / 1000;
+        let todas_cero = true;
+
+        for (const [fase, energia] of this.#energia) {
+            const ultimo = this.#ultima_fuga.get(fase) ?? ahora;
+            const delta = ahora - ultimo;
+            const ciclos = Math.floor(delta / Conf.TIEMPO_CICLO);
+            if (ciclos > 0 && this.#fuga > 0) {
+                const perdida = this.#fuga * ciclos;
+                const nueva_energia = Math.max(0, energia - perdida);
+                this.#energia.set(fase, nueva_energia);
+                this.#ultima_fuga.set(fase, ahora);
+
+                if (nueva_energia === 0 && perdida > 0) {
+                    this.#ejecutar_callback_agotamiento(fase);
+                }
+            }
+            if ((this.#energia.get(fase) ?? 0) > 0) {
+                todas_cero = false;
+            }
+        }
+
+        if (todas_cero && NodoElectrico.#ejecutar_cuando_agota_global) {
+            NodoElectrico.#ejecutar_cuando_agota_global(this);
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Métodos privados de ejecución de callbacks
+    // -----------------------------------------------------------------
+
+    /**
+     * Ejecuta el callback de saturación para la fase actual.
+     *
+     * Respeta el modo `reemplazar` (true = solo instancia si existe, si no la de fase;
+     * false = ambos, instancia primero y luego fase).
+     *
+     * @returns {void}
+     * @private
+     * @since V1.2.8
+     */
+    #ejecutar_callback_saturacion() {
+        const fase = NodoElectrico._fase_actual;
+        const instanciaData = this.#ejecutar_cuando_satura.get(fase);
+        const faseCallback = NodoElectrico.ejecutar_cuando_satura_por_fase(fase);
+        const reemplazar = instanciaData?.reemplazar ?? true;
+        const instanciaCb = instanciaData?.callback ?? null;
+
+        if (reemplazar) {
+            if (instanciaCb) {
+                instanciaCb(this);
+            } else if (faseCallback) {
+                faseCallback(this);
+            }
+        } else {
+            if (instanciaCb) {
+                instanciaCb(this);
+            }
+            if (faseCallback) {
+                faseCallback(this);
+            }
+        }
+    }
+
+    /**
+     * Ejecuta el callback de agotamiento para una fase específica.
+     *
+     * Respeta el modo `reemplazar` (true = solo instancia si existe, si no la de fase;
+     * false = ambos, instancia primero y luego fase).
+     *
+     * @param {string} fase - Nombre de la fase en la que se ha agotado la energía.
+     * @returns {void}
+     * @private
+     * @since V1.2.8
+     */
+    #ejecutar_callback_agotamiento(fase) {
+        const instanciaData = this.#ejecutar_cuando_agota.get(fase);
+        const faseCallback = NodoElectrico.ejecutar_cuando_agota_por_fase(fase);
+        const reemplazar = instanciaData?.reemplazar ?? true;
+        const instanciaCb = instanciaData?.callback ?? null;
+
+        if (reemplazar) {
+            if (instanciaCb) {
+                instanciaCb(this);
+            } else if (faseCallback) {
+                faseCallback(this);
+            }
+        } else {
+            if (instanciaCb) {
+                instanciaCb(this);
+            }
+            if (faseCallback) {
+                faseCallback(this);
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Método público de energía
+    // -----------------------------------------------------------------
+
+    /**
+     * Añade energía al nodo en la fase activa.
+     *
+     * **Secuencia de operaciones:**
+     * 1. Aplica las fugas pendientes llamando a `#fugar()`.
+     * 2. Incrementa la energía de la fase actual con `cantidad_energia`.
+     * 3. Si supera la capacidad, la ajusta y ejecuta el callback de saturación.
+     * 4. Si queda en cero (o se vuelve cero), ejecuta el callback de agotamiento.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.NodoElectrico#energia energia()}
+     *
+     * ---
+     * @param {number} cantidad_energia - Cantidad a añadir (puede ser negativa, aunque se recomienda usar la fuga para decrementar).
+     * @returns {void}
+     * @public
+     * @since V1.2.8
+     */
+    _energia(cantidad_energia) {
+        this.#fugar();
+
+        const fase = NodoElectrico._fase_actual;
+        let energia_actual = this.#energia.get(fase) ?? 0;
+        if (!this.#ultima_fuga.has(fase)) {
+            this.#ultima_fuga.set(fase, Date.now() / 1000);
+        }
+        energia_actual += cantidad_energia;
+
+        if (energia_actual > this.#capacidad) {
+            energia_actual = this.#capacidad;
+            this.#ejecutar_callback_saturacion();
+        }
+        this.#energia.set(fase, energia_actual);
+
+        if (energia_actual <= 0) {
+            this.#energia.set(fase, 0);
+            this.#ejecutar_callback_agotamiento(fase);
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Callbacks por instancia
+    // -----------------------------------------------------------------
+
+    /**
+     * Registra un callback para cuando el nodo se satura (por instancia).
+     *
+     * **Modos de ejecución:**
+     * - `reemplazar = true` (por defecto): este callback **reemplaza** al callback por defecto de la fase.
+     *   Solo se ejecutará este, a menos que sea null, en cuyo caso se ejecuta el de fase.
+     * - `reemplazar = false`: este callback **complementa** al de fase. Se ejecutan ambos,
+     *   primero el de instancia y luego el de fase (si existe).
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#ejecutar_cuando_satura ejecutar_cuando_satura()}
+     * - {@link Nodos.NodoElectrico._ejecutar_cuando_satura_por_fase _ejecutar_cuando_satura_por_fase()}
+     *
+     * ---
+     * @param {Function} funcion - Callback que recibirá el nodo como único argumento.
+     * @param {boolean} [reemplazar=true] - Si `true`, reemplaza; si `false`, complementa.
+     * @returns {void}
+     * @public
+     * @since V1.2.8
+     */
+    _ejecutar_cuando_satura(funcion, reemplazar = true) {
+        this.#ejecutar_cuando_satura.set(NodoElectrico._fase_actual, { callback: funcion, reemplazar });
+    }
+
+    /**
+     * Devuelve el callback de saturación registrado para la instancia (fase actual)
+     * junto con el indicador de si reemplaza o complementa.
+     *
+     * El valor devuelto es un objeto con las propiedades `callback` y `reemplazar`.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.NodoElectrico#_ejecutar_cuando_satura _ejecutar_cuando_satura()}
+     *
+     * ---
+     * @returns {{ callback: Function|null, reemplazar: boolean }}
+     * @public
+     * @since V1.2.8
+     */
+    ejecutar_cuando_satura() {
+        const data = this.#ejecutar_cuando_satura.get(NodoElectrico._fase_actual);
+        return data ? { callback: data.callback, reemplazar: data.reemplazar } : { callback: null, reemplazar: true };
+    }
+
+    /**
+     * Registra un callback para cuando el nodo se agota (energía llega a 0) por instancia.
+     *
+     * **Modos de ejecución:**
+     * - `reemplazar = true`: reemplaza al callback por defecto de la fase.
+     * - `reemplazar = false`: complementa (se ejecutan ambos, primero este).
+     *
+     * ---
+     * 🔗 Métodos relacionados:
+     * - {@link Nodos.NodoElectrico#ejecutar_cuando_agota ejecutar_cuando_agota()}
+     * - {@link Nodos.NodoElectrico._ejecutar_cuando_agota_por_fase _ejecutar_cuando_agota_por_fase()}
+     *
+     * ---
+     * @param {Function} funcion - Callback que recibirá el nodo como único argumento.
+     * @param {boolean} [reemplazar=true] - Si `true`, reemplaza; si `false`, complementa.
+     * @returns {void}
+     * @public
+     * @since V1.2.8
+     */
+    _ejecutar_cuando_agota(funcion, reemplazar = true) {
+        this.#ejecutar_cuando_agota.set(NodoElectrico._fase_actual, { callback: funcion, reemplazar });
+    }
+
+    /**
+     * Devuelve el callback de agotamiento registrado para la instancia (fase actual)
+     * junto con el indicador de si reemplaza o complementa.
+     *
+     * @returns {{ callback: Function|null, reemplazar: boolean }}
+     * @public
+     * @since V1.2.8
+     */
+    ejecutar_cuando_agota() {
+        const data = this.#ejecutar_cuando_agota.get(NodoElectrico._fase_actual);
+        return data ? { callback: data.callback, reemplazar: data.reemplazar } : { callback: null, reemplazar: true };
+    }
+
+    // -----------------------------------------------------------------
+    // Callbacks por defecto por fase (estáticos)
+    // -----------------------------------------------------------------
+
+    /**
+     * Registra un callback por defecto de saturación para una fase determinada.
+     *
+     * Este callback se ejecutará cuando un nodo en esa fase se sature,
+     * **siempre que no exista un callback de instancia que lo reemplace**.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.NodoElectrico.ejecutar_cuando_satura_por_fase ejecutar_cuando_satura_por_fase()}
+     *
+     * ---
+     * @param {Function} funcion - Callback que recibirá el nodo como argumento.
+     * @param {string|null} [fase=null] - Nombre de la fase. Si es `null`, se usa la fase actual del sistema.
+     * @returns {void}
+     * @public
+     * @static
+     * @since V1.2.8
      */
     static _ejecutar_cuando_satura_por_fase(funcion, fase = null) {
         const f = fase ?? NodoElectrico._fase_actual;
-        NodoElectrico.ejecutar_cuando_satura_por_defecto_por_fase.set(f, funcion);
+        this.#ejecutar_cuando_satura_por_defecto_por_fase.set(f, funcion);
     }
 
     /**
-     * Obtiene la función por defecto que debe ejecutarse cuando un nodo se satura
-     * en una fase. Si no se indica la fase, se usa la fase actual.
+     * Obtiene el callback por defecto de saturación registrado para una fase.
      *
-     * @param {string|null} [fase=null] - Fase deseada.
+     * @param {string|null} [fase=null] - Nombre de la fase. Si es `null`, se usa la fase actual.
      * @returns {Function|null}
+     * @public
+     * @static
+     * @since V1.2.8
      */
     static ejecutar_cuando_satura_por_fase(fase = null) {
         const f = fase ?? NodoElectrico._fase_actual;
-        return NodoElectrico.ejecutar_cuando_satura_por_defecto_por_fase.get(f) ?? null;
+        return this.#ejecutar_cuando_satura_por_defecto_por_fase.get(f) ?? null;
     }
 
     /**
-     * Asigna la función a ejecutar cuando un nodo se satura (por instancia).
-     * Esta función tiene prioridad sobre la de fase.
+     * Registra un callback por defecto de agotamiento para una fase determinada.
      *
-     * @param {Function} funcion - Función a ejecutar.
+     * @param {Function} funcion - Callback que recibirá el nodo como argumento.
+     * @param {string|null} [fase=null] - Nombre de la fase. Si es `null`, se usa la fase actual.
      * @returns {void}
+     * @public
+     * @static
+     * @since V1.2.8
      */
-    _ejecutar_cuando_satura(funcion) {
-        if (this.ejecutar_cuando_satura === null) {
-            this.ejecutar_cuando_satura = new Map();
-        }
-        this.ejecutar_cuando_satura.set(NodoElectrico._fase_actual, funcion);
+    static _ejecutar_cuando_agota_por_fase(funcion, fase = null) {
+        const f = fase ?? NodoElectrico._fase_actual;
+        this.#ejecutar_cuando_agota_por_defecto_por_fase.set(f, funcion);
     }
 
     /**
-     * Devuelve la función a ejecutar cuando un nodo se satura (por instancia).
+     * Obtiene el callback por defecto de agotamiento registrado para una fase.
+     *
+     * @param {string|null} [fase=null] - Nombre de la fase. Si es `null`, se usa la fase actual.
+     * @returns {Function|null}
+     * @public
+     * @static
+     * @since V1.2.8
+     */
+    static ejecutar_cuando_agota_por_fase(fase = null) {
+        const f = fase ?? NodoElectrico._fase_actual;
+        return this.#ejecutar_cuando_agota_por_defecto_por_fase.get(f) ?? null;
+    }
+
+    // -----------------------------------------------------------------
+    // Callback global (todas las fases)
+    // -----------------------------------------------------------------
+
+    /**
+     * Registra un callback global que se ejecutará cuando **todas las fases**
+     * del nodo se queden sin energía (energía = 0).
+     *
+     * Este callback es útil para detectar que el nodo ha quedado completamente inactivo.
+     *
+     * ---
+     * 🔗 Método complementario:
+     * - {@link Nodos.NodoElectrico.ejecutar_cuando_agota_global ejecutar_cuando_agota_global()}
+     *
+     * ---
+     * @param {Function} funcion - Callback que recibirá el nodo como argumento.
+     * @returns {void}
+     * @public
+     * @static
+     * @since V1.2.8
+     */
+    static _ejecutar_cuando_agota_global(funcion) {
+        this.#ejecutar_cuando_agota_global = funcion;
+    }
+
+    /**
+     * Devuelve el callback global de agotamiento (si está registrado).
      *
      * @returns {Function|null}
+     * @public
+     * @static
+     * @since V1.2.8
      */
-    ejecutar_cuando_satura() {
-        return this.ejecutar_cuando_satura?.get(NodoElectrico._fase_actual) ?? null;
+    static ejecutar_cuando_agota_global() {
+        return this.#ejecutar_cuando_agota_global;
     }
-
-    /**
-     * Asigna la función a ejecutar cuando el nodo se queda sin energía (por instancia).
-     *
-     * @param {Function} funcion
-     * @returns {void}
-     */
-    _ejecutar_cuando_agota(funcion) {
-        if (this.ejecutar_cuando_agota === null) {
-            this.ejecutar_cuando_agota = new Map();
-        }
-        this.ejecutar_cuando_agota.set(NodoElectrico._fase_actual, funcion);
-    }
-
     /**********************************************************************************************
      *  INTERFAZ ADYACENTES (INSTANCIA)
      * 
@@ -1148,12 +1524,15 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * ---
      * @example
-     * const n1 = NodoElectrico.crear_con_dato("A");
-     * const n2 = NodoElectrico.crear_con_dato("B");
-     * n1._adyacente_en(n2, "enlaceAB");
+     * const nodoA = NodoElectrico.crear_con_dato("A");
+     * const nodoB = NodoElectrico.crear_con_dato("B");
+     * nodoA._adyacente_en(nodoB, "enlaceAB");
      *
-     * if (n1.tiene_adyacente_a(n2)) {
-     *   console.log("A tiene a B como adyacente");
+     * const enlace = nodoA.tiene_adyacente_a(nodoB);
+     * if (enlace) {
+     *     console.log(`Existe el enlace "${enlace}" desde A hacia B`);
+     * } else {
+     *     console.log("No existe enlace");
      * }
      *
      * @note Solo devuelve el nombre del enlace si realmente existe; `false` en caso contrario.
@@ -1163,31 +1542,21 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @since 0.0.1
      */
     tiene_adyacente_a(nodo) {
-        if (!(nodo instanceof Nodo)) {
-            NodoElectrico._error("El nodo que intenta comprobar no es una instancia de la clase Nodo.");
+        if (!(nodo instanceof NodoElectrico)) {
+            NodoElectrico._error("El nodo que intenta comprobar no es una instancia de la clase NodoElectrico.");
             return false;
         }
-        if (!this.tiene_adyacente() || !nodo.tiene_incidente()) {
+        const faseActual = NodoElectrico._fase_actual;
+        const adyacentesFase = this._adyacentes?.get(faseActual);
+        if (!adyacentesFase || adyacentesFase.size === 0) {
             return false;
         }
         const idObjetivo = nodo.id();
-        // Iteración por todas las fases registradas en el nodo actual
-        for (const [fase, adyacentes] of this._adyacentes) {
-            // Verifica que adyacentes sea un Map válido y no esté vacío
-            if (!(adyacentes instanceof Map) || adyacentes.size === 0) {
-                continue;
-            }
-
-            // Recorre los enlaces dentro de la fase actual
-            for (const [nombreEnlace, nodoAdyacente] of adyacentes) {
-                if (nodoAdyacente?.id() === idObjetivo) {
-                    //Nodo encontrado!
-                    return nombreEnlace;
-                }
+        for (const [nombreEnlace, nodoAdyacente] of adyacentesFase) {
+            if (nodoAdyacente.id() === idObjetivo) {
+                return nombreEnlace;
             }
         }
-
-        // Si no se encontró, devuelve false
         return false;
     }
 
@@ -1318,11 +1687,15 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @since V0.0.1
      */
     adyacentes() {
-      if (!this.tiene_adyacente()) {
-          return new Map();
-      } else {
-          return new Map(this._adyacentes.get(NodoElectrico._fase_actual));
-      }
+        if (!this.tiene_adyacente()) {
+            return null;
+        }
+        const faseActual = NodoElectrico._fase_actual;
+        const adyacentesFase = this._adyacentes.get(faseActual);
+        if (!adyacentesFase || adyacentesFase.size === 0) {
+            return null;
+        }
+        return new Map(adyacentesFase);
     }
     /**
      * Devuelve la cantidad de adyacentes (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
@@ -1740,13 +2113,13 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
          // Verificar inicialización perezosa
         if (this._adyacentes===undefined) {
             this.constructor._alerta("No hay adyacentes para eliminar");
-            return null;
+            return new Map();
         }
         
         const fase = NodoElectrico._fase_actual;
         if (!this._adyacentes.has(fase)) {
             this.constructor._alerta("No hay adyacentes para eliminar en la fase");
-            return null;
+            return new Map();
         }
         
         const adyacentes = this._adyacentes.get(fase);
@@ -1805,7 +2178,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     por_cada_adyacente_ejecutar(funcion, ...parametros) {
         if (this._adyacentes===undefined || this._adyacentes.size<1) {
             this.constructor._alerta("Alerta: no existe adyacente");
-            return new Map();
+            return null;
         }
 
         const resultados = new Map();
@@ -1928,12 +2301,16 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * ---
      * @example
-     * const nA = NodoElectrico.crear_con_dato("A");
-     * const nB = NodoElectrico.crear_con_dato("B");
-     * nB._adyacente_en(nA, "enlaceBA");
+     * const nodoA = NodoElectrico.crear_con_dato("A");
+     * const nodoB = NodoElectrico.crear_con_dato("B");
+     * nodoA._adyacente_en(nodoB, "enlaceAB");  // desde A hacia B
      *
-     * if (nA.tiene_incidente_a(nB)) {
-     *   console.log("B es incidente de A");
+     * // En nodoB, ver si existe incidente desde A
+     * const enlace = nodoB.tiene_incidente_a(nodoA);
+     * if (enlace) {
+     *     console.log(`Existe el enlace "${enlace}" desde A hacia B (incidente en B)`);
+     * } else {
+     *     console.log("No existe incidente");
      * }
      *
      * @note Solo devuelve el nombre del enlace si realmente existe; `false` en caso contrario.
@@ -1947,12 +2324,17 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             NodoElectrico._error("El nodo que intenta comprobar no es una instancia de la clase NodoElectrico.");
             return false;
         }
-        if (this._incidentes!==undefined){
-            const id=String(nodo.id());
-            if (this._incidentes.has(id)){
-                const fases=this._incidentes.get(id);
-                if (fases.has(NodoElectrico._fase_actual)){
-                    return true;
+        if (this._incidentes !== undefined) {
+            const id = String(nodo.id());
+            if (this._incidentes.has(id)) {
+                const fases = this._incidentes.get(id);
+                const fase_actual = NodoElectrico._fase_actual;
+                if (fases.has(fase_actual)) {
+                    const enlaces = fases.get(fase_actual);
+                    if (enlaces.size > 0) {
+                        // Devolvemos el primer nombre de enlace
+                        return enlaces.keys().next().value;
+                    }
                 }
             }
         }
@@ -2077,19 +2459,22 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @since V0.0.1
      */
     incidentes() {
-        const res= new Map();
-        if (this._incidentes!==undefined){
-            const idincidentes=this._incidentes;
-            const faseactual=NodoElectrico._fase_actual;
-            for(const [idincidente, fases] of idincidentes){
-                if (fases.has(faseactual)){
-                    const fase=fases.get(faseactual);
-                    const mapfase=new Map([...fase]);
-                    res.set(idincidente, mapfase);
-                } 
+        if (!this.tiene_incidente()) {
+            return null;
+        }
+        const res = new Map();
+        const faseActual = NodoElectrico._fase_actual;
+        for (const [idIncidente, fases] of this._incidentes) {
+            if (fases.has(faseActual)) {
+                const enlacesFase = fases.get(faseActual);
+                if (enlacesFase && enlacesFase.size > 0) {
+                    // Copia superficial del Map de enlaces
+                    res.set(idIncidente, new Map(enlacesFase));
+                }
             }
         }
-        return res;
+        // Si después de filtrar no hay nada, devolver null
+        return res.size === 0 ? null : res;
     }
 
     /**

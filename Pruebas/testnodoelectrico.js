@@ -95,6 +95,7 @@ console.groupEnd();*/
 // ──────────────────────────────────────────────────────────
 // 2. PRUEBAS EXHAUSTIVAS DE FÁBRICA DE NODOS ELÉCTRICOS
 // ──────────────────────────────────────────────────────────
+/*
 console.group('🔹 Fábrica de Nodos Eléctricos');
 
 // 2.1 Creación básica
@@ -211,74 +212,290 @@ console.log('   incidentes global de aux1 (debe ser 1):', aux1.cantidad_de_incid
 console.log('   incidentes global de aux2 (debe ser 1):', aux2.cantidad_de_incidentes_global());
 console.log('Cantidad final de nodos:', NodoElectrico.cantidad_de_nodos());
 console.groupEnd();
+*/
 
-/*
 // ──────────────────────────────────────────────────────────
-// 3. ADYACENTES
+// 3. PRUEBAS EXHAUSTIVAS DE ADYACENTES
 // ──────────────────────────────────────────────────────────
 console.group('🔹 Adyacentes');
 
-const nodo_a = NodoElectrico.crear_con_dato('A');
-const nodo_b = NodoElectrico.crear_con_dato('B');
+// 3.1 Preparación
+const nodoA = NodoElectrico.crear_con_dato('A');
+const nodoB = NodoElectrico.crear_con_dato('B');
+const nodoC = NodoElectrico.crear_con_dato('C');
 
-const enlace_auto = nodo_a._adyacente(nodo_b);
-console.log('_adyacente() -> enlace generado:', enlace_auto);
+console.log('▶ 3.1 _adyacente() (generación automática de nombre)');
+const enlace1 = nodoA._adyacente(nodoB);
+console.log('   Enlace generado (basado en id de B):', enlace1);
+const enlace2 = nodoA._adyacente(nodoB); // segundo enlace
+console.log('   Segundo enlace:', enlace2, '(debe ser algo como `${nodoB.id()}.1`)');
 
-const ok = nodo_a._adyacente_en(nodo_b, 'enlace_fijo', true);
-console.log('_adyacente_en() -> éxito:', ok);
+console.log('▶ 3.2 _adyacente_en() con nombre fijo y reemplazo');
+const ok = nodoA._adyacente_en(nodoB, 'fijo', true);
+console.log('   Asignación exitosa:', ok);
+const ok2 = nodoA._adyacente_en(nodoC, 'fijo', false);
+console.log('   Intento de reasignar "fijo" sin reemplazar:', ok2 === false ? 'false (correcto)' : 'error');
 
-const obtenido = nodo_a.adyacente('enlace_fijo');
-console.log('adyacente("enlace_fijo") -> nodo:', obtenido?.dato());
+console.log('▶ 3.3 adyacente() obtener nodo por nombre de enlace');
+const nodoObtenido = nodoA.adyacente('fijo');
+console.log('   Nodo en "fijo":', nodoObtenido?.id(), '(debe ser B)');
+const nodoInexistente = nodoA.adyacente('noexiste');
+console.log('   Enlace inexistente:', nodoInexistente === null ? 'null (correcto)' : 'error');
 
-const copia_ady = nodo_a.adyacentes();
-console.log('adyacentes() -> tamaño:', copia_ady.size);
-console.log('cantidad_de_adyacentes():', nodo_a.cantidad_de_adyacentes());
-console.log('tiene_adyacente():', nodo_a.tiene_adyacente());
+console.log('▶ 3.4 adyacentes() y cantidad_de_adyacentes()');
+const todos = nodoA.adyacentes();
+if (todos === null) {
+    console.log('   adyacentes() devuelve null (no hay adyacentes en la fase actual)');
+} else {
+    console.log('   adyacentes() devuelve Map con tamaño:', todos.size);
+}
+console.log('   cantidad_de_adyacentes() (fase actual):', nodoA.cantidad_de_adyacentes());
 
-const enlace_encontrado = nodo_a.tiene_adyacente_a(nodo_b);
-console.log('tiene_adyacente_a(nodo_b) -> enlace:', enlace_encontrado);
+console.log('▶ 3.5 tiene_adyacente() y tiene_adyacente_a()');
+console.log('   tiene_adyacente():', nodoA.tiene_adyacente());
+const nombreEnlace = nodoA.tiene_adyacente_a(nodoB);
+console.log('   tiene_adyacente_a(nodoB) devuelve nombre:', nombreEnlace || 'false');
+const falso = nodoA.tiene_adyacente_a(nodoC);
+console.log('   tiene_adyacente_a(nodoC) (no existe):', falso === false ? 'false (correcto)' : 'error');
 
-const eliminado_ady = nodo_a.eliminar_adyacente('enlace_fijo');
-console.log('eliminar_adyacente() -> nodo eliminado:', eliminado_ady?.dato());
+console.log('▶ 3.6 eliminar_adyacente()');
+const eliminado = nodoA.eliminar_adyacente('fijo');
+console.log('   Nodo eliminado:', eliminado?.id(), '(debe ser B)');
+const eliminadoInex = nodoA.eliminar_adyacente('fijo');
+console.log('   Eliminar otra vez:', eliminadoInex === null ? 'null (correcto)' : 'error');
 
-const todos_ady = nodo_a.eliminar_adyacentes();
-console.log('eliminar_adyacentes() -> cantidad eliminada:', todos_ady.size);
+console.log('▶ 3.7 eliminar_adyacentes()');
+nodoA._adyacente_en(nodoB, 'temp1');
+nodoA._adyacente_en(nodoC, 'temp2');
+const eliminados = nodoA.eliminar_adyacentes();
+console.log('   Eliminados:', eliminados.size, 'nodos (deben ser 2)');
 
-const resultados_ady = nodo_a.por_cada_adyacente_ejecutar((n, e) => n.dato());
-console.log('por_cada_adyacente_ejecutar() -> resultados:', resultados_ady);
+console.log('▶ 3.8 por_cada_adyacente_ejecutar()');
+nodoA._adyacente(nodoB);
+nodoA._adyacente(nodoC);
+const resultados = nodoA.por_cada_adyacente_ejecutar((n, e) => n.id());
+console.log('   Resultados:', resultados);
+
+console.log('▶ 3.9 Adyacentes con múltiples fases');
+Controlador.ejecutar_prueba((token) => {
+    NodoElectrico._fase(token, 'faseX');
+    nodoA._adyacente_en(nodoB, 'enlaceX');
+    NodoElectrico._fase(token, 'faseY');
+    nodoA._adyacente_en(nodoB, 'enlaceY');
+});
+console.log('   cantidad_de_adyacentes() (fase actual, debe ser 1):', nodoA.cantidad_de_adyacentes());
+console.log('   cantidad_de_adyacentes_global() (debe ser 2):', nodoA.cantidad_de_adyacentes_global());
+console.log('   tiene_adyacente_a(nodoB) en fase actual (debe devolver "enlaceY"):', nodoA.tiene_adyacente_a(nodoB));
+
 console.groupEnd();
 
 // ──────────────────────────────────────────────────────────
-// 4. INCIDENTES
+// 4. PRUEBAS EXHAUSTIVAS DE INCIDENTES
 // ──────────────────────────────────────────────────────────
 console.group('🔹 Incidentes');
 
-console.log('tiene_incidente() (antes):', nodo_b.tiene_incidente());
-nodo_a._adyacente_en(nodo_b, 'prueba');
-console.log('tiene_incidente() (después):', nodo_b.tiene_incidente());
+// 4.1 Preparación
+const nodoX = NodoElectrico.crear_con_dato('X');
+const nodoY = NodoElectrico.crear_con_dato('Y');
+const nodoZ = NodoElectrico.crear_con_dato('Z');
 
-const incidente_enlace = nodo_b.tiene_incidente_a(nodo_a);
-console.log('tiene_incidente_a(nodo_a) -> enlace:', incidente_enlace);
+console.log('▶ 4.1 Creación de incidentes mediante _adyacente_en()');
+nodoX._adyacente_en(nodoY, 'incidente1');   // desde X hacia Y
+nodoX._adyacente_en(nodoY, 'incidente2');   // segundo enlace desde X
+nodoZ._adyacente_en(nodoY, 'incidenteZ');   // desde Z hacia Y
+console.log('   NodoY tiene incidentes desde X (2 enlaces) y desde Z (1 enlace)');
 
-const incidentes_map = nodo_b.incidentes();
-console.log('incidentes() -> estructura:', incidentes_map);
-console.log('cantidad_de_incidentes():', nodo_b.cantidad_de_incidentes());
+console.log('▶ 4.2 tiene_incidente()');
+console.log('   tiene_incidente() en nodoY:', nodoY.tiene_incidente());
+console.log('   tiene_incidente() en nodoX (sin incidentes):', nodoX.tiene_incidente());
 
-const resultados_inc = nodo_b.por_cada_incidente_ejecutar((n, e) => n.id());
-console.log('por_cada_incidente_ejecutar() -> resultados:', resultados_inc);
+console.log('▶ 4.3 tiene_incidente_a() debe devolver nombre del enlace');
+const enlaceDesdeX = nodoY.tiene_incidente_a(nodoX);
+console.log('   Incidente desde X hacia Y (primer enlace encontrado):', enlaceDesdeX || 'false');
+const enlaceDesdeZ = nodoY.tiene_incidente_a(nodoZ);
+console.log('   Incidente desde Z:', enlaceDesdeZ || 'false');
+const falsoInc = nodoX.tiene_incidente_a(nodoY);
+console.log('   Incidente inexistente:', falsoInc === false ? 'false (correcto)' : 'error');
+
+console.log('▶ 4.4 incidentes() estructura');
+const incidentes = nodoY.incidentes();
+if (incidentes === null) {
+    console.log('   incidentes() devuelve null (no hay incidentes en la fase actual)');
+} else {
+    console.log('   incidentes() devuelve un Map con', incidentes.size, 'entradas (por cada nodo origen)');
+    for (const [idOrigen, enlacesMap] of incidentes) {
+        console.log(`     Origen: ${idOrigen}`);
+        // enlacesMap es un Map<enlace, Nodo>
+        const listaEnlaces = [...enlacesMap.keys()];
+        console.log(`       Enlaces: ${listaEnlaces.join(', ')}`);
+    }
+}
+
+console.log('▶ 4.5 cantidad_de_incidentes() y cantidad_de_incidentes_global()');
+console.log('   cantidad_de_incidentes() (fase actual):', nodoY.cantidad_de_incidentes());
+let faseActual=NodoElectrico.fase();
+// Forzar múltiples fases
+Controlador.ejecutar_prueba((token) => {
+    
+    NodoElectrico._fase(token, 'faseAlpha');
+    nodoX._adyacente_en(nodoY, 'alfa');
+    NodoElectrico._fase(token, 'faseBeta');
+    nodoX._adyacente_en(nodoY, 'beta');
+    NodoElectrico._fase(token,faseActual);
+});
+console.log('   Después de añadir incidentes en otras fases:');
+console.log('      cantidad_de_incidentes() (fase actual Beta, debe ser 1):', nodoY.cantidad_de_incidentes());
+console.log('      cantidad_de_incidentes_global() (debe sumar todos):', nodoY.cantidad_de_incidentes_global());
+
+console.log('▶ 4.6 por_cada_incidente_ejecutar()');
+const resultadosInc = nodoY.por_cada_incidente_ejecutar((nodoOrigen, enlace) => `${nodoOrigen.id()}->${enlace}`);
+console.log('   Resultados:', resultadosInc);
+
 console.groupEnd();
+/*
+// ──────────────────────────────────────────────────────────
+// 5. PRUEBAS EXHAUSTIVAS DE ENERGÍA
+// ──────────────────────────────────────────────────────────
+console.group('🔹 Energía');
 
-// ──────────────────────────────────────────────────────────
-// 5. ENERGÍA (PENDIENTE)
-// ──────────────────────────────────────────────────────────
-console.group('🔹 Energía ❌ FALTA IMPLEMENTAR');
-console.log('❌ _energia(cantidad)');
-console.log('❌ energia()');
-console.log('❌ _ejecutar_cuando_satura() / ejecutar_cuando_satura()');
-console.log('❌ _ejecutar_cuando_agota() / ejecutar_cuando_agota()');
-console.log('❌ métodos estáticos *_por_fase');
+// Helper para dormir (simular paso del tiempo)
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+(async () => {
+    // 5.1 Getters básicos
+    console.log('▶ 5.1 capacidad() y fuga()');
+    const nodo = NodoElectrico.crear(100, 10);
+    console.log('   capacidad:', nodo.capacidad(), '(debe ser 100)');
+    console.log('   fuga:', nodo.fuga(), '(debe ser 10)');
+
+    // 5.2 Energía inicial y _energia()
+    console.log('▶ 5.2 energia() inicial y _energia()');
+    console.log('   energia inicial:', nodo.energia(), '(debe ser 0)');
+    nodo._energia(50);
+    console.log('   después de _energia(50):', nodo.energia(), '(debe ser 50)');
+    nodo._energia(60);
+    console.log('   después de _energia(60):', nodo.energia(), '(debe ser 100, saturado)');
+
+    // 5.3 Callbacks de saturación
+    console.log('▶ 5.3 Callbacks de saturación');
+    let saturado = false;
+    let faseCallbackEjecutado = false;
+
+    // Callback por defecto de fase
+    NodoElectrico._ejecutar_cuando_satura_por_fase((n) => {
+        faseCallbackEjecutado = true;
+        console.log('   [FASE] Callback por defecto de saturación ejecutado');
+    });
+
+    // Reemplazar (true)
+    const nodo2 = NodoElectrico.crear(50, 0);
+    nodo2._ejecutar_cuando_satura((n) => {
+        saturado = true;
+        console.log('   [INSTANCIA] Callback de saturación (reemplazar) ejecutado');
+    });
+    nodo2._energia(60);
+    console.log('   saturación con reemplazar:', saturado ? 'OK' : 'FALLÓ');
+    console.log('   callback de fase ejecutado?', faseCallbackEjecutado ? 'SÍ (error, no debió)' : 'NO (correcto)');
+
+    // Complementar (false)
+    let saturado2 = false;
+    let faseCallbackEjecutado2 = false;
+    NodoElectrico._ejecutar_cuando_satura_por_fase((n) => {
+        faseCallbackEjecutado2 = true;
+        console.log('   [FASE2] Callback por defecto ejecutado');
+    });
+    const nodo3 = NodoElectrico.crear(50, 0);
+    nodo3._ejecutar_cuando_satura((n) => {
+        saturado2 = true;
+        console.log('   [INSTANCIA] Callback de saturación (complementar) ejecutado');
+    }, false);//complementa
+    nodo3._energia(60);
+    console.log('   saturación con complementar:', saturado2 ? 'OK' : 'FALLÓ');
+    console.log('   callback de fase ejecutado?', faseCallbackEjecutado2 ? 'SÍ (correcto)' : 'NO (error)');
+
+    // 5.4 Callbacks de agotamiento
+    console.log('▶ 5.4 Callbacks de agotamiento');
+    let agotado = false;
+    let faseAgotado = false;
+
+    NodoElectrico._ejecutar_cuando_agota_por_fase((n) => {
+        faseAgotado = true;
+        console.log('   [FASE] Callback por defecto de agotamiento ejecutado');
+    });
+
+    const nodo4 = NodoElectrico.crear(30, 0);
+    nodo4._ejecutar_cuando_agota((n) => {
+        agotado = true;
+        console.log('   [INSTANCIA] Callback de agotamiento (reemplazar) ejecutado');
+    });
+    nodo4._energia(20);
+    nodo4._energia(-30);
+    console.log('   agotamiento con reemplazar:', agotado ? 'OK' : 'FALLÓ');
+    console.log('   callback de fase ejecutado?', faseAgotado ? 'SÍ (error, no debió)' : 'NO (correcto)');
+
+    // Complementar
+    let agotado2 = false;
+    let faseAgotado2 = false;
+    NodoElectrico._ejecutar_cuando_agota_por_fase((n) => {
+        faseAgotado2 = true;
+        console.log('   [FASE2] Callback de agotamiento ejecutado');
+    });
+    const nodo5 = NodoElectrico.crear(30, 0);
+    nodo5._ejecutar_cuando_agota((n) => {
+        agotado2 = true;
+        console.log('   [INSTANCIA] Callback de agotamiento (complementar) ejecutado');
+    }, false);
+    nodo5._energia(20);
+    nodo5._energia(-30);
+    console.log('   agotamiento con complementar:', agotado2 ? 'OK' : 'FALLÓ');
+    console.log('   callback de fase ejecutado?', faseAgotado2 ? 'SÍ (correcto)' : 'NO (error)');
+
+    // 5.5 Fuga por tiempo real
+    console.log('▶ 5.5 Fuga por tiempo real');
+    const nodo6 = NodoElectrico.crear(100, 5);
+    nodo6._energia(100);
+    console.log('   energía inicial:', nodo6.energia());
+    await sleep(2100); // espera 2.1 segundos (2 ciclos de 1 segundo)
+    const energiaDespues = nodo6.energia();
+    console.log('   energía después de ~2 segundos (2 ciclos, fuga 5*2=10):', energiaDespues, '(debe ser 90)');
+
+    // 5.6 Callback global de agotamiento (todas las fases)
+    console.log('▶ 5.6 Callback global de agotamiento');
+    let globalAgotado = false;
+    NodoElectrico._ejecutar_cuando_agota_global((n) => {
+        globalAgotado = true;
+        console.log('   [GLOBAL] Todas las fases sin energía');
+    });
+
+    const nodo7 = NodoElectrico.crear(50, 0);
+    await Controlador.ejecutar_prueba(async (token) => {
+        let faseactual=NodoElectrico.fase();
+        NodoElectrico._fase(token, 'faseA');
+        nodo7._energia(10);
+        NodoElectrico._fase(token, 'faseB');
+        nodo7._energia(20);
+        // Vaciar ambas fases
+        NodoElectrico._fase(token, 'faseA');
+        nodo7._energia(-10);
+        NodoElectrico._fase(token, 'faseB');
+        nodo7._energia(-20);
+        NodoElectrico._fase(token, faseactual);
+    });
+    console.log('   callback global', globalAgotado ? 'ejecutado (OK)' : 'NO ejecutado (ERROR)');
+
+    // 5.7 Obtener callbacks registrados
+    console.log('▶ 5.7 Obtener callbacks registrados');
+    const cbSat = NodoElectrico.ejecutar_cuando_satura_por_fase();
+    console.log('   callback saturación fase actual:', cbSat ? 'registrado' : 'ninguno');
+    const cbAgot = NodoElectrico.ejecutar_cuando_agota_por_fase();
+    console.log('   callback agotamiento fase actual:', cbAgot ? 'registrado' : 'ninguno');
+    const globalCb = NodoElectrico.ejecutar_cuando_agota_global();
+    console.log('   callback global:', globalCb ? 'registrado' : 'ninguno');
+
+    console.log('✅ Pruebas de energía completadas');
+})();
 console.groupEnd();
-
+/*
 // ──────────────────────────────────────────────────────────
 // 6. ELIMINACIÓN DE NODOS
 // ──────────────────────────────────────────────────────────
