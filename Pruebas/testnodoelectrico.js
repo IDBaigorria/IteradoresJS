@@ -217,7 +217,7 @@ console.groupEnd();
 // ──────────────────────────────────────────────────────────
 // 3. PRUEBAS EXHAUSTIVAS DE ADYACENTES
 // ──────────────────────────────────────────────────────────
-console.group('🔹 Adyacentes');
+/*console.group('🔹 Adyacentes');
 
 // 3.1 Preparación
 const nodoA = NodoElectrico.crear_con_dato('A');
@@ -494,6 +494,249 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     console.log('✅ Pruebas de energía completadas');
 })();
+console.groupEnd();*/
+// ──────────────────────────────────────────────────────────
+// 5. PRUEBAS EXHAUSTIVAS DE PESOS Y ADYACENTE CON PESO
+// ──────────────────────────────────────────────────────────
+console.group('🔹 Pesos y AdyacenteConPeso');
+/*
+console.log('▶ 5.0 Preparación de nodos limpios');
+const pA = NodoElectrico.crear_con_dato('PA');
+const pB = NodoElectrico.crear_con_dato('PB');
+const pC = NodoElectrico.crear_con_dato('PC');
+
+pA._adyacente_en(pB, 'e1');
+pA._adyacente_en(pC, 'e2');
+
+// ─── 5.1 Asignar y leer pesos (unidimensional) ───
+console.log('▶ 5.1 _peso() y peso() básicos');
+pA._peso('e1', 10);
+console.log('   peso("e1") sin dimensión:', pA.peso('e1'), '(debe ser 10)');
+console.log('   peso("e2") (sin peso):', pA.peso('e2'), '(debe ser null)');
+
+pA._peso('e2', 5.5, 'distancia');
+console.log('   peso("e2","distancia"):', pA.peso('e2','distancia'), '(debe ser 5.5)');
+console.log('   peso("e2") sin dimensión (debe ser null):', pA.peso('e2'), '(debe ser null)');
+
+// ─── 5.2 Migración perezosa y múltiples dimensiones ───
+console.log('▶ 5.2 Migración perezosa y múltiples dimensiones');
+pA._peso('e1', 20);
+pA._peso('e1', 99, 'coste');   // migra a objeto
+console.log('   peso("e1") default:', pA.peso('e1'), '(debe ser 20)');
+console.log('   peso("e1","coste"):', pA.peso('e1','coste'), '(debe ser 99)');
+console.log('   pesos("e1") completo:', JSON.stringify(pA.pesos('e1')), '(debe tener "":20, "coste":99)');
+
+// ─── 5.3 pesos() y consultas sobre enlaces sin peso ───
+console.log('▶ 5.3 pesos() en enlace sin peso');
+console.log('   pesos("e2"):', JSON.stringify(pA.pesos('e2')), '(debe tener "distancia":5.5)');
+console.log('   pesos("enlace_inexistente"):', JSON.stringify(pA.pesos('enlace_inexistente')), '(debe ser objeto vacío)');
+
+// ─── 5.4 Ordenamiento por peso ───
+console.log('▶ 5.4 adyacentes_ordenados_por_peso()');
+const pD = NodoElectrico.crear_con_dato('PD');
+const pE = NodoElectrico.crear_con_dato('PE');
+pA._adyacente_en(pD, 'e3');
+pA._adyacente_en(pE, 'e4');
+pA._peso('e1', 20);
+pA._peso('e2', 5, 'coste');
+pA._peso('e3', 50);
+pA._peso('e4', 30);
+
+const ordenadosAsc = pA.adyacentes_ordenados_por_peso(null, true);
+console.log('   Orden ascendente por default (sin incluir sin peso):');
+ordenadosAsc.forEach(item => {
+    console.log(`      enlace: ${item.nombre_enlace}, nodo: ${item.nodo.id()}, peso: ${item.peso}`);
+});
+
+const ordenadosAscConSinPeso = pA.adyacentes_ordenados_por_peso(null, true, true);
+console.log('   Orden ascendente incluyendo sin peso:');
+ordenadosAscConSinPeso.forEach(item => {
+    console.log(`      enlace: ${item.nombre_enlace}, peso: ${item.peso}`);
+});
+
+const ordenadosDesc = pA.adyacentes_ordenados_por_peso(null, false);
+console.log('   Orden descendente por default (sin incluir sin peso):');
+ordenadosDesc.forEach(item => console.log(`      enlace: ${item.nombre_enlace}, peso: ${item.peso}`));
+
+const ordenadosCoste = pA.adyacentes_ordenados_por_peso('coste', true);
+console.log('   Orden ascendente por coste (sin incluir sin peso):');
+ordenadosCoste.forEach(item => {
+    console.log(`      enlace: ${item.nombre_enlace}, peso: ${item.peso}`);
+});
+// Deben aparecer solo los que tienen coste: e2 y e1
+
+// ─── 5.5 Compatibilidad con métodos de Adyacentes ───
+console.log('▶ 5.5 Métodos de Adyacentes no afectados por pesos');
+const ady = pA.adyacente('e1');
+console.log('   adyacente("e1") devuelve Nodo id:', ady?.id(), '(debe ser PB)');
+const todosMap = pA.adyacentes();
+console.log('   adyacentes() devuelve Map con', todosMap?.size, 'elementos (todos Nodo)');
+const tiene = pA.tiene_adyacente_a(pB);
+console.log('   tiene_adyacente_a(pB):', tiene ? `'${tiene}'` : 'false', '(debe devolver "e1")');
+const resultadosPorCada = pA.por_cada_adyacente_ejecutar((n, e) => n.id());
+console.log('   por_cada_adyacente_ejecutar: ', [...resultadosPorCada.values()].join(','));
+
+// eliminar_adyacente con peso
+const eliminadoConPeso = pA.eliminar_adyacente('e1');
+console.log('   eliminar_adyacente("e1") devuelve:', eliminadoConPeso?.id(), '(debe ser PB)');
+console.log('   ¿sigue existiendo e1?', pA.adyacente('e1') ? 'SI (error)' : 'NO (correcto)');
+
+pA.eliminar_adyacentes();
+console.log('   después de eliminar_adyacentes, cantidad:', pA.cantidad_de_adyacentes(), '(debe ser 0)');
+
+// ─── 5.6 _adyacente_con_peso() y _adyacente_con_peso_en() ───
+console.log('▶ 5.6 _adyacente_con_peso() y _adyacente_con_peso_en()');
+const pX = NodoElectrico.crear_con_dato('PX');
+const pY = NodoElectrico.crear_con_dato('PY');
+const pZ = NodoElectrico.crear_con_dato('PZ');
+
+const enlaceCreado = pX._adyacente_con_peso(pY, 42, 'vitalidad');
+console.log('   _adyacente_con_peso genera enlace:', enlaceCreado);
+console.log('   peso(enlace, "vitalidad"):', pX.peso(enlaceCreado, 'vitalidad'), '(debe ser 42)');
+
+pX._adyacente_con_peso_en(pZ, 'especial', 7.5, null, false);
+console.log('   peso("especial") default:', pX.peso('especial'), '(debe ser 7.5)');
+
+pX._adyacente_con_peso_en(pY, 'especial', 99, 'coste', true);
+const nodoEnEspecial = pX.adyacente('especial');
+console.log('   después de reemplazar, nodo en "especial":', nodoEnEspecial?.id(), '(debe ser PY)');
+console.log('   peso("especial","coste"):', pX.peso('especial','coste'), '(debe ser 99)');
+
+// ─── 5.7 Casos extremos ───
+console.log('▶ 5.7 Casos extremos');
+console.log('   _peso("inexistente", 1):', pX._peso('inexistente', 1), '(debe ser false)');
+const pAux = NodoElectrico.crear();
+const pAux2 = NodoElectrico.crear();
+pAux._adyacente_en(pAux2, 'unico');
+pAux._peso('unico', 123);
+console.log('   peso("unico","inexistente") sobre escalar:', pAux.peso('unico','inexistente'), '(debe ser null)');
+console.log('   peso("unico") default:', pAux.peso('unico'), '(debe ser 123)');
+*/
+
+// ──────────────────────────────────────────────────────────
+// 5. PRUEBAS EXHAUSTIVAS DE PESOS Y ADYACENTE CON PESO
+// ──────────────────────────────────────────────────────────
+console.group('🔹 Pesos y AdyacenteConPeso');
+
+console.log('▶ 5.0 Preparación de nodos limpios');
+const pA = NodoElectrico.crear_con_dato('PA');
+const pB = NodoElectrico.crear_con_dato('PB');
+const pC = NodoElectrico.crear_con_dato('PC');
+
+pA._adyacente_en(pB, 'e1');
+pA._adyacente_en(pC, 'e2');
+
+// ─── 5.1 Asignación directa (acumular = false) ───
+console.log('▶ 5.1 Asignación directa (_peso con acumular=false)');
+pA._peso('e1', 10, null);
+console.log('   peso("e1") tras asignación directa:', pA.peso('e1'), '(debe ser 10)');
+
+pA._peso('e2', 5.5, 'distancia');
+console.log('   peso("e2","distancia"):', pA.peso('e2','distancia'), '(debe ser 5.5)');
+console.log('   peso("e2") default sin asignar:', pA.peso('e2'), '(debe ser null)');
+
+// ─── 5.2 Acumulación (comportamiento por defecto) ───
+console.log('▶ 5.2 Acumulación (_peso por defecto y explícito)');
+const res1 = pA._peso('e1', 5, null, true);
+console.log('   _peso("e1",5,null,true) devuelve:', res1, '(debe ser 15)');
+console.log('   peso("e1"):', pA.peso('e1'), '(debe ser 15)');
+
+const res2 = pA._peso('e1', -3);
+console.log('   _peso("e1",-3) devuelve:', res2, '(debe ser 12)');
+console.log('   peso("e1"):', pA.peso('e1'), '(debe ser 12)');
+
+const res3 = pA._peso('e2', 2.5, 'energia');
+console.log('   _peso("e2",2.5,"energia") devuelve:', res3, '(debe ser 2.5)');
+const res4 = pA._peso('e2', 1.5, 'energia');
+console.log('   acumular de nuevo ->', res4, '(debe ser 4.0)');
+
+// ─── 5.3 Migración automática de escalar a objeto ───
+console.log('▶ 5.3 Migración de escalar a objeto al acumular en nueva dimensión');
+const res5 = pA._peso('e1', 7, 'coste');
+console.log('   _peso("e1",7,"coste") devuelve:', res5, '(debe ser 7)');
+console.log('   pesos("e1"):', JSON.stringify(pA.pesos('e1')), '(debe tener "":12, "coste":7)');
+console.log('   peso("e1") default:', pA.peso('e1'), '(debe ser 12)');
+
+// ─── 5.4 Ordenamiento ───
+console.log('▶ 5.4 adyacentes_ordenados_por_peso()');
+const pD = NodoElectrico.crear_con_dato('PD');
+const pE = NodoElectrico.crear_con_dato('PE');
+pA._adyacente_en(pD, 'e3');
+pA._adyacente_en(pE, 'e4');
+pA._peso('e3', 50, null, false);
+pA._peso('e4', 30, null, false);
+
+console.log('   Pesos actuales:');
+console.log('      e1 default:', pA.peso('e1'), '(12)');
+console.log('      e2 default:', pA.peso('e2'), '(null)');
+console.log('      e3 default:', pA.peso('e3'), '(50)');
+console.log('      e4 default:', pA.peso('e4'), '(30)');
+
+const ordenados1 = pA.adyacentes_ordenados_por_peso(null, false, false);
+console.log('   Orden ascendente default (sin incluir sin peso):');
+ordenados1.forEach(item => {
+    console.log(`      enlace: ${item.nombre_enlace}, nodo: ${item.nodo.id()}, peso: ${item.peso}`);
+});
+
+const ordenados2 = pA.adyacentes_ordenados_por_peso(null, false, true);
+console.log('   Incluyendo sin peso:');
+ordenados2.forEach(item => console.log(`      enlace: ${item.nombre_enlace}, peso: ${item.peso}`));
+
+const ordenados3 = pA.adyacentes_ordenados_por_peso('coste', false, false);
+console.log('   Por "coste" (sin incluir sin peso):');
+ordenados3.forEach(item => console.log(`      enlace: ${item.nombre_enlace}, peso: ${item.peso}`));
+
+// ─── 5.5 Compatibilidad con Adyacentes ───
+console.log('▶ 5.5 Métodos de Adyacentes no afectados');
+const ady = pA.adyacente('e1');
+console.log('   adyacente("e1") devuelve Nodo id:', ady?.id(), '(debe ser PB)');
+const todosMap = pA.adyacentes();
+console.log('   adyacentes() devuelve Map con', todosMap?.size, 'elementos');
+const tiene = pA.tiene_adyacente_a(pB);
+console.log('   tiene_adyacente_a(pB):', tiene ? `'${tiene}'` : 'false', '(debe devolver "e1")');
+const resultadosPorCada = pA.por_cada_adyacente_ejecutar((n, e) => n.id());
+console.log('   por_cada_adyacente_ejecutar:', [...resultadosPorCada.values()].join(','));
+
+const eliminadoConPeso = pA.eliminar_adyacente('e1');
+console.log('   eliminar_adyacente("e1") devuelve:', eliminadoConPeso?.id(), '(debe ser PB)');
+console.log('   ¿sigue existiendo e1?', pA.adyacente('e1') ? 'SI (error)' : 'NO (correcto)');
+
+pA.eliminar_adyacentes();
+console.log('   después de eliminar_adyacentes, cantidad:', pA.cantidad_de_adyacentes(), '(debe ser 0)');
+
+// ─── 5.6 _adyacente_con_peso y _adyacente_con_peso_en ───
+console.log('▶ 5.6 _adyacente_con_peso() y _adyacente_con_peso_en()');
+const pX = NodoElectrico.crear_con_dato('PX');
+const pY = NodoElectrico.crear_con_dato('PY');
+const pZ = NodoElectrico.crear_con_dato('PZ');
+console.log("pX.id="+pX.id());
+console.log("pY.id="+pY.id());
+console.log("pZ.id="+pZ.id());
+
+const enlaceCreado = pX._adyacente_con_peso(pY, 42, 'vitalidad');
+console.log('   _adyacente_con_peso genera enlace:', enlaceCreado);
+console.log('   peso(enlace, "vitalidad"):', pX.peso(enlaceCreado, 'vitalidad'), '(debe ser 42)');
+
+pX._adyacente_con_peso_en(pZ, 'especial', 7.5);
+console.log('   _adyacente_con_peso_en("especial", 7.5) -> peso:', pX.peso('especial'), '(debe ser 7.5)');
+
+pX._adyacente_con_peso_en(pY, 'especial', 99, 'coste', true);
+console.log('   tras reemplazar, nodo en "especial":', pX.adyacente('especial')?.id(), '(debe ser PY)');
+console.log('   peso("especial","coste"):', pX.peso('especial','coste'), '(debe ser 99)');
+
+// ─── 5.7 Casos extremos ───
+console.log('▶ 5.7 Casos extremos');
+console.log('   _peso("inexistente", 1):', pX._peso('inexistente', 1), '(debe ser null)');
+const pAux = NodoElectrico.crear();
+const pAux2 = NodoElectrico.crear();
+pAux._adyacente_en(pAux2, 'unico');
+pAux._peso('unico', 123, null, false);
+console.log('   peso("unico","inexistente") sobre escalar:', pAux.peso('unico', 'inexistente'), '(debe ser null)');
+console.log('   peso("unico") default:', pAux.peso('unico'), '(debe ser 123)');
+pAux._peso('unico', -50);
+console.log('   tras acumular -50:', pAux.peso('unico'), '(debe ser 73)');
+
+console.log('✅ Pruebas de pesos completadas');
 console.groupEnd();
 /*
 // ──────────────────────────────────────────────────────────

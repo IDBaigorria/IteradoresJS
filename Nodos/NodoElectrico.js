@@ -3,9 +3,47 @@ import { Nodo } from "../Nodos/index.js";
 import { Conf } from '../Configuracion/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { generarUUID } from "../miscelaneas/generarUUID.js";
-import { IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase} from "./Interfaces/index.js";
+import { IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso} from "./Interfaces/index.js";
 
 console.log("Nodo");
+
+/**
+ * Clase Enlace (contenedor de enlace con peso perezoso)
+ *
+ * Representa un enlace entre el nodo actual y un nodo destino, pudiendo almacenar
+ * opcionalmente uno o varios pesos dimensionales.
+ *
+ * **Inicialización perezosa de pesos**:
+ * - La propiedad `pesos` es `null` hasta que se asigna el primer peso.
+ * - Si solo hay un peso (sin dimensión explícita) se guarda como escalar.
+ * - Si se añade una segunda dimensión, se migra a un objeto (clave '' para el default).
+ *
+ * @class
+ * @package Nodos
+ * @version 0.0.0
+ * @since 1.2.9
+ */
+class Enlace {
+    /**
+     * Nodo destino del enlace.
+     * @type {NodoElectrico}
+     */
+    nodo;
+
+    /**
+     * Pesos asociados (null, escalar o objeto con claves de dimensión).
+     * @type {*}
+     */
+    pesos = null;
+
+    /**
+     * @param {NodoElectrico} nodo Nodo destino
+     */
+    constructor(nodo) {
+        this.nodo = nodo;
+    }
+}
+
 /**
  * Clase NodoElectrico
  * 
@@ -58,21 +96,25 @@ console.log("Nodo");
  *                  estoy con _adyacente _incidente_en. despues de solucionar muchos problemas 
  *                  freno luego de probar imprimir. 
  * 
- *                  FALTA EL OTRO IMPRIMIR MIRAR IMPRIMIR_SUPERESTRUCTURA, 
- * 
+ *                  FALTA EL OTRO IMPRIMIR MIRAR IMPRIMIR_SUPERESTRUCTURA
+ *  
+ * V0.0.4.260529	Retomo otra vez
+ * V0.1.0.260605	Finalizadas y probadas Interfaces FabricaDeNodosElectricos, Fase, Adyacentes e Incidentes y a punto de comenzar con la interfaz Peso
  * @class
  * @author Ignacio David Baigorria
- * @version 0.0.3
- * @since 1.2
+ * @version 0.1.0
+ * @since 1.2.9
  * @extends Nodo
  * @implements {Nodos.Interfaces.IncidentesDobleVia}
  * @implements {Nodos.Interfaces.Energia}
  * @implements {Nodos.Interfaces.FabricaDeNodosElectricos}
  * @implements {Nodos.Interfaces.Fase}
+ * @implements {Nodos.Interfaces.Peso}
+ * @implements {Nodos.Interfaces.Adyacentes}
  * @memberof Nodos
  * 
  */
-class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosElectricos, IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase) {
+class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosElectricos, IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso) {
 
      /**
      * Enlaces hacia nodos adyacentes.
@@ -763,46 +805,39 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *                         `null` si el parámetro no es válido.
      */
     static eliminar(nodo) {
-        // Validación rápida
         if (!(nodo instanceof NodoElectrico)) {
             NodoElectrico._error("El parámetro no es de la clase NodoElectrico");
             return null;
         }
 
-        // Solo se puede eliminar si no tiene referencias (incidentes)
         if (nodo._referencias !== 0) {
             NodoElectrico._error("debe eliminar todos los enlaces que apuntan hacia el nodo antes de intentar eliminarlo");
             return false;
         }
 
-        const nodoId = nodo.id();
+        const nodo_id = nodo.id();
 
-        // 1. Eliminar de las estructuras globales
-        Nodo._superestructura.delete(nodoId);
-        Nodo._nodos_especiales.delete(nodoId);
+        Nodo._superestructura.delete(nodo_id);
+        Nodo._nodos_especiales.delete(nodo_id);
 
-        // 2. Limpiar los enlaces salientes (adyacentes) del nodo y los incidentes en los nodos destino
         if (nodo._adyacentes !== undefined && nodo._adyacentes.size > 0) {
-            for (const [fase, adyacentesMap] of nodo._adyacentes) {
-                if (adyacentesMap && adyacentesMap.size > 0) {
-                    for (const [enlace, nodoDestino] of adyacentesMap) {
-                        // Disminuir referencia del nodo destino
-                        nodoDestino._referencias--;
+            for (const [fase, adyacentes_map] of nodo._adyacentes) {
+                if (adyacentes_map && adyacentes_map.size > 0) {
+                    for (const [enlace, valor] of adyacentes_map) {
+                        const nodo_destino = (valor instanceof Enlace) ? valor.nodo : valor;
+                        nodo_destino._referencias--;
 
-                        // Eliminar el incidente en el nodo destino que apunta al nodo actual
-                        if (nodoDestino._incidentes !== undefined) {
-                            const incidentesPorId = nodoDestino._incidentes.get(nodoId);
-                            if (incidentesPorId) {
-                                const incidentesPorFase = incidentesPorId.get(fase);
-                                if (incidentesPorFase) {
-                                    incidentesPorFase.delete(enlace);
-                                    // Si la fase se quedó vacía, eliminar la entrada de fase
-                                    if (incidentesPorFase.size === 0) {
-                                        incidentesPorId.delete(fase);
+                        if (nodo_destino._incidentes !== undefined) {
+                            const incidentes_por_id = nodo_destino._incidentes.get(nodo_id);
+                            if (incidentes_por_id) {
+                                const incidentes_por_fase = incidentes_por_id.get(fase);
+                                if (incidentes_por_fase) {
+                                    incidentes_por_fase.delete(enlace);
+                                    if (incidentes_por_fase.size === 0) {
+                                        incidentes_por_id.delete(fase);
                                     }
-                                    // Si el nodo origen ya no tiene incidentes en ninguna fase, eliminar su entrada
-                                    if (incidentesPorId.size === 0) {
-                                        nodoDestino._incidentes.delete(nodoId);
+                                    if (incidentes_por_id.size === 0) {
+                                        nodo_destino._incidentes.delete(nodo_id);
                                     }
                                 }
                             }
@@ -812,13 +847,13 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             }
         }
 
-        // Opcional: llamar a destructor si existe
         if (typeof nodo.destructor === 'function') {
             nodo.destructor();
         }
 
         return true;
     }
+
 
     /**
 	   * Elimina un nodo que solo tiene autoenlaces (Interfaz {@link Nodos.NodoElectrico.Interfaces.FabricaDeNodosElectricos FabricaDeNodosElectricos})
@@ -849,62 +884,57 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return null;
         }
 
-        let contAuto = 0;
-        let contComunes = 0;
+        let cont_auto = 0;
+        let cont_comunes = 0;
         const id = nodo.id();
 
-        // Contar autoenlaces y enlaces normales
         if (nodo._adyacentes !== undefined) {
-            for (const [, adyacentesMap] of nodo._adyacentes) {
-                if (adyacentesMap && adyacentesMap.size > 0) {
-                    for (const [, nodoDestino] of adyacentesMap) {
-                        if (id === nodoDestino.id()) {
-                            contAuto++;
+            for (const [, adyacentes_map] of nodo._adyacentes) {
+                if (adyacentes_map && adyacentes_map.size > 0) {
+                    for (const [, valor] of adyacentes_map) {
+                        const nodo_destino = (valor instanceof Enlace) ? valor.nodo : valor;
+                        if (id === nodo_destino.id()) {
+                            cont_auto++;
                         } else {
-                            contComunes++;
+                            cont_comunes++;
                         }
                     }
                 }
             }
         }
 
-        const referenciasExternas = nodo._referencias - contAuto;
+        const referencias_externas = nodo._referencias - cont_auto;
 
-        // Condición: sin referencias externas y sin enlaces a otros nodos
-        if (referenciasExternas === 0 && contComunes === 0) {
-            // Eliminar todos los autoenlaces (sin usar eliminar_adyacente)
+        if (referencias_externas === 0 && cont_comunes === 0) {
             if (nodo._adyacentes !== undefined) {
-                for (const [fase, adyacentesMap] of nodo._adyacentes) {
-                    if (adyacentesMap && adyacentesMap.size > 0) {
-                        // Recoger los enlaces que son autoenlaces
-                        const autoEnlaces = [];
-                        for (const [enlace, nodoDestino] of adyacentesMap) {
-                            if (nodoDestino.id() === id) {
-                                autoEnlaces.push({ fase, enlace });
+                for (const [fase, adyacentes_map] of nodo._adyacentes) {
+                    if (adyacentes_map && adyacentes_map.size > 0) {
+                        const auto_enlaces = [];
+                        for (const [enlace, valor] of adyacentes_map) {
+                            const nodo_destino = (valor instanceof Enlace) ? valor.nodo : valor;
+                            if (nodo_destino.id() === id) {
+                                auto_enlaces.push({ fase, enlace });
                             }
                         }
-                        // Eliminarlos directamente
-                        for (const { fase, enlace } of autoEnlaces) {
-                            adyacentesMap.delete(enlace);
-                            // También eliminar el incidente en el mismo nodo (autoincidente)
+                        for (const { fase, enlace } of auto_enlaces) {
+                            adyacentes_map.delete(enlace);
                             if (nodo._incidentes !== undefined) {
-                                const incidentesPorId = nodo._incidentes.get(id);
-                                if (incidentesPorId) {
-                                    const incidentesPorFase = incidentesPorId.get(fase);
-                                    if (incidentesPorFase) {
-                                        incidentesPorFase.delete(enlace);
-                                        if (incidentesPorFase.size === 0) incidentesPorId.delete(fase);
-                                        if (incidentesPorId.size === 0) nodo._incidentes.delete(id);
+                                const incidentes_por_id = nodo._incidentes.get(id);
+                                if (incidentes_por_id) {
+                                    const incidentes_por_fase = incidentes_por_id.get(fase);
+                                    if (incidentes_por_fase) {
+                                        incidentes_por_fase.delete(enlace);
+                                        if (incidentes_por_fase.size === 0) incidentes_por_id.delete(fase);
+                                        if (incidentes_por_id.size === 0) nodo._incidentes.delete(id);
                                     }
                                 }
                             }
-                            nodo._referencias--; // cada autoenlace se resta de referencias
+                            nodo._referencias--;
                         }
                     }
                 }
             }
 
-            // Eliminar de estructuras globales
             Nodo._superestructura.delete(id);
             Nodo._nodos_especiales.delete(id);
 
@@ -1546,15 +1576,16 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             NodoElectrico._error("El nodo que intenta comprobar no es una instancia de la clase NodoElectrico.");
             return false;
         }
-        const faseActual = NodoElectrico._fase_actual;
-        const adyacentesFase = this._adyacentes?.get(faseActual);
-        if (!adyacentesFase || adyacentesFase.size === 0) {
+        const fase_actual = NodoElectrico._fase_actual;
+        const adyacentes_fase = this._adyacentes?.get(fase_actual);
+        if (!adyacentes_fase || adyacentes_fase.size === 0) {
             return false;
         }
-        const idObjetivo = nodo.id();
-        for (const [nombreEnlace, nodoAdyacente] of adyacentesFase) {
-            if (nodoAdyacente.id() === idObjetivo) {
-                return nombreEnlace;
+        const id_objetivo = nodo.id();
+        for (const [nombre_enlace, valor] of adyacentes_fase) {
+            const nodo_ady = (valor instanceof Enlace) ? valor.nodo : valor;
+            if (nodo_ady.id() === id_objetivo) {
+                return nombre_enlace;
             }
         }
         return false;
@@ -1615,16 +1646,18 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return null;
        } 
         console.log("s5");
-        const faseactual =NodoElectrico._fase_actual;
-        if (!this._adyacentes.has(faseactual)){
+        const fase_actual = NodoElectrico._fase_actual;
+        if (!this._adyacentes.has(fase_actual)){
             return null;
         }
         console.log("s6");
-        if (!this._adyacentes.get(faseactual).size){
+        if (!this._adyacentes.get(fase_actual).size){
             return null;
         }
         console.log("s7");
-        return this._adyacentes.get(faseactual).get(enlace) ?? null;
+        const valor = this._adyacentes.get(fase_actual).get(enlace) ?? null;
+        if (valor === null) return null;
+        return (valor instanceof Enlace) ? valor.nodo : valor;
     }
 
     /**
@@ -1690,12 +1723,16 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         if (!this.tiene_adyacente()) {
             return null;
         }
-        const faseActual = NodoElectrico._fase_actual;
-        const adyacentesFase = this._adyacentes.get(faseActual);
-        if (!adyacentesFase || adyacentesFase.size === 0) {
+        const fase_actual = NodoElectrico._fase_actual;
+        const adyacentes_fase = this._adyacentes.get(fase_actual);
+        if (!adyacentes_fase || adyacentes_fase.size === 0) {
             return null;
         }
-        return new Map(adyacentesFase);
+        const resultado = new Map();
+        for (const [enlace, valor] of adyacentes_fase) {
+            resultado.set(enlace, (valor instanceof Enlace) ? valor.nodo : valor);
+        }
+        return resultado;
     }
     /**
      * Devuelve la cantidad de adyacentes (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
@@ -1933,7 +1970,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             return false;
         }
         
-        // Inicialización perezosa
         if (!this._adyacentes) {
             this._adyacentes = new Map();
         }
@@ -1945,23 +1981,26 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         
         const adyacentes = this._adyacentes.get(fase);
         
-        // Revisar si ya existía un nodo en esa posición
         if (adyacentes.has(enlace)) {
             if (reemplazar) {
-                const nodo_existente = adyacentes.get(enlace);
+                const valor_existente = adyacentes.get(enlace);
+                const nodo_existente = (valor_existente instanceof Enlace) ? valor_existente.nodo : valor_existente;
+                
+                // 1. Eliminamos el enlace de ida primero
+                adyacentes.delete(enlace);
+                
+                // 2. Ahora eliminamos el incidente (el enlace de ida ya no existe)
                 nodo_existente._referencias--;
-                nodo_existente.eliminar_incidente(this,enlace);
+                nodo_existente.eliminar_incidente(this, enlace);
             } else {
                 this.constructor._error("Ya existía un nodo en el enlace que intenta asignar");
                 return false;
             }
         }
         
-        // Asignar adyacente
+        // Asignar nuevo nodo
         adyacentes.set(enlace, un_nodo);
         un_nodo._incidente_en(this, enlace);
-        
-        // Sumar referencias del nodo enlazado
         un_nodo._referencias++;
         
         return true;
@@ -2004,13 +2043,11 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @since 0.0.1
      */
     eliminar_adyacente(enlace) {
-        // Validación de tipo
         if (!this.constructor.validar_nombre_enlace(enlace)) {
             this.constructor._error("El enlace a eliminar no es válido");
             return null;
         }
         
-        // Verificar inicialización perezosa
         if (this._adyacentes===undefined) {
             this.constructor._alerta("No hay adyacentes para eliminar");
             return null;
@@ -2024,20 +2061,20 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         
         const adyacentes = this._adyacentes.get(fase);
         
-        // Verificar existencia del enlace
         if (!adyacentes.has(enlace)) {
             this.constructor._alerta(`El enlace ${enlace} que se intenta eliminar no existe`);
             return null;
         }
         
-        const eliminado = adyacentes.get(enlace);
+        const valor = adyacentes.get(enlace);
+        const eliminado = (valor instanceof Enlace) ? valor.nodo : valor;
         eliminado._referencias--;
         adyacentes.delete(enlace);
         eliminado.eliminar_incidente(this, enlace);
         
-        
         return eliminado;
     }
+
     /**
      * Elimina todos los enlaces del nodo (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
@@ -2109,8 +2146,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @deprecated
      */
     eliminar_adyacentes() {
-
-         // Verificar inicialización perezosa
         if (this._adyacentes===undefined) {
             this.constructor._alerta("No hay adyacentes para eliminar");
             return new Map();
@@ -2123,13 +2158,19 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         }
         
         const adyacentes = this._adyacentes.get(fase);
-
-        const copia = new Map(adyacentes);
-        adyacentes.clear();
-        for (const [enlace, eliminado] of copia) {
+        const copia = new Map();
+        // Iteramos sobre una copia de las claves para poder eliminar mientras recorremos
+        for (const enlace of [...adyacentes.keys()]) {
+            const valor = adyacentes.get(enlace);
+            const eliminado = (valor instanceof Enlace) ? valor.nodo : valor;
+            copia.set(enlace, eliminado);
+            // 1. Eliminamos el enlace de ida
+            adyacentes.delete(enlace);
+            // 2. Decrementamos referencias y eliminamos el incidente (ahora el enlace de ida ya no existe)
             eliminado._referencias--;
-            eliminado.eliminar_incidente(this, enlace)
+            eliminado.eliminar_incidente(this, enlace);
         }
+        // El Map ya está vacío, no hace falta clear()
         return copia;
     }
     
@@ -2184,7 +2225,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         const resultados = new Map();
         const adyacentes = this._adyacentes.get(NodoElectrico._fase_actual);
         
-        for (const [enlace, nodo] of adyacentes) {
+        for (const [enlace, valor] of adyacentes) {
+            const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
             if (nodo) {
                 resultados.set(enlace, funcion(nodo, enlace, ...parametros));
             }
@@ -2844,6 +2886,382 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @see NodoElectrico.registrar_controlador
      */
    // static _token = generarUUID();
+
+    /***************************************************************************************
+     * NUEVA INTERFAZ PESO (instancia)
+     * @since 1.2.9
+     ***************************************************************************************/
+
+    /**
+     * Asigna o acumula peso en un enlace de la fase actual.
+     *
+     * Este método unifica la asignación directa y la acumulación de pesos.
+     * El comportamiento predeterminado (`acumular = true`) **suma** el valor al peso
+     * existente, lo que es ideal para contadores, distancias, costes acumulativos, etc.
+     * Si se desea un reemplazo completo, se pasa `false` en el último parámetro.
+     *
+     * **Proceso interno:**
+     * 1. Si el valor almacenado en el enlace aún es un `NodoElectrico` (sin pesos previos),
+     *    se envuelve en un objeto `Enlace` (migración perezosa).
+     * 2. En modo acumulación, si el peso actual es escalar y se pide una dimensión distinta,
+     *    se migra automáticamente a un objeto con claves.
+     * 3. En modo asignación, se sobreescribe cualquier estructura anterior.
+     *
+     * ---
+     * 🔹 **Parámetros:**
+     * - `nombre_enlace`: Nombre del enlace. Debe existir en la fase actual.
+     * - `peso`: Valor numérico a asignar o sumar (puede ser negativo para restar).
+     * - `dimension`: Clave de la dimensión. Si es `null`, se usa la dimensión por defecto (internamente clave vacía).
+     * - `acumular`: `true` para sumar al valor existente (por defecto), `false` para reemplazar.
+     *
+     * ---
+     * 🔹 **Retorno:**
+     * - El nuevo valor del peso tras la operación.
+     * - `null` si el enlace no existe o el nombre de enlace es inválido.
+     *
+     * ---
+     * 🔹 **Ejemplos de uso:**
+     *
+     * **Ejemplo 1 – Acumular (comportamiento por defecto)**
+     * ```javascript
+     * nodo._peso('ruta', 10);                     // crea/ suma 10 en dimensión por defecto
+     * nodo._peso('ruta', 5);                      // ahora el peso por defecto es 15
+     * nodo._peso('ruta', -2);                     // resta 2 → 13
+     * ```
+     *
+     * **Ejemplo 2 – Dimensión específica acumulando**
+     * ```javascript
+     * nodo._peso('ruta', 7.5, 'distancia', true); // inicia 'distancia' en 7.5
+     * nodo._peso('ruta', 2.5, 'distancia');        // acumula → 10.0
+     * ```
+     *
+     * **Ejemplo 3 – Asignación directa (reemplazar)**
+     * ```javascript
+     * nodo._peso('ruta', 100, null, false);       // la dimensión por defecto pasa a 100
+     * nodo._peso('ruta', 20, 'coste', false);     // la dimensión 'coste' se fija en 20
+     * ```
+     *
+     * **Ejemplo 4 – Migración automática de escalar a objeto**
+     * ```javascript
+     * nodo._peso('ruta', 5);                       // default = 5 (escalar)
+     * nodo._peso('ruta', 3, 'coste');              // ahora default:5, coste:3 (objeto)
+     * ```
+     *
+     * **Ejemplo 5 – Enlace sin nodo previo**
+     * ```javascript
+     * // Si el enlace 'nuevo' apunta a un Nodo, _peso lo convierte en Enlace y asigna.
+     * nodo._adyacente_en(otro, 'nuevo');
+     * nodo._peso('nuevo', 42);                     // ahora 'nuevo' tiene peso 42
+     * ```
+     *
+     * ---
+     * 🔗 **Métodos relacionados:**
+     * - {@link Nodos.NodoElectrico#peso peso()} para consultar un peso.
+     * - {@link Nodos.NodoElectrico#pesos pesos()} para obtener todos los pesos de un enlace.
+     * - {@link Nodos.NodoElectrico#adyacentes_ordenados_por_peso adyacentes_ordenados_por_peso()} para ordenar adyacentes por peso.
+     * - {@link Nodos.NodoElectrico#_adyacente_con_peso _adyacente_con_peso()} y {@link Nodos.NodoElectrico#_adyacente_con_peso_en _adyacente_con_peso_en()} para crear enlaces con peso en un paso.
+     *
+     * @param {string}      nombre_enlace Nombre del enlace.
+     * @param {number}      peso          Valor a asignar o sumar.
+     * @param {string|null} [dimension=null] Dimensión. `null` para la dimensión por defecto.
+     * @param {boolean}     [acumular=true]  `true` para acumular (por defecto), `false` para reemplazar.
+     * @returns {number|null} Nuevo valor del peso, o `null` si falla.
+     *
+     * @throws _alerta si el enlace no existe en la fase actual.
+     *
+     * @since 1.2.9
+     */
+    _peso(nombre_enlace, peso, dimension = null, acumular = true) {
+        if (!this.constructor.validar_nombre_enlace(nombre_enlace)) {
+            this.constructor._error('El nombre de enlace no es válido.');
+            return null;
+        }
+        const fase = NodoElectrico._fase_actual;
+        const adyacentes_fase = this._adyacentes?.get(fase);
+        if (!adyacentes_fase || !adyacentes_fase.has(nombre_enlace)) {
+            this.constructor._alerta(`No existe el enlace '${nombre_enlace}' en la fase actual.`);
+            return null;
+        }
+
+        let valor = adyacentes_fase.get(nombre_enlace);
+        if (valor instanceof NodoElectrico) {
+            const enlace_obj = new Enlace(valor);
+            adyacentes_fase.set(nombre_enlace, enlace_obj);
+            valor = enlace_obj;
+        }
+        const enlace_obj = valor;
+        const dim = dimension ?? '';
+
+        if (acumular) {
+            // --- MODO SUMA ---
+            if (enlace_obj.pesos === null) {
+                if (dimension === null) {
+                    enlace_obj.pesos = peso;
+                } else {
+                    enlace_obj.pesos = { [dim]: peso };
+                }
+                return peso;
+            }
+            if (typeof enlace_obj.pesos === 'object') {
+                if (!(dim in enlace_obj.pesos)) {
+                    enlace_obj.pesos[dim] = 0;
+                }
+                enlace_obj.pesos[dim] += peso;
+                return enlace_obj.pesos[dim];
+            } else {
+                // Escalar
+                if (dimension === null || dim === '') {
+                    enlace_obj.pesos += peso;
+                    return enlace_obj.pesos;
+                } else {
+                    const anterior = enlace_obj.pesos;
+                    enlace_obj.pesos = { '': anterior, [dim]: peso };
+                    return peso;
+                }
+            }
+        } else {
+            // --- MODO ASIGNACIÓN ---
+            if (dimension === null) {
+                if (enlace_obj.pesos === null) {
+                    enlace_obj.pesos = peso;
+                } else if (typeof enlace_obj.pesos === 'object') {
+                    enlace_obj.pesos[''] = peso;
+                } else {
+                    enlace_obj.pesos = peso;
+                }
+            } else {
+                if (enlace_obj.pesos === null) {
+                    enlace_obj.pesos = { [dimension]: peso };
+                } else if (typeof enlace_obj.pesos === 'object') {
+                    enlace_obj.pesos[dimension] = peso;
+                } else {
+                    const anterior = enlace_obj.pesos;
+                    enlace_obj.pesos = { '': anterior, [dimension]: peso };
+                }
+            }
+            return peso;
+        }
+    }
+
+    /**
+     * Obtiene el peso de un enlace en una dimensión determinada.
+     *
+     * Si el enlace no tiene asignado un objeto Enlace (es decir, nunca se le asignó peso)
+     * o no existe la dimensión solicitada, devuelve `null`.
+     *
+     * @param {string}      nombre_enlace Nombre del enlace.
+     * @param {string|null} [dimension=null] Dimensión del peso. Si es null, se usa la dimensión por defecto.
+     *
+     * @returns {*} El peso almacenado, o `null` si no existe.
+     *
+     * @see _peso
+     * @since 1.2.9
+     */
+    peso(nombre_enlace, dimension = null) {
+        if (!this.constructor.validar_nombre_enlace(nombre_enlace)) {
+            this.constructor._error('El nombre de enlace no es válido.');
+            return null;
+        }
+        const fase = NodoElectrico._fase_actual;
+        const adyacentes_fase = this._adyacentes?.get(fase);
+        if (!adyacentes_fase) return null;
+        const valor = adyacentes_fase.get(nombre_enlace);
+        if (!(valor instanceof Enlace) || valor.pesos === null) return null;
+
+        if (dimension === null) {
+            if (typeof valor.pesos === 'object') {
+                return valor.pesos[''] ?? null;
+            } else {
+                return valor.pesos;
+            }
+        } else {
+            if (typeof valor.pesos === 'object') {
+                return valor.pesos[dimension] ?? null;
+            }
+            return null;
+        }
+    }
+
+
+
+    /**
+     * Devuelve una copia del mapa completo de pesos de un enlace.
+     *
+     * Si el enlace no tiene pesos, retorna un objeto vacío.
+     *
+     * @param {string} nombre_enlace Nombre del enlace.
+     * @returns {Object<string, *>} Mapa de pesos (clave = dimensión, valor = peso). Copia independiente.
+     *
+     * @see _peso
+     * @since 1.2.9
+     */
+    pesos(nombre_enlace) {
+        if (!this.constructor.validar_nombre_enlace(nombre_enlace)) {
+            this.constructor._error('El nombre de enlace no es válido.');
+            return {};
+        }
+        const fase = NodoElectrico._fase_actual;
+        const adyacentes_fase = this._adyacentes?.get(fase);
+        if (!adyacentes_fase) return {};
+        const valor = adyacentes_fase.get(nombre_enlace);
+        if (!(valor instanceof Enlace) || valor.pesos === null) return {};
+        if (typeof valor.pesos === 'object') {
+            return { ...valor.pesos };
+        } else {
+            return { '': valor.pesos };
+        }
+    }
+
+    /**
+     * Ordena los adyacentes de la fase actual según el valor del peso en una dimensión.
+     *
+     * Recorre todos los enlaces salientes del nodo en la fase activa y los ordena
+     * por el valor del peso asociado a la dimensión indicada. Los enlaces que **no
+     * poseen** esa dimensión de peso reciben un valor implícito de `0` para el
+     * ordenamiento, lo que significa que:
+     * - En orden **ascendente** (`ascendente = true`) aparecen **al principio**.
+     * - En orden **descendente** (`ascendente = false`) aparecen **al final**.
+     *
+     * El parámetro `incluir_sin_peso` controla si los enlaces sin la dimensión
+     * solicitada se incluyen o no en el resultado.
+     *
+     * ---
+     * 🔹 **Parámetros:**
+     * - `dimension`: Dimensión del peso por la que ordenar.
+     *   Si es `null`, se utiliza la dimensión por defecto (internamente clave vacía).
+     * - `ascendente`: `true` para orden ascendente (por defecto), `false` para descendente.
+     * - `incluir_sin_peso`: `true` para incluir en el resultado los enlaces que no
+     *   poseen la dimensión de peso (con peso implícito 0). Por defecto `false` (solo
+     *   se devuelven los enlaces que sí tienen la dimensión).
+     *
+     * ---
+     * 🔹 **Retorno:**
+     * Un array de objetos con las propiedades:
+     * - `nombre_enlace` → nombre del enlace.
+     * - `nodo` → instancia de `NodoElectrico` destino.
+     * - `peso` → valor del peso (o `null` si no existe, aunque internamente se trata como 0 para ordenar).
+     *
+     * ---
+     * 🔹 **Ejemplos de uso:**
+     *
+     * **Ejemplo 1 – Orden ascendente por dimensión 'coste' (sin incluir sin peso)**
+     * ```javascript
+     * const ordenados = nodo.adyacentes_ordenados_por_peso('coste', true, false);
+     * // Solo aparecen enlaces que tienen la dimensión 'coste'.
+     * // Ordenados del coste más bajo al más alto.
+     * ```
+     *
+     * **Ejemplo 2 – Orden descendente incluyendo todos (los sin peso como 0)**
+     * ```javascript
+     * const ordenados = nodo.adyacentes_ordenados_por_peso(null, false, true);
+     * // Los que no tienen peso en la dimensión por defecto se consideran peso 0
+     * // y aparecen al final (por ser los menores en orden descendente).
+     * ```
+     *
+     * **Ejemplo 3 – Iterar resultados**
+     * ```javascript
+     * nodo.adyacentes_ordenados_por_peso('distancia').forEach(item => {
+     *     console.log(`Enlace: ${item.nombre_enlace}, Nodo: ${item.nodo.id()}, Peso: ${item.peso}`);
+     * });
+     * ```
+     *
+     * ---
+     * 🔗 **Métodos relacionados:**
+     * - {@link Nodos.NodoElectrico#peso peso()} para consultar un peso individual.
+     * - {@link Nodos.NodoElectrico#pesos pesos()} para obtener todos los pesos de un enlace.
+     * - {@link Nodos.NodoElectrico#_peso _peso()} para asignar o acumular pesos.
+     *
+     * @param {string|null} [dimension=null]         Dimensión por la que ordenar. `null` para la por defecto.
+     * @param {boolean}     [ascendente=true]        `true` para ascendente, `false` para descendente.
+     * @param {boolean}     [incluir_sin_peso=false] `true` para incluir enlaces sin la dimensión (peso 0 implícito).
+     *
+     * @returns {Array<{nombre_enlace: string, nodo: NodoElectrico, peso: *}>} Lista ordenada.
+     *
+     * @see peso
+     * @since 1.2.9
+     */
+    adyacentes_ordenados_por_peso(dimension = null, ascendente = true, incluir_sin_peso = false) {
+        const fase = NodoElectrico._fase_actual;
+        const adyacentes_fase = this._adyacentes?.get(fase);
+        if (!adyacentes_fase || adyacentes_fase.size === 0) return [];
+
+        const items = [];
+
+        for (const [nombre_enlace, valor] of adyacentes_fase) {
+            const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
+            let peso = null;
+
+            if (valor instanceof Enlace && valor.pesos !== null) {
+                if (typeof valor.pesos === 'object') {
+                    const clave = dimension ?? '';
+                    peso = valor.pesos[clave] ?? null;
+                } else {
+                    if (dimension === null) {
+                        peso = valor.pesos;
+                    }
+                }
+            }
+
+            if (peso !== null || incluir_sin_peso) {
+                items.push({ nombre_enlace, nodo, peso });
+            }
+        }
+
+        items.sort((a, b) => {
+            const pesoA = a.peso ?? 0;   // implícito 0
+            const pesoB = b.peso ?? 0;
+            if (pesoA === pesoB) return 0;
+            return ascendente
+                ? (pesoA < pesoB ? -1 : 1)
+                : (pesoA > pesoB ? -1 : 1);
+        });
+
+        return items;
+    }
+    /**
+     * Asigna un adyacente con nombre único y además le asigna un peso (fase actual).
+     *
+     * @param {NodoElectrico} un_nodo   Nodo a enlazar.
+     * @param {*}             peso      Peso a asignar.
+     * @param {string|null}   [dimension=null] Dimensión del peso.
+     *
+     * @returns {string|null} Nombre del enlace generado, o null si hubo error.
+     *
+     * @see _adyacente
+     * @see _peso
+     * @since 1.2.9
+     */
+    _adyacente_con_peso(un_nodo, peso, dimension = null) {
+        const nombre_enlace = this._adyacente(un_nodo);
+        if (nombre_enlace !== null) {
+            this._peso(nombre_enlace, peso, dimension);
+        }
+        return nombre_enlace;
+    }
+
+    /**
+     * Establece un nodo adyacente con nombre de enlace específico y le asigna un peso.
+     *
+     * @param {NodoElectrico} un_nodo    Nodo a enlazar.
+     * @param {string}        enlace     Nombre del enlace.
+     * @param {*}             peso       Peso a asignar.
+     * @param {string|null}   [dimension=null] Dimensión.
+     * @param {boolean}       [reemplazar=false] Si true, permite reemplazar.
+     *
+     * @returns {boolean} True si éxito.
+     *
+     * @see _adyacente_en
+     * @see _peso
+     * @since 1.2.9
+     */
+    _adyacente_con_peso_en(un_nodo, enlace, peso, dimension = null, reemplazar = false) {
+        const exito = this._adyacente_en(un_nodo, enlace, reemplazar);
+        if (exito) {
+            this._peso(enlace, peso, dimension, false);// asignación directa
+        }
+        return exito;
+    }
+    
     /*************************************************************************************************************/
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -2876,7 +3294,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     imprimir() {
         const id = this.id();
         const dato = this.dato();
-       // const adyacentes = this.adyacentes();
 
         let html = `<div id="nodo-${id}" style="margin-bottom:20px;">`;
         html += `>>NODO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
@@ -2885,10 +3302,10 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         else if (dato === null) html += "null";
         else html += "este dato no es un string";
 
-        html +="<br/>Referencias: "+this._referencias;
-        html +="<br/>Capacidad: "+this.#capacidad;
-        html +="<br/>Fuga: "+this.#fuga;
-        html +="<br/>Energia: "+this.#energia;//aca tengo que modificar cuando haga la itnerfaz energia
+        html += "<br/>Referencias: "+this._referencias;
+        html += "<br/>Capacidad: "+this.#capacidad;
+        html += "<br/>Fuga: "+this.#fuga;
+        html += "<br/>Energia: "+this.#energia;
         html += "<br/>Adyacentes:<br/>";
       
         if (this._adyacentes!==undefined) {
@@ -2897,9 +3314,9 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             for (const [fase, adyacentes] of fases) {
                 html += "<h3>fase: "+fase+"</h3>";
                 html += "<ul>";
-                console.log(adyacentes);
-                for (const [enlace, adyacente] of adyacentes){
-                  html += `<li>[${enlace}] => <a href="#nodo-${adyacente.id()}">${adyacente.id()}</a></li>`;
+                for (const [enlace, valor] of adyacentes){
+                    const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
+                    html += `<li>[${enlace}] => <a href="#nodo-${nodo.id()}">${nodo.id()}</a></li>`;
                 }
                 html += "</ul>"
             }
@@ -2914,7 +3331,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             for (const [idnodo, fases] of nodos) {
                 html += "<h3>idnodo: "+idnodo+"</h3>";
                 html += "<ul>";
-                //console.log(incidentes);
                 for (const [fase, incidentes] of fases){
                     html += "<h4>fase: "+fase+"</h4>";
                     html += "<ul>";  
@@ -2997,7 +3413,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
         console.log(`\n>> NODO ${id}${this.es_especial() ? " (ESP)" : ""}`);
         
-        // Dato
         if (typeof dato === "string") console.log("Dato:", dato);
         else if (dato === null) console.log("Dato: null");
         else console.log("Dato: este dato no es un string");
@@ -3007,20 +3422,19 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         console.log("Fuga:", this.#fuga);
         console.log("Energía:", this.#energia);
 
-        // --- ADYACENTES ---
         console.log("Adyacentes:");
         if (this._adyacentes !== undefined) {
             for (const [fase, adyacentes] of this._adyacentes) {
                 console.log(`  Fase: ${fase}`);
-                for (const [enlace, adyacente] of adyacentes) {
-                    console.log(`    [${enlace}] => Nodo ${adyacente.id()}`);
+                for (const [enlace, valor] of adyacentes) {
+                    const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
+                    console.log(`    [${enlace}] => Nodo ${nodo.id()}`);
                 }
             }
         } else {
             console.log("  No tiene");
         }
 
-        // --- INCIDENTES ---
         console.log("Incidentes:");
         if (this._incidentes !== undefined) {
             for (const [idnodo, fases] of this._incidentes) {
@@ -3041,6 +3455,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
         return true;
     }
+
 
     /**
      * Imprime todos los nodos de la superestructura en formato de texto (modo consola).

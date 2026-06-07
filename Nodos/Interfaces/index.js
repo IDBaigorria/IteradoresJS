@@ -13,8 +13,10 @@ import { Impresion } from './Impresion.js';
 import { Energia } from './Energia.js';
 import { FabricaDeNodosElectricos } from './FabricaDeNodosElectricos.js';
 import { Fase } from './Fase.js';
+import { Peso } from './Peso.js';
+import { AdyacenteConPeso } from './AdyacenteConPeso.js';
 /*import { Alertas } from './Alertas.js';
 import { Errores } from './Errores.js';
 import { ErroresYAlertas } from './ErroresYAlertas.js';*/
 
-export { FabricaDeNodos, Datos, Adyacentes, FabricaDeNodosElectricos, Fase, Incidentes, IncidentesDobleVia, Energia, AccesoASuperestructura ,AccesoAEspeciales, Impresion }
+export { FabricaDeNodos, Datos, Adyacentes, FabricaDeNodosElectricos, Fase, Incidentes, IncidentesDobleVia, Energia, AccesoASuperestructura ,AccesoAEspeciales, Impresion, Peso, AdyacenteConPeso }
