@@ -57,31 +57,21 @@ class Errores {
    * centralizado, junto con la pila de llamadas, permitiendo al programador
    * diagnosticar y depurar más fácilmente el origen de los problemas.
    * 
-   * A diferencia de {@link Nucleo.Interfaces.Errores.imprimir_errores imprimir_errores()},
-   * este método está especialmente pensado para mostrar los errores
-   * directamente en la consola del navegador en un formato más legible.
+   * La elección del formato de salida se basa en la configuración establecida en
+   * {@link ./classes/Iteradores-Configuracion-Entorno.html Entorno}.
+   * Si {@link ./classes/Iteradores-Configuracion-Entorno.html#method_es_consola Entorno::es_consola()}
+   * retorna `true`, se delega en {@link _imprimir_errores_consola()}.
+   * En caso contrario, se utiliza {@link _imprimir_errores_html()}.
+   *
+   * Para modificar el tipo de salida durante la ejecución, invoque
+   * {@link ./classes/Iteradores-Configuracion-Entorno.html#method_establecer_tipo_salida Entorno::establecer_tipo_salida()}.
+   * 
    * @returns {void}
    */
   static imprimir_errores() {
     throw new Error("Método imprimir_errores() debe ser implementado por la clase que herede.");
   }
 
-  /**
-   * Imprime en consola la lista de errores registrados.
-   * 
-   * Este método muestra todos los mensajes de error que fueron agregados
-   * con llamadas a {@link Nucleo.Interfaces.Errores._error _error()}, al sistema 
-   * centralizado, junto con la pila de llamadas, permitiendo al programador
-   * diagnosticar y depurar más fácilmente el origen de los problemas.
-   * 
-   * A diferencia de {@link Nucleo.Interfaces.Errores.imprimir_errores imprimir_errores()},
-   * este método está especialmente pensado para mostrar los errores
-   * directamente en la consola del navegador en un formato más legible.
-   * @returns {void}
-   */
-  static imprimir_errores_consola() {
-    throw new Error("Método imprimir_errores_consola() debe ser implementado por la clase que herede.");
-  }
 
   /**
    * Devuelve un string HTML con la lista de errores registrados.

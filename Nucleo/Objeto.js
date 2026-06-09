@@ -1,4 +1,4 @@
-import { Conf } from '../Configuracion/index.js';
+import { Conf, Entorno } from '../Configuracion/index.js';
 import { Id, ErroresYAlertas } from './Interfaces/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 
@@ -59,7 +59,6 @@ console.log("Objetos");
  *
  * - Visualización de errores y alertas usando:
  *   - [imprimir_errores]{@link Nucleo.Objeto.imprimir_errores}
- *   - [imprimir_errores_consola]{@link Nucleo.Objeto.imprimir_errores_consola}
  *   - [html_errores]{@link Nucleo.Objeto.html_errores}
  *   - Y sus equivalentes en alertas
  *
@@ -178,7 +177,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * 
    * La lista de errores puede luego visualizarse usando métodos como:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    * - [json_errores()]{@link Nucleo.Objeto.json_errores}
    *
@@ -224,7 +222,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * 
    * La lista de errores puede luego visualizarse usando métodos como:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    * - [html_errores()]{@link Nucleo.Objeto.json_errores}
    * 
@@ -261,7 +258,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    *
    * La lista de errores puede luego visualizarse usando métodos como:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    * - [json_errores()]{@link Nucleo.Objeto.json_errores}
    *
@@ -335,117 +331,75 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @see Objeto._error
    */
   static agregar_error(error) {
-    // Inicialización perezosa
-    if (this._errores == null) {
-      this._errores = [];
-    }
+
     const ahora = new Date();
 
     // Capturar pila de llamadas (sin incluir esta función misma)
     const stack = new Error().stack
       ?.split("\n")
-      .slice(3, this._limite_pila_de_llamadas_errores) // saltar las 2 primeras líneas irrelevantes
+      .slice(3, Objeto._limite_pila_de_llamadas_errores) // saltar las 2 primeras líneas irrelevantes
       .map(l => l.trim());
-    this._errores[this._contador_errores] = {
+    Objeto._errores[Objeto._contador_errores] = {
       fecha: ahora.toISOString(),
       mensaje: error,
       pila: stack
     };
 
-    this._contador_errores++;
-    console.log(this._errores);
+    Objeto._contador_errores++;
+    console.log(Objeto._errores);
   }
   /**
-   * Imprime en la consola del navegador todos los errores registrados
-   * ([Interface Errores]{@link Nucleo.Interfaces.Errores}).
+   * Imprime los errores en la consola del navegador o terminal.
    *
-   * Este metodo pertenece a las interfaces:
-	 * - [Interfaz Errores]{@link Nucleo.Interfaces.Errores}
-	 * - [Interfaz ErroresYAlertas]{@link Nucleo.Interfaces.ErroresYAlertas}
+   * Método privado invocado por {@link Objeto.imprimir_errores} cuando el tipo de
+   * salida configurado en {@link Configuracion.Entorno.es_consola Entorno.es_consola()}
+   * es `true`.
+   *
+   * Muestra cada error con fecha, mensaje, origen y la pila de llamadas.
    * 
-   * Este método muestra todos los mensajes de error que fueron agregados
-   * con llamadas a {@link Nucleo.Objeto._error _error()}, al sistema 
-   * centralizado, junto con la pila de llamadas, permitiendo al programador
-   * diagnosticar y depurar más fácilmente el origen de los problemas.
-   * 
-   * A diferencia de {@link Nucleo.Objeto.imprimir_errores imprimir_errores()},
-   * este método está especialmente pensado para mostrar los errores
-   * directamente en la consola del navegador en un formato más legible.
+   * Los colores de la consola se obtienen de
+   * {@link Configuracion.Conf.ERRORES_COLORES} y se aplican con el especificador `%c`
+   * de `console.log`. Cambie esas propiedades para variar la apariencia.
    *
-   * La lista de errores puede visualizarse usando también:
-   * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [html_errores()]{@link Nucleo.Objeto.html_errores}
-   * - [json_errores()]{@link Nucleo.Objeto.json_errores}
+   * @returns {void}
+   * @private
+   * @since 1.3.0
    *
-   * Configuración relacionada:
-	 * - Para activar o desactivar la recoleccion de forma predeterminada (tambien puede hacerse dinamicamente con los metodos relacionados de mas abajo)
-   *     - [Conf.ACTIVAR_ERRORES]{@link Configuracion.Conf#ACTIVAR_ERRORES}
-	 * - Para determinar cuánta información de la pila de llamadas se incluye junto al alerta registrado. 
-   *     - [Conf.ERRORES_Y_ALERTAS__PILA_DE_LLAMADAS__LIMITE]{@link Configuracion.Conf#ERRORES_Y_ALERTAS__PILA_DE_LLAMADAS__LIMITE}
-	 * 
-	 * Dependiendo de dicha configuración, se puede reducir el consumo de memoria impidiendo la recoleccion 
-	 * o limitando la profundidad de la traza 
-
-   *
-   * Métodos relacionados:
-   * - [_error]{@link Nucleo.Objeto._error}
-   * - [activar_errores()]{@link Nucleo.Objeto.activar_errores}
-   * - [desactivar_errores()]{@link Nucleo.Objeto.desactivar_errores}
-   * - [activar_errores_y_alertas()]{@link Nucleo.Objeto.activar_errores_y_alertas}
-   * - [desactivar_errores_y_alertas()]{@link Nucleo.Objeto.desactivar_errores_y_alertas}
-   *
-   * @example
-   * export class MiClase extends Objeto {
-   *   una_funcion() {
-   *      if (...) {
-   *         MiClase._error("Error desde MiClase");
-   *         return false;
-   *      }
-   *      return true;
-   *   }
-   * }
-   * 
-   * const miObjeto = new MiClase();
-   * if (!miObjeto.una_funcion()) {
-   *   // ✅ Imprime los errores en la consola
-   *   MiClase.imprimir_errores_consola();
-   * }
-   *
-   * @returns {void} No devuelve ningún valor.
+   * @see Objeto.imprimir_errores
+   * @see Configuracion.Entorno.es_consola
    */
-  static imprimir_errores_consola() {
+  static _imprimir_errores_consola() {
     if (!this._errores || this._errores.length === 0) {
-      console.log("(No hay errores registrados)");
-      return;
+        console.log("%c(No hay errores registrados)", `color: ${Conf.ERRORES_COLORES.texto}; background: ${Conf.ERRORES_COLORES.fondo};`);
+        return;
     }
 
-    console.log("===== ERRORES =====");
+    const estilo = `color: ${Conf.ERRORES_COLORES.texto}; background: ${Conf.ERRORES_COLORES.fondo};`;
+    console.log("%c===== ERRORES =====", estilo);
 
     for (const error of this._errores) {
-      const pila = error.pila || [];
-      const cant = pila.length;
-      const ini = 0; // en JS no necesitamos saltar niveles "irrelevantes" como en PHP
+        const pila = error.pila || [];
+        const cant = pila.length;
+        const ini = 0;
 
-      // Origen: primera línea significativa de la pila
-      const origen = pila[ini] ?? "(desconocido)";
-      const firma_origen = Objeto._linea_stack(origen);
+        const origen = pila[ini] ?? "(desconocido)";
+        const firma_origen = Objeto._linea_stack(origen);
 
-      console.log(`[${error.fecha}] ${error.mensaje}`);
-      if (firma_origen) {
-        console.log(`  Origen: ${firma_origen}`);
-      }
+        console.log(`%c[${error.fecha}] ${error.mensaje}`, estilo);
+        if (firma_origen) {
+            console.log(`%c  Origen: ${firma_origen}`, estilo);
+        }
 
-      // Resto de la pila
-      if (ini+1<cant){
-        console.log("  Pila de llamadas:");
-      }
-      for (let i = ini + 1; i < cant; i++) {
-        const nivel = pila[i];
-        const firma = this._linea_stack(nivel);
-        console.log(`   → ${firma}`);
-      }
+        if (ini + 1 < cant) {
+            console.log(`%c  Pila de llamadas:`, estilo);
+        }
+        for (let i = ini + 1; i < cant; i++) {
+            const nivel = pila[i];
+            const firma = this._linea_stack(nivel);
+            console.log(`%c   → ${firma}`, estilo);
+        }
 
-      console.log("------------------------");
+        console.log("%c------------------------", estilo);
     }
   }
 
@@ -461,8 +415,21 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * centralizado, junto con la pila de llamadas, permitiendo al programador
    * diagnosticar y depurar más fácilmente el origen de los problemas.
    *
+   * La elección del formato de salida se basa en la configuración establecida en
+   * {@link Configuracion.Entorno Entorno}.
+   * Si {@link Configuracion.Entorno.es_consola Entorno.es_consola()}
+   * retorna `true`, se delega en {@link #_imprimir_errores_consola}.
+   * En caso contrario, se utiliza {@link #_imprimir_errores_html}.
+   *
+   * Para modificar el tipo de salida durante la ejecución, invoque
+   * {@link Configuracion.Entorno.establecer_tipo_salida Entorno.establecer_tipo_salida()}.
+   * 
+   * El aspecto visual de los errores se controla con
+   * {@link Configuracion.Conf.ERRORES_COLORES} y el contenedor de destino se
+   * identifica mediante {@link Configuracion.Conf.ERRORES_CONTENEDOR_ID}.
+   * Personalice esas propiedades según sus necesidades.
+   * 
    * La lista de errores puede visualizarse usando también:
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    * - [json_errores()]{@link Nucleo.Objeto.json_errores}
    *
@@ -503,60 +470,80 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @returns {void} No devuelve ningún valor.
    */
   static imprimir_errores() {
-    if (!this._errores || this._errores.length === 0) {
-      console.warn("(No hay errores registrados)");
-      return;
+      if (Entorno.es_consola()) {
+          this._imprimir_errores_consola();
+      } else {
+          this._imprimir_errores_html();
+      }
+  }
+
+
+  /**
+   * Imprime los errores en formato HTML dentro del cuerpo del documento.
+   *
+   * Método auxiliar invocado internamente por {@link imprimir_errores()} cuando el
+   * tipo de salida del entorno es HTML.
+   *
+   * Genera un bloque visual con cada error, su fecha, mensaje, origen y pila de
+   * llamadas, insertándolo directamente en la página.
+   * 
+   * El bloque HTML se inserta en el elemento con id
+   * {@link Configuracion.Conf.ERRORES_CONTENEDOR_ID} y recibe los colores definidos
+   * en {@link Configuracion.Conf.ERRORES_COLORES}. Modifique ambas constantes para
+   * adaptarlo a su interfaz.
+   *
+   * @return void
+   * @private
+   * @since 1.3.0
+   *
+   * @see imprimir_errores()
+   * @see Configuracion.Entorno::es_consola()
+   */
+  static _imprimir_errores_html() {
+    if (!Objeto._errores || Objeto._errores.length === 0) {
+        console.warn("(No hay errores registrados)");
+        return;
     }
 
-    // Buscar contenedor o crearlo
-    let contenedor = document.getElementById("errores-log");
+    const colores = Conf.ERRORES_COLORES;
+    const contenedor_id = Conf.ERRORES_CONTENEDOR_ID;
+
+    let contenedor = document.getElementById(contenedor_id);
     if (!contenedor) {
-      contenedor = document.createElement("div");
-      contenedor.id = "errores-log";
-      contenedor.style.cssText = `
-        background:#fee;
-        color:#900;
-        padding:1em;
-        margin:1em 0;
-        border:1px solid #c00;
-        font-family: monospace;
-        white-space: pre-wrap;
-      `;
-      document.body.appendChild(contenedor);
+        contenedor = document.createElement("div");
+        contenedor.id = contenedor_id;
+        contenedor.style.cssText = `
+            background: ${colores.fondo};
+            color: ${colores.texto};
+            padding: 1em;
+            margin: 1em 0;
+            border: 1px solid ${colores.borde};
+            font-family: monospace;
+            white-space: pre-wrap;
+        `;
+        document.body.appendChild(contenedor);
     }
 
-    // Limpiar antes de escribir
     contenedor.innerHTML = "<h3>===== ERRORES =====</h3>";
 
-    for (const error of this._errores) {
-      const pila = error.pila || [];
-      const cant = pila.length;
-      const ini = 0; // no necesitamos saltar niveles en JS
+    for (const error of Objeto._errores) {
+        const pila = error.pila || [];
+        const cant = pila.length;
+        const ini = 0;
+        const origen = pila[ini] ?? "(desconocido)";
+        const firma_origen = Objeto._linea_stack(origen);
 
-      // Origen: primera línea significativa
-      const origen = pila[ini] ?? "(desconocido)";
-      const firma_origen = this._linea_stack(origen);
-
-      // Construir bloque de error
-      let html = `<div style="margin-bottom:1em;">`;
-      html += `<strong>[${error.fecha}] ${error.mensaje}</strong><br/>`;
-
-      if (firma_origen) {
-        html += `<em>Origen:</em> ${firma_origen}<br/>`;
-      }
-      if (ini+1<cant){
-        html += `<em>Pila de llamadas:</em><br/>`;
-      }
-      for (let i = ini + 1; i < cant; i++) {
-        const nivel = pila[i];
-        const firma = this._linea_stack(nivel);
-        html += `&nbsp;&nbsp;→ ${firma}<br/>`;
-      }
-
-      html += `</div>`;
-
-      // Agregar al contenedor
-      contenedor.innerHTML += html;
+        let html = `<div style="margin-bottom:1em;">`;
+        html += `<strong>[${error.fecha}] ${error.mensaje}</strong><br/>`;
+        if (firma_origen) html += `<em>Origen:</em> ${firma_origen}<br/>`;
+        if (ini + 1 < cant) html += `<em>Pila de llamadas:</em><br/>`;
+        for (let i = ini + 1; i < cant; i++) {
+            const nivel = pila[i];
+            const firma = Objeto._linea_stack(nivel);
+            html += `&nbsp;&nbsp;→ ${firma}<br/>`;
+        }
+        html += `</div>`;
+        contenedor.innerHTML += html;
     }
   }
   /**
@@ -573,13 +560,11 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * diagnosticar y depurar más fácilmente el origen de los problemas.
    * 
    * A diferencia de {@link Nucleo.Objeto.imprimir_errores imprimir_errores()}
-   * y {@link Nucleo.Objeto.imprimir_errores_consola imprimir_errores_consola()},
    * este método no imprime directamente los errores, sino que devuelve
    * un bloque HTML listo para insertarse en el DOM y mostrarse al usuario.
    *
    * La lista de errores puede visualizarse usando también:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [json_errores()]{@link Nucleo.Objeto.json_errores}
    *
    * Configuración relacionada:
@@ -667,7 +652,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * diagnosticar y depurar más fácilmente el origen de los problemas.
    * 
    * A diferencia de {@link Nucleo.Objeto.imprimir_errores imprimir_errores()}
-   * y {@link Nucleo.Objeto.imprimir_errores_consola imprimir_errores_consola()},
    * este método no imprime directamente los errores, sino que devuelve
    * un bloque JSON
    * Esto permite transportar o almacenar la
@@ -675,7 +659,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    *
    * La lista de errores tambien puede visualizarse usando métodos como:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    *
    * Configuración relacionada:
@@ -975,116 +958,76 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @see Objeto._alerta
    */
   static agregar_alerta(alerta) {
-    // Inicialización perezosa
-    if (this._alertas == null) {
-      this._alertas = [];
-    }
+
     const ahora = new Date();
 
     // Capturar pila de llamadas (sin incluir esta función misma)
     const stack = new Error().stack
       ?.split("\n")
-      .slice(3, this._limite_pila_de_llamadas_alertas) // saltar las 3 primeras líneas irrelevantes
+      .slice(3, Objeto._limite_pila_de_llamadas_alertas) // saltar las 3 primeras líneas irrelevantes
       .map(l => l.trim());
-    this._alertas[this._contador_alertas] = {
+    Objeto._alertas[Objeto._contador_alertas] = {
       fecha: ahora.toISOString(),
       mensaje: alerta,
       pila: stack
     };
 
-    this._contador_alertas++;
-    console.log(this._alertas);
+    Objeto._contador_alertas++;
+   // console.log(this._alertas);
   }
   /**
-   * Imprime en la consola del navegador todos los alertas registrados
-   * ([Interface Alertas]{@link Nucleo.Interfaces.Alertas}).
+   * Imprime las alertas en la consola del navegador o terminal.
    *
-   * Este metodo pertenece a las interfaces:
-	 * - [Interfaz Alertas]{@link Nucleo.Interfaces.Alertas}
-	 * - [Interfaz ErroresYAlertas]{@link Nucleo.Interfaces.ErroresYAlertas}
+   * Método privado invocado por {@link Objeto.imprimir_alertas} cuando el tipo de
+   * salida configurado en {@link Configuracion.Entorno.es_consola Entorno.es_consola()}
+   * es `true`.
+   *
+   * Muestra cada alerta con fecha, mensaje, origen y la pila de llamadas.
    * 
-   * Este método muestra todos los mensajes de alerta que fueron agregados
-   * con llamadas a {@link Nucleo.Objeto._alerta _alerta()}, al sistema 
-   * centralizado, junto con la pila de llamadas, permitiendo al programador
-   * diagnosticar y depurar más fácilmente el origen de los problemas.
-   * 
-   * A diferencia de {@link Nucleo.Objeto.imprimir_alertas imprimir_alertas()},
-   * este método está especialmente pensado para mostrar los alertas
-   * directamente en la consola del navegador en un formato más legible.
+   * Los colores aplicados a la consola provienen de 
+   * {@link Configuracion.Conf.ALERTAS_COLORES} y se aplican mediante `console.log`
+   * con el especificador `%c`. Ajuste esas propiedades para modificar la
+   * presentación.
    *
-   * La lista de alertas puede visualizarse usando también:
-   * - [imprimir_alertas()]{@link Nucleo.Objeto.imprimir_alertas}
-   * - [html_alertas()]{@link Nucleo.Objeto.html_alertas}
-   * - [json_alertas()]{@link Nucleo.Objeto.json_alertas}
+   * @returns {void}
+   * @private
+   * @since 1.3.0
    *
-   * Configuración relacionada:
-	 * - Para activar o desactivar la recoleccion de forma predeterminada (tambien puede hacerse dinamicamente con los metodos relacionados de mas abajo)
-   *     - [Conf.ACTIVAR_ALERTAS]{@link Configuracion.Conf#ACTIVAR_ALERTAS}
-	 * - Para determinar cuánta información de la pila de llamadas se incluye junto al error registrado.     		
-   *     - [Conf.ERRORES_Y_ALERTAS__PILA_DE_LLAMADAS__LIMITE]{@link Configuracion.Conf#ERRORES_Y_ALERTAS__PILA_DE_LLAMADAS__LIMITE}
-   * 
-	 * Dependiendo de dicha configuración, se puede reducir el consumo de memoria impidiendo la recoleccion 
-	 * o limitando la profundidad de la traza  
-   *
-   * Métodos relacionados:
-   * - [_alerta]{@link Nucleo.Objeto._alerta}
-   * - [activar_alertas()]{@link Nucleo.Objeto.activar_alertas}
-   * - [desactivar_alertas()]{@link Nucleo.Objeto.desactivar_alertas}
-   * - [activar_errores_y_alertas()]{@link Nucleo.Objeto.activar_errores_y_alertas}
-   * - [desactivar_errores_y_alertas()]{@link Nucleo.Objeto.desactivar_errores_y_alertas}
-   *
-   * @example
-   * export class MiClase extends Objeto {
-   *   una_funcion() {
-   *      if (...) {
-   *         MiClase._alerta("Alerta desde MiClase");
-   *         return false;
-   *      }
-   *      return true;
-   *   }
-   * }
-   * 
-   * const miObjeto = new MiClase();
-   * if (!miObjeto.una_funcion()) {
-   *   // ✅ Imprime los alertas en la consola
-   *   MiClase.imprimir_alertas_consola();
-   * }
-   *
-   * @returns {void} No devuelve ningún valor.
+   * @see Objeto.imprimir_alertas
+   * @see Configuracion.Entorno.es_consola
    */
-  static imprimir_alertas_consola() {
+  static _imprimir_alertas_consola() {
     if (!this._alertas || this._alertas.length === 0) {
-      console.log("(No hay alertas registrados)");
-      return;
+        console.log("%c(No hay alertas registrados)", `color: ${Conf.ALERTAS_COLORES.texto}; background: ${Conf.ALERTAS_COLORES.fondo};`);
+        return;
     }
 
-    console.log("===== ALERTAS =====");
+    const estilo = `color: ${Conf.ALERTAS_COLORES.texto}; background: ${Conf.ALERTAS_COLORES.fondo};`;
+    console.log("%c===== ALERTAS =====", estilo);
 
     for (const alerta of this._alertas) {
-      const pila = alerta.pila || [];
-      const cant = pila.length;
-      const ini = 0; // en JS no necesitamos saltar niveles "irrelevantes" como en PHP
+        const pila = alerta.pila || [];
+        const cant = pila.length;
+        const ini = 0;
 
-      // Origen: primera línea significativa de la pila
-      const origen = pila[ini] ?? "(desconocido)";
-      const firma_origen = Objeto._linea_stack(origen);
+        const origen = pila[ini] ?? "(desconocido)";
+        const firma_origen = Objeto._linea_stack(origen);
 
-      console.log(`[${alerta.fecha}] ${alerta.mensaje}`);
-      if (firma_origen) {
-        console.log(`  Origen: ${firma_origen}`);
-      }
+        console.log(`%c[${alerta.fecha}] ${alerta.mensaje}`, estilo);
+        if (firma_origen) {
+            console.log(`%c  Origen: ${firma_origen}`, estilo);
+        }
 
-      // Resto de la pila
-      if (ini+1<cant){
-        console.log("  Pila de llamadas:");
-      }
-      for (let i = ini + 1; i < cant; i++) {
-        const nivel = pila[i];
-        const firma = this._linea_stack(nivel);
-        console.log(`   → ${firma}`);
-      }
+        if (ini + 1 < cant) {
+            console.log(`%c  Pila de llamadas:`, estilo);
+        }
+        for (let i = ini + 1; i < cant; i++) {
+            const nivel = pila[i];
+            const firma = this._linea_stack(nivel);
+            console.log(`%c   → ${firma}`, estilo);
+        }
 
-      console.log("------------------------");
+        console.log("%c------------------------", estilo);
     }
   }
 
@@ -1100,8 +1043,21 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * centralizado, junto con la pila de llamadas, permitiendo al programador
    * diagnosticar y depurar más fácilmente el origen de los problemas.
    *
+   * La elección del formato de salida se basa en la configuración establecida en
+   * {@link Configuracion.Entorno Entorno}.
+   * Si {@link Configuracion.Entorno.es_consola Entorno.es_consola()}
+   * retorna `true`, se delega en {@link #_imprimir_alertas_consola}.
+   * En caso contrario, se utiliza {@link #_imprimir_alertas_html}.
+   *
+   * Para modificar el tipo de salida durante la ejecución, invoque
+   * {@link Configuracion.Entorno.establecer_tipo_salida Entorno.establecer_tipo_salida()}.
+   * 
+   * La salida visual se configura mediante {@link Configuracion.Conf.ALERTAS_COLORES}
+   * (colores de fondo, texto y borde) y se inserta en el contenedor con id
+   * {@link Configuracion.Conf.ALERTAS_CONTENEDOR_ID}. Cambie esas propiedades para
+   * personalizar la apariencia y la ubicación en el DOM.
+   * 
    * La lista de alertas puede visualizarse usando también:
-   * - [imprimir_alertas_consola()]{@link Nucleo.Objeto.imprimir_alertas_consola}
    * - [html_alertas()]{@link Nucleo.Objeto.html_alertas}
    * - [json_alertas()]{@link Nucleo.Objeto.json_alertas}
    *
@@ -1141,60 +1097,80 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @returns {void} No devuelve ningún valor.
    */
   static imprimir_alertas() {
-    if (!this._alertas || this._alertas.length === 0) {
-      console.warn("(No hay alertas registrados)");
-      return;
+    if (Entorno.es_consola()) {
+        this._imprimir_alertas_consola();
+    } else {
+        this._imprimir_alertas_html();
+    }
+  }
+
+  /**
+   * Imprime las alertas como HTML insertándolas en el DOM.
+   *
+   * Método privado invocado por {@link Objeto.imprimir_alertas} cuando el tipo de
+   * salida configurado en {@link Configuracion.Entorno.es_consola Entorno.es_consola()}
+   * es `false`.
+   *
+   * Genera un bloque visual con cada alerta, su fecha, mensaje, origen y pila de
+   * llamadas, añadiéndolo al final del documento.
+   * 
+   * El contenedor HTML se identifica con el id definido en 
+   * {@link Configuracion.Conf.ALERTAS_CONTENEDOR_ID} y sus colores se toman de
+   * {@link Configuracion.Conf.ALERTAS_COLORES}. Modifique esas constantes para
+   * alterar el estilo o el elemento de destino.
+   *
+   * @returns {void}
+   * @private
+   * @since 1.3.0
+   *
+   * @see Objeto.imprimir_alertas
+   * @see Configuracion.Entorno.es_consola
+   */
+  static _imprimir_alertas_html() {
+    if (!Objeto._alertas || Objeto._alertas.length === 0) {
+        console.warn("(No hay alertas registrados)");
+        return;
     }
 
-    // Buscar contenedor o crearlo
-    let contenedor = document.getElementById("alertas-log");
+    const colores = Conf.ALERTAS_COLORES;
+    const contenedor_id = Conf.ALERTAS_CONTENEDOR_ID;
+
+    let contenedor = document.getElementById(contenedor_id);
     if (!contenedor) {
-      contenedor = document.createElement("div");
-      contenedor.id = "alertas-log";
-      contenedor.style.cssText = `
-        background:#fee;
-        color:#900;
-        padding:1em;
-        margin:1em 0;
-        border:1px solid #c00;
-        font-family: monospace;
-        white-space: pre-wrap;
-      `;
-      document.body.appendChild(contenedor);
+        contenedor = document.createElement("div");
+        contenedor.id = contenedor_id;
+        contenedor.style.cssText = `
+            background: ${colores.fondo};
+            color: ${colores.texto};
+            padding: 1em;
+            margin: 1em 0;
+            border: 1px solid ${colores.borde};
+            font-family: monospace;
+            white-space: pre-wrap;
+        `;
+        document.body.appendChild(contenedor);
     }
 
-    // Limpiar antes de escribir
     contenedor.innerHTML = "<h3>===== ALERTAS =====</h3>";
 
-    for (const alerta of this._alertas) {
-      const pila = alerta.pila || [];
-      const cant = pila.length;
-      const ini = 0; // no necesitamos saltar niveles en JS
+    for (const alerta of Objeto._alertas) {
+        const pila = alerta.pila || [];
+        const cant = pila.length;
+        const ini = 0;
+        const origen = pila[ini] ?? "(desconocido)";
+        const firma_origen = Objeto._linea_stack(origen);
 
-      // Origen: primera línea significativa
-      const origen = pila[ini] ?? "(desconocido)";
-      const firma_origen = this._linea_stack(origen);
-
-      // Construir bloque de alerta
-      let html = `<div style="margin-bottom:1em;">`;
-      html += `<strong>[${alerta.fecha}] ${alerta.mensaje}</strong><br/>`;
-
-      if (firma_origen) {
-        html += `<em>Origen:</em> ${firma_origen}<br/>`;
-      }
-      if (ini+1<cant){
-        html += `<em>Pila de llamadas:</em><br/>`;
-      }
-      for (let i = ini + 1; i < cant; i++) {
-        const nivel = pila[i];
-        const firma = this._linea_stack(nivel);
-        html += `&nbsp;&nbsp;→ ${firma}<br/>`;
-      }
-
-      html += `</div>`;
-
-      // Agregar al contenedor
-      contenedor.innerHTML += html;
+        let html = `<div style="margin-bottom:1em;">`;
+        html += `<strong>[${alerta.fecha}] ${alerta.mensaje}</strong><br/>`;
+        if (firma_origen) html += `<em>Origen:</em> ${firma_origen}<br/>`;
+        if (ini + 1 < cant) html += `<em>Pila de llamadas:</em><br/>`;
+        for (let i = ini + 1; i < cant; i++) {
+            const nivel = pila[i];
+            const firma = Objeto._linea_stack(nivel);
+            html += `&nbsp;&nbsp;→ ${firma}<br/>`;
+        }
+        html += `</div>`;
+        contenedor.innerHTML += html;
     }
   }
   /**
@@ -1411,7 +1387,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * 
    * Las listas de errores y alertas pueden luego visualizarse usando métodos como:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    * - [json_errores()]{@link Nucleo.Objeto.json_errores}
    * - [imprimir_alertas()]{@link Nucleo.Objeto.imprimir_alertas}
@@ -1474,7 +1449,6 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    *
    * Las listas de errores y alertas pueden luego visualizarse usando métodos como:
    * - [imprimir_errores()]{@link Nucleo.Objeto.imprimir_errores}
-   * - [imprimir_errores_consola()]{@link Nucleo.Objeto.imprimir_errores_consola}
    * - [html_errores()]{@link Nucleo.Objeto.html_errores}
    * - [json_errores()]{@link Nucleo.Objeto.json_errores}
    * - [imprimir_alertas()]{@link Nucleo.Objeto.imprimir_alertas}

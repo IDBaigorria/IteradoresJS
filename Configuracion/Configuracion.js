@@ -163,7 +163,59 @@ class Conf {
    * @type {number}
    * @const 
    */
-  static TIEMPO_CICLO= 1.0 // segundos
+  static TIEMPO_CICLO= 1.0; // segundos
+    // ═══════════════════════════════════════════════════════════
+    // APARIENCIA DE BLOQUES DE DEPURACIÓN V1.3.0
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Colores de fondo, texto y borde para el bloque de errores.
+     * @type {{ fondo: string, texto: string, borde: string }}
+     */
+    static ERRORES_COLORES= {
+        fondo: '#fee',
+        texto: '#900',
+        borde: '#c00',
+    }
+    
+
+    /**
+     * Colores para el bloque de alertas.
+     * @type {{ fondo: string, texto: string, borde: string }}
+     */
+    static ALERTAS_COLORES= {
+        fondo: '#fffde7',
+        texto: '#864100',
+        borde: '#ffc107',
+    }
+
+    /**
+     * Colores para el bloque de impresión de nodos.
+     * @type {{ fondo: string, texto: string, borde: string }}
+     */
+    static NODOS_COLORES= {
+        fondo: '#eef6ff',
+        texto: '#003366',
+        borde: '#0066cc',
+    }
+
+    /**
+     * ID del elemento contenedor donde se insertan los bloques de errores.
+     * @type {string}
+     */
+    static ERRORES_CONTENEDOR_ID= 'errores-log';
+
+    /**
+     * ID del elemento contenedor para los bloques de alertas.
+     * @type {string}
+     */
+    static ALERTAS_CONTENEDOR_ID= 'alertas-log';
+
+    /**
+     * ID del elemento contenedor para los bloques de nodos.
+     * @type {string}
+     */
+    static NODOS_CONTENEDOR_ID= 'nodos-log';
 
   /* =========================
    BLOQUE: ASTROS PRECONFIGURADOS (OPCIÓN MIXTA)

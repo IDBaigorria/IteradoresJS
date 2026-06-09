@@ -132,11 +132,42 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return this.delegar("existe", nombre);
     }
 
-    /** @return {boolean} */
-    static imprimir(nombre) {
-        return this.delegar("imprimir", nombre);
+    /**
+     * Imprime todos los nodos de la superestructura en el formato adecuado
+     * según el entorno configurado (HTML o consola).
+     *
+     * Delega en {@link Nodos.Nodo#imprimir imprimir()} de cada nodo para la
+     * representación individual. La iteración se realiza a través de
+     * {@link Nodos.Nodo.por_cada_nodo_ejecutar}, usando el token interno que
+     * {@link Controlador} recibió durante la inicialización.
+     *
+     * Si la superestructura está vacía, emite una alerta y retorna `false`.
+     *
+     * @returns {boolean} `true` si se imprimió al menos un nodo, `false` en caso contrario.
+     *
+     * @since 1.3.0 Unifica imprimir_superestructura e imprimir_superestructura2.
+     *
+     * @see Nodos.Nodo#imprimir
+     * @see Configuracion.Entorno
+     */
+    static imprimir_superestructura() {
+        if (!Nodo.hay_nodos_en_superestructura()) {
+            Controlador._alerta("Controlador.imprimir_superestructura() — la superestructura está vacía");
+            return false;
+        }
+
+        // Encabezado opcional para consola
+        if (Entorno.es_consola()) {
+            const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
+            console.log("%c===== SUPERESTRUCTURA =====", estilo);
+        }
+
+        const funcion = nodo => nodo.imprimir();
+        Nodo.por_cada_nodo_ejecutar(Controlador.token, funcion, null);
+
+        return true;
     }
-    
+
     /** @type {boolean} */
     static inicializo = false;
 

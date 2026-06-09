@@ -1,5 +1,5 @@
 import { Objeto } from "../Nucleo/index.js";
-import { Conf } from '../Configuracion/index.js';
+import { Conf, Entorno } from '../Configuracion/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { FabricaDeNodos, Datos, Adyacentes, Incidentes, AccesoASuperestructura, AccesoAEspeciales, Impresion } from "./Interfaces/index.js";
 console.log("Nodo");
@@ -2331,14 +2331,24 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
 /*************************************************************************************************************/
 
     /**
-     * Imprime el nodo en formato HTML (Interfaz {@link Nodos.Interfaces.Impresion}).
+     * Imprime el nodo en el formato adecuado (HTML o consola) según el entorno configurado. (Interfaz {@link Nodos.Interfaces.Impresion}).
      *
-     * Muestra una representación visual del nodo con su id, dato, adyacencias y número de referencias.
-     * Pensada para uso en entornos de depuración o visualización dentro de un navegador.
+     * **Restricción de entorno:** solo se ejecuta en desarrollo o pruebas.
+     * En producción, emite una alerta y no genera salida, ya que este método está pensado
+     * exclusivamente para depuración.
      *
+     * Delega en los métodos privados {@link #_imprimir_consola} o {@link #_imprimir_html}
+     * dependiendo de {@link Configuracion.Entorno.es_consola Entorno.es_consola()}.
+     * Solo se muestra la información de la **fase actual** si la implementación la soporta
+     * (en esta clase base no hay fases, por lo que se muestran todos los adyacentes).
+     *
+     * La presentación del nodo se rige por {@link Configuracion.Conf.NODOS_COLORES}
+     * y, en modo HTML, el resultado se vuelca en el contenedor con id
+     * {@link Configuracion.Conf.NODOS_CONTENEDOR_ID}. Consulte esas propiedades para
+     * personalizar la salida.
+     * 
      * ---
      * 🔗 Otros métodos complementarios:
-     * - {@link Nodos.Nodo#imprimir2 imprimir2()} — versión en texto plano.
      * - {@link Nodos.Nodo#id id()} — obtiene el identificador del nodo.
      * - {@link Nodos.Nodo_dato dato()} — obtiene el dato asociado al nodo.
      * - {@link Nodos.Nodo#tiene_adyacente tiene_adyacente()} — comprueba adyacencias.
@@ -2346,38 +2356,126 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * ---
      * @example
      * nodo.imprimir(); // imprime el nodo como bloque HTML
+     * 
+     * @returns {void|string} En modo HTML devuelve el string; en modo consola imprime directamente.
+     * @since 1.3.0 Unificado; eliminado imprimir2.
      *
-     * @note Utiliza `console.log` o manipulación directa del DOM para mostrar HTML.
-     * @return {void}
+     * @see #_imprimir_consola
+     * @see #_imprimir_html
+     * @see Configuracion.Entorno
      */
     imprimir() {
-        const id = this.id();
-        const dato = this.dato();
-        const adyacentes = this.adyacentes();
-
-        let html = `<div id="nodo-${id}" style="margin-bottom:20px;">`;
-        html += `>>NODO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
-
-        if (typeof dato === "string") html += dato;
-        else if (dato === null) html += "null";
-        else html += "este dato no es un string";
-
-        html += "<br/>Adyacentes:<br/>";
-        if (this.tiene_adyacente()) {
-            html += "<ul>";
-            for (const [enlace, nodo] of adyacentes) {
-                html += `<li>[${enlace}] => <a href="#nodo-${nodo.id()}">${nodo.id()}</a></li>`;
-            }
-            html += "</ul>";
-        } else {
-            html += "No tiene<br/>";
+        if (!Entorno.permite_pruebas()) {
+            this.constructor._alerta('Impresión de nodos no permitida en entorno de producción.');
+            this.constructor._alerta('Impresión de nodos no permitida en entorno de producción.');
+            return;
         }
 
-        html += `Número de referencias a él: ${this._referencias}<br/>`;
-        html += `Fin Nodo <a href="#inicio">↑ Volver al inicio</a></div><br/>`;
-
-        return html;
+        if (Entorno.es_consola()) {
+            this._imprimir_consola();
+        } else {
+            return this._imprimir_html();
+        }
     }
+
+    /**
+     * Imprime el nodo en formato texto plano (consola).
+     *
+     * Muestra id, dato, adyacentes y número de referencias.
+     * 
+     * Los colores de la terminal se toman de {@link Configuracion.Conf.NODOS_COLORES}
+     * y se aplican mediante `%c` en `console.log`. Modifique esas constantes para
+     * cambiar la apariencia en consola.
+     *
+     * @returns {void}
+     * @private
+     * @since 1.3.0
+     */
+    _imprimir_consola() {
+        const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
+        const id = this.id();
+        const dato = this.dato();
+
+        console.log(`%c>> NODO ${id}${this.es_especial() ? " (ESP)" : ""}`, estilo);
+        if (typeof dato === "string") console.log(`%cDato: ${dato}`, estilo);
+        else if (dato === null) console.log(`%cDato: null`, estilo);
+        else console.log(`%cDato: este dato no es un string`, estilo);
+
+        console.log("%cAdyacentes:", estilo);
+        if (this.tiene_adyacente()) {
+            for (const [enlace, nodo] of this.adyacentes()) {
+                console.log(`%c  [${enlace}] => Nodo ${nodo.id()}`, estilo);
+            }
+        } else {
+            console.log("%c  No tiene", estilo);
+        }
+
+        console.log(`%cNúmero de referencias a él: ${this._referencias}`, estilo);
+        console.log(`%cFin Nodo`, estilo);
+    }
+
+    /**
+     * Imprime el nodo en formato HTML.
+     *
+     * Genera un bloque HTML con id, dato, adyacentes y referencias.
+     * 
+     * El bloque HTML se inserta en el elemento con id
+     * {@link Configuracion.Conf.NODOS_CONTENEDOR_ID} y utiliza los colores definidos
+     * en {@link Configuracion.Conf.NODOS_COLORES}. Ajuste esas propiedades para
+     * modificar el estilo o el contenedor de destino.
+     *
+     * @returns {string} Representación HTML del nodo.
+     * @private
+     * @since 1.3.0
+     */
+   _imprimir_html() {
+    const colores = Conf.NODOS_COLORES;
+    const contenedor_id = Conf.NODOS_CONTENEDOR_ID;
+
+    let contenedor = document.getElementById(contenedor_id);
+    if (!contenedor) {
+        contenedor = document.createElement("div");
+        contenedor.id = contenedor_id;
+        contenedor.style.cssText = `
+            background: ${colores.fondo};
+            color: ${colores.texto};
+            padding: 1em;
+            margin: 1em 0;
+            border: 1px solid ${colores.borde};
+            font-family: monospace;
+            white-space: pre-wrap;
+        `;
+        document.body.appendChild(contenedor);
+    }
+
+    const id = this.id();
+    const dato = this.dato();
+    const adyacentes = this.adyacentes();
+
+    let html = `<div style="margin-bottom:1em;">`;
+    html += `<strong>NODO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
+    if (typeof dato === "string") html += dato;
+    else if (dato === null) html += "null";
+    else html += "este dato no es un string";
+    html += `</strong><br/>`;
+
+    html += "Adyacentes:<br/>";
+    if (this.tiene_adyacente()) {
+        html += "<ul>";
+        for (const [enlace, nodo] of adyacentes) {
+            html += `<li>[${enlace}] => <a href="#nodo-${nodo.id()}" style="color:${colores.texto};">${nodo.id()}</a></li>`;
+        }
+        html += "</ul>";
+    } else {
+        html += "No tiene<br/>";
+    }
+
+    html += `Número de referencias a él: ${this._referencias}<br/>`;
+    html += `</div>`;
+
+    contenedor.innerHTML += html;
+  }
+    
 
     /**
      * Imprime todos los nodos de la superestructura en formato HTML.
@@ -2414,42 +2512,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
 
         return true;
     }
-    /**
-     * Imprime el nodo en formato texto plano (Interfaz {@link Nodos.Interfaces.Impresion}).
-     *
-     * Muestra en consola (CLI o devtools) una descripción del nodo con su id, dato y adyacencias.
-     * Útil para depuración en entorno de línea de comandos.
-     *
-     * ---
-     * 🔗 Otros métodos complementarios:
-     * - {@link Nodos.Nodo#imprimir imprimir()} — versión HTML.
-     * - {@link Nodos.Nodo#id id()} — obtiene el identificador del nodo.
-     * - {@link Nodos.Nodo_dato dato()} — obtiene el dato asociado al nodo.
-     *
-     * ---
-     * @example
-     * nodo.imprimir2(); // imprime el nodo en texto plano
-     *
-     * @note Devuelve `true` si se imprimió correctamente.
-     * @return {boolean}
-     */
-    imprimir2() {
-        const id = this.id();
-        const dato = this.dato();
 
-        console.log(`\n>>NODO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: ${dato ?? "null"}`);
-        console.log("Adyacentes:");
-        if (this.tiene_adyacente()) {
-            for (const [enlace, nodo] of this.adyacentes) {
-                console.log(`[${enlace}] => ${nodo.id()}`);
-            }
-        } else {
-            console.log("No tiene");
-        }
-        console.log(`Número de referencias a él: ${this._referencias}`);
-        console.log("Fin Nodo");
-        return true;
-    }
 
     /**
      * Imprime todos los nodos de la superestructura en formato de texto (modo consola).

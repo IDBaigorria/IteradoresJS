@@ -50,37 +50,26 @@ class Alertas {
   }
 
   /**
-   * Imprime en HTML la lista de alertas registrados.
+   * Imprime la lista de alertas registrados.
    * 
    * Este método muestra todos los mensajes de alerta que fueron agregados
    * con llamadas a {@link Nucleo.Interfaces.Alertas._alerta _alerta()}, al sistema 
    * centralizado, junto con la pila de llamadas, permitiendo al programador
    * diagnosticar y depurar más fácilmente el origen de los problemas.
    * 
-   * A diferencia de {@link Nucleo.Interfaces.Alertas.imprimir_alertas imprimir_alertas()},
-   * este método está especialmente pensado para mostrar las alertas
-   * directamente en la consola del navegador en un formato más legible.
+   * La elección del formato de salida se basa en la configuración establecida en
+   * {@link Configuracion.Entorno Entorno}.
+   * Si {@link Configuracion.Entorno.es_consola Entorno.es_consola()}
+   * retorna `true`, se delega en {@link #_imprimir_alertas_consola}.
+   * En caso contrario, se utiliza {@link #_imprimir_alertas_html}.
+   *
+   * Para modificar el tipo de salida durante la ejecución, invoque
+   * {@link Configuracion.Entorno.establecer_tipo_salida Entorno.establecer_tipo_salida()}.
+   * 
    * @returns {void}
    */
   static imprimir_alertas() {
     throw new Error("Método imprimir_alertas() debe ser implementado por la clase que herede.");
-  }
-
-  /**
-   * Imprime en consola la lista de alertas registrados.
-   * 
-   * Este método muestra todos los mensajes de alerta que fueron agregados
-   * con llamadas a {@link Nucleo.Interfaces.Alertas._alerta _alerta()}, al sistema 
-   * centralizado, junto con la pila de llamadas, permitiendo al programador
-   * diagnosticar y depurar más fácilmente el origen de los problemas.
-   * 
-   * A diferencia de {@link Nucleo.Interfaces.Alertas.imprimir_alertas imprimir_alertas()},
-   * este método está especialmente pensado para mostrar las alertas
-   * directamente en la consola del navegador en un formato más legible.
-   * @returns {void}
-   */
-  static imprimir_alertas_consola() {
-    throw new Error("Método imprimir_alertas_consola() debe ser implementado por la clase que herede.");
   }
 
   /**

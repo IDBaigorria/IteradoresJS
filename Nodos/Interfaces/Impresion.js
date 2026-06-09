@@ -1,43 +1,31 @@
 /**
- * Interfaz que define los métodos de impresión que debe implementar un nodo.
- * 
- * Estos métodos son implementados por la clase {@link Nodos.Nodo Nodo}.
- * 
- * Proporciona una forma estandarizada de representar un nodo
- * tanto en formato HTML como en formato texto (tipo shell o consola).
+ * Interfaz de impresión de un nodo.
+ *
+ * Define un único método `imprimir()` que se adapta automáticamente al tipo de
+ * salida configurado en {@link Configuracion.Entorno Entorno} (HTML o consola).
  *
  * @interface
  * @memberof Nodos.Interfaces
  * @since V3.2.5
  */
 class Impresion {
-
     /**
-     * Imprime el nodo en el documento HTML.
+     * Imprime el nodo en el formato adecuado según el tipo de salida del entorno.
+     *
+     * **Restricción de entorno:** solo se ejecuta en desarrollo o pruebas.
+     * En producción, emite una alerta y no genera salida, ya que este método está pensado
+     * exclusivamente para depuración.
      * 
-     * Este método genera un bloque HTML que muestra:
-     * - El identificador del nodo
-     * - Si es especial
-     * - Su dato (si es string o null)
-     * - La lista de adyacentes (con enlaces)
-     * - El número de referencias al nodo
-     * 
-     * Este método debería ser usado solo por programadores o
-     * para depuración visual.
-     * 
-     * @function
-     * @name Impresion.imprimir
-     * @abstract
-     * @throws {Error} Si el método no está implementado por la clase heredada.
-     * @example
-     * // Ejemplo de implementación en una clase Nodo:
-     * imprimir() {
-     *     console.log("Nodo representado en HTML");
-     * }
+     * Si `Entorno.es_consola()` → salida texto plano (consola).
+     * Si `Entorno.es_html()` → retorna un string HTML.
+     *
+     * @returns {void|string} En modo HTML devuelve el string; en modo consola imprime directamente.
+     * @since 1.3 Unificado con entorno; desaparece imprimir2.
      */
-    static imprimir() {
+    imprimir() {
         throw new Error("Método imprimir() debe ser implementado por la clase que herede.");
     }
+
     /**
      * Imprime todos los nodos de la superestructura.
      * 
@@ -51,9 +39,9 @@ class Impresion {
      * @returns {boolean} `true` si se imprimieron nodos, `false` si la superestructura está vacía.
      * @since V3.2.5
      */
-    static imprimir_superestructura() {
+/*    static imprimir_superestructura() {
         throw new Error("Método imprimir_superestructura() debe ser implementado por la clase que herede.");
-    }
+    }*/
 
     /**
      * Imprime el nodo en formato texto (tipo shell o consola).
@@ -77,9 +65,9 @@ class Impresion {
      *     console.log("Nodo representado en consola");
      * }
      */
-    static imprimir2() {
+   /* static imprimir2() {
         throw new Error("Método imprimir2() debe ser implementado por la clase que herede.");
-    }
+    }*/
     /**
      * Imprime todos los nodos de la superestructura en formato de texto (modo consola).
      * 
@@ -93,9 +81,9 @@ class Impresion {
      * @returns {boolean} `true` si se imprimieron nodos, `false` si la superestructura está vacía.
      * @since V3.2.5
      */
-    static imprimir_superestructura2() {
+ /*   static imprimir_superestructura2() {
         throw new Error("Método imprimir_superestructura2() debe ser implementado por la clase que herede.");
-    }
+    }*/
 
 }
 

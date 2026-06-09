@@ -1,6 +1,6 @@
 import { Objeto } from "../Nucleo/Objeto.js";
 import { Nodo } from "../Nodos/index.js";
-import { Conf } from '../Configuracion/index.js';
+import { Conf, Entorno } from '../Configuracion/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { generarUUID } from "../miscelaneas/generarUUID.js";
 import { IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso} from "./Interfaces/index.js";
@@ -3263,93 +3263,259 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
     
     /*************************************************************************************************************/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-//INTERFACE PARA IMPRIMIR LOS NODOS*************************************************/////////////////////////*/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-/*************************************************************************************************************/
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+    //INTERFACE PARA IMPRIMIR LOS NODOS*************************************************/////////////////////////*/
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+    /*************************************************************************************************************/
 
     /**
-     * Imprime el nodo en formato HTML (Interfaz {@link Nodos.Interfaces.Impresion}).
+     * Imprime el nodo en el formato adecuado (HTML o consola) según el entorno configurado.
      *
-     * Muestra una representación visual del nodo con su id, dato, adyacencias incidencias
-     * capacidad, fuga, energia y número de referencias.
-     * Pensada para uso en entornos de depuración o visualización dentro de un navegador.
+    * **Restricción de entorno:** solo se ejecuta en desarrollo o pruebas.
+    * En producción, emite una alerta y no genera salida, ya que este método está pensado
+    * exclusivamente para depuración.
+    * 
+     * Delega en los métodos privados {@link #_imprimir_consola} o {@link #_imprimir_html}
+     * dependiendo de {@link Configuracion.Entorno.es_consola Entorno.es_consola()}.
+     * **Solo se muestra la información de la fase activa** (propiedad estática `_fase_actual`).
+     * 
+     * La presentación del nodo se rige por {@link Configuracion.Conf.NODOS_COLORES}
+     * y, en modo HTML, el resultado se vuelca en el contenedor con id
+     * {@link Configuracion.Conf.NODOS_CONTENEDOR_ID}. Consulte esas propiedades para
+     * personalizar la salida.
      *
-     * ---
-     * 🔗 Otros métodos complementarios:
-     * - {@link Nodos.Nodo#imprimir2 imprimir2()} — versión en texto plano.
-     * - {@link Nodos.Nodo#id id()} — obtiene el identificador del nodo.
-     * - {@link Nodos.Nodo_dato dato()} — obtiene el dato asociado al nodo.
-     * - {@link Nodos.Nodo#tiene_adyacente tiene_adyacente()} — comprueba adyacencias.
+     * @returns {void|string} En modo HTML devuelve el string; en modo consola imprime directamente.
+     * @since 1.3.0 Unificado; eliminado imprimir2.
      *
-     * ---
-     * @example
-     * nodo.imprimir(); // imprime el nodo como bloque HTML
-     *
-     * @note Utiliza `console.log` o manipulación directa del DOM para mostrar HTML.
-     * @return {void}
+     * @see #_imprimir_consola
+     * @see #_imprimir_html
+     * @see Configuracion.Entorno
      */
     imprimir() {
+        if (!Entorno.permite_pruebas()) {
+            this.constructor._alerta(
+                'Impresión de nodos no permitida en entorno de producción.'
+            );
+            return;
+        }
+
+        if (Entorno.es_consola()) {
+            this._imprimir_consola();
+        } else {
+            return this._imprimir_html();
+        }
+    }
+    
+
+    /**
+     * Imprime el nodo en formato texto plano (consola).
+     *
+     * Muestra todos los datos relevantes del nodo **en la fase actual**,
+     * incluyendo pesos de los enlaces.
+     * 
+     * Los colores de la terminal se toman de {@link Configuracion.Conf.NODOS_COLORES}
+     * y se aplican mediante `%c` en `console.log`. Modifique esas constantes para
+     * cambiar la apariencia en consola.
+     *
+     * @returns {void}
+     * @private
+     * @since 1.3.0
+     */
+    _imprimir_consola() {
+        const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
+        const fase = NodoElectrico._fase_actual;
+
+        console.log(`%c>> NODO ELECTRICO ${this.id()}${this.es_especial() ? " (ESP)" : ""}`, estilo);
+        const dato = this.dato();
+        if (typeof dato === "string") console.log(`%cDato: ${dato}`, estilo);
+        else if (dato === null) console.log(`%cDato: null`, estilo);
+        else console.log(`%cDato: este dato no es un string`, estilo);
+
+        console.log(`%cReferencias: ${this._referencias}`, estilo);
+        console.log(`%cCapacidad: ${this.capacidad()}`, estilo);
+        console.log(`%cFuga: ${this.fuga()}`, estilo);
+        console.log(`%cEnergía: ${this.energia()}`, estilo);
+
+        console.log(`%cAdyacentes (fase: ${fase}):`, estilo);
+        const adyacentes_fase = this._adyacentes?.get(fase);
+        if (adyacentes_fase && adyacentes_fase.size > 0) {
+            for (const [enlace, valor] of adyacentes_fase) {
+                const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
+                const pesos_str = this.#_formatear_pesos_consola(valor);
+                console.log(`%c  [${enlace}] => Nodo ${nodo.id()}${pesos_str}`, estilo);
+            }
+        } else {
+            console.log("%c  No tiene", estilo);
+        }
+
+        console.log(`%cIncidentes (fase: ${fase}):`, estilo);
+        if (this._incidentes && this._incidentes.size > 0) {
+            let tiene = false;
+            for (const [idnodo, fases] of this._incidentes) {
+                const inc_fase = fases.get(fase);
+                if (inc_fase && inc_fase.size > 0) {
+                    tiene = true;
+                    console.log(`%c  Desde nodo ${idnodo}:`, estilo);
+                    for (const [enlace, incidente] of inc_fase) {
+                        console.log(`%c    [${enlace}] => Nodo ${incidente.id()}`, estilo);
+                    }
+                }
+            }
+            if (!tiene) console.log("%c  No tiene", estilo);
+        } else {
+            console.log("%c  No tiene", estilo);
+        }
+
+        console.log(`%cFin Nodo`, estilo);
+    }
+
+    /**
+     * Imprime el nodo en formato HTML, insertándolo en #nodos-log..
+     *
+     * Genera un bloque HTML con todos los datos del nodo **en la fase activa**,
+     * incluyendo enlaces navegables y visualización de pesos.
+     * 
+     * El bloque HTML se inserta en el elemento con id
+     * {@link Configuracion.Conf.NODOS_CONTENEDOR_ID} y utiliza los colores definidos
+     * en {@link Configuracion.Conf.NODOS_COLORES}. Ajuste esas propiedades para
+     * modificar el estilo o el contenedor de destino.
+     *
+     * @returns {string} Representación HTML del nodo.
+     * @private
+     * @since 1.3.0
+     */
+    _imprimir_html() {
+        const colores = Conf.NODOS_COLORES;
+        const contenedor_id = Conf.NODOS_CONTENEDOR_ID;
+
+        let contenedor = document.getElementById(contenedor_id);
+        if (!contenedor) {
+            contenedor = document.createElement("div");
+            contenedor.id = contenedor_id;
+            contenedor.style.cssText = `
+                background: ${colores.fondo};
+                color: ${colores.texto};
+                padding: 1em;
+                margin: 1em 0;
+                border: 1px solid ${colores.borde};
+                font-family: monospace;
+                white-space: pre-wrap;
+            `;
+            document.body.appendChild(contenedor);
+        }
+
+        const fase = NodoElectrico._fase_actual;
         const id = this.id();
         const dato = this.dato();
 
-        let html = `<div id="nodo-${id}" style="margin-bottom:20px;">`;
-        html += `>>NODO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
-
+        let html = `<div style="margin-bottom:1em;">`;
+        html += `<strong>NODO ELÉCTRICO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
         if (typeof dato === "string") html += dato;
         else if (dato === null) html += "null";
         else html += "este dato no es un string";
+        html += `</strong><br/>`;
 
-        html += "<br/>Referencias: "+this._referencias;
-        html += "<br/>Capacidad: "+this.#capacidad;
-        html += "<br/>Fuga: "+this.#fuga;
-        html += "<br/>Energia: "+this.#energia;
-        html += "<br/>Adyacentes:<br/>";
-      
-        if (this._adyacentes!==undefined) {
-             const fases = this._adyacentes;
+        html += `Capacidad: ${this.capacidad()}<br/>`;
+        html += `Fuga: ${this.fuga()}<br/>`;
+        html += `Energía: ${this.energia()}<br/>`;
+
+        html += `Adyacentes (fase: ${fase}):<br/>`;
+        const adyacentes_fase = this._adyacentes?.get(fase);
+        if (adyacentes_fase && adyacentes_fase.size > 0) {
             html += "<ul>";
-            for (const [fase, adyacentes] of fases) {
-                html += "<h3>fase: "+fase+"</h3>";
-                html += "<ul>";
-                for (const [enlace, valor] of adyacentes){
-                    const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
-                    html += `<li>[${enlace}] => <a href="#nodo-${nodo.id()}">${nodo.id()}</a></li>`;
+            for (const [enlace, valor] of adyacentes_fase) {
+                const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
+                html += `<li>[${enlace}] => <a href="#nodo-${nodo.id()}" style="color:${colores.texto};">${nodo.id()}</a>`;
+                if (valor instanceof Enlace && valor.pesos !== null) {
+                    html += ' <span style="color:' + colores.texto + ';">[Pesos: ';
+                    if (typeof valor.pesos === 'object') {
+                        html += Object.entries(valor.pesos).map(([dim, p]) => {
+                            const dim_label = dim === '' ? "''" : dim;
+                            return `${dim_label}: ${JSON.stringify(p)}`;
+                        }).join(', ');
+                    } else {
+                        html += `'': ${JSON.stringify(valor.pesos)}`;
+                    }
+                    html += ']</span>';
                 }
-                html += "</ul>"
+                html += '</li>';
             }
             html += "</ul>";
         } else {
             html += "No tiene<br/>";
         }
-         html += "<br/>Incidentes:<br/>";
-        if (this._incidentes!==undefined) {
-             const nodos = this._incidentes;
-            html += "<ul>";
-            for (const [idnodo, fases] of nodos) {
-                html += "<h3>idnodo: "+idnodo+"</h3>";
-                html += "<ul>";
-                for (const [fase, incidentes] of fases){
-                    html += "<h4>fase: "+fase+"</h4>";
-                    html += "<ul>";  
-                    for (const [enlace, incidente] of incidentes){              
-                        html += `<li>[${enlace}] => <a href="#nodo-${incidente.id()}">${incidente.id()}</a></li>`;
-                    }     
-                    html+="</ul>";
-                }
 
-                html += "</ul>"
+        html += `Incidentes (fase: ${fase}):<br/>`;
+        if (this._incidentes && this._incidentes.size > 0) {
+            let tiene = false;
+            html += '<ul>';
+            for (const [idnodo, fases] of this._incidentes) {
+                const inc_fase = fases.get(fase);
+                if (inc_fase && inc_fase.size > 0) {
+                    tiene = true;
+                    html += `<li>Desde nodo ${idnodo}: `;
+                    for (const [enlace, incidente] of inc_fase) {
+                        html += `[${enlace}] => <a href="#nodo-${incidente.id()}" style="color:${colores.texto};">${incidente.id()}</a> `;
+                    }
+                    html += '</li>';
+                }
             }
-            html += "</ul>";
+            html += '</ul>';
+            if (!tiene) html += 'No tiene<br/>';
         } else {
-            html += "No tiene<br/>";
+            html += 'No tiene<br/>';
         }
 
         html += `Número de referencias a él: ${this._referencias}<br/>`;
-        html += `Fin Nodo <a href="#inicio">↑ Volver al inicio</a></div><br/>`;
+        html += `</div>`;
 
+        contenedor.innerHTML += html;
+    }
+
+    /* ──── Helpers privados para formateo de pesos ──── */
+
+    /**
+     * Formatea los pesos para la salida de consola.
+     *
+     * @param {Enlace|NodoElectrico} valor
+     * @returns {string} Cadena formateada o vacía.
+     * @private
+     */
+    #_formatear_pesos_consola(valor) {
+        if (!(valor instanceof Enlace) || valor.pesos === null) return '';
+        if (typeof valor.pesos === 'object') {
+            const partes = Object.entries(valor.pesos).map(([dim, p]) => {
+                const etiqueta = dim === '' ? 'default' : dim;
+                return `${etiqueta}: ${JSON.stringify(p)}`;
+            });
+            return ` [Pesos: ${partes.join(', ')}]`;
+        } else {
+            return ` [Pesos: default: ${JSON.stringify(valor.pesos)}]`;
+        }
+    }
+
+    /**
+     * Formatea los pesos para la salida HTML.
+     *
+     * @param {Enlace|NodoElectrico} valor
+     * @returns {string} Fragmento HTML o vacío.
+     * @private
+     */
+    #_formatear_pesos_html(valor) {
+        if (!(valor instanceof Enlace) || valor.pesos === null) return '';
+        let html = ' <span style="color:#555;">[Pesos: ';
+        if (typeof valor.pesos === 'object') {
+            const partes = Object.entries(valor.pesos).map(([dim, p]) => {
+                const etiqueta = dim === '' ? 'default' : dim;
+                return `${etiqueta}: ${JSON.stringify(p)}`;
+            });
+            html += partes.join(', ');
+        } else {
+            html += `default: ${JSON.stringify(valor.pesos)}`;
+        }
+        html += ']</span>';
         return html;
     }
 
@@ -3388,73 +3554,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
         return true;
     }*/
-    /**
-     * Imprime el nodo en formato texto plano (Interfaz {@link Nodos.Interfaces.Impresion}).
-     *
-     * Muestra en consola (CLI o devtools) una descripción del nodo con su id, dato y adyacencias.
-     * Útil para depuración en entorno de línea de comandos.
-     *
-     * ---
-     * 🔗 Otros métodos complementarios:
-     * - {@link Nodos.Nodo#imprimir imprimir()} — versión HTML.
-     * - {@link Nodos.Nodo#id id()} — obtiene el identificador del nodo.
-     * - {@link Nodos.Nodo_dato dato()} — obtiene el dato asociado al nodo.
-     *
-     * ---
-     * @example
-     * nodo.imprimir2(); // imprime el nodo en texto plano
-     *
-     * @note Devuelve `true` si se imprimió correctamente.
-     * @return {boolean}
-     */
-    imprimir2() {
-        const id = this.id();
-        const dato = this.dato();
-
-        console.log(`\n>> NODO ${id}${this.es_especial() ? " (ESP)" : ""}`);
-        
-        if (typeof dato === "string") console.log("Dato:", dato);
-        else if (dato === null) console.log("Dato: null");
-        else console.log("Dato: este dato no es un string");
-
-        console.log("Referencias:", this._referencias);
-        console.log("Capacidad:", this.#capacidad);
-        console.log("Fuga:", this.#fuga);
-        console.log("Energía:", this.#energia);
-
-        console.log("Adyacentes:");
-        if (this._adyacentes !== undefined) {
-            for (const [fase, adyacentes] of this._adyacentes) {
-                console.log(`  Fase: ${fase}`);
-                for (const [enlace, valor] of adyacentes) {
-                    const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
-                    console.log(`    [${enlace}] => Nodo ${nodo.id()}`);
-                }
-            }
-        } else {
-            console.log("  No tiene");
-        }
-
-        console.log("Incidentes:");
-        if (this._incidentes !== undefined) {
-            for (const [idnodo, fases] of this._incidentes) {
-                console.log(`  idnodo: ${idnodo}`);
-                for (const [fase, incidentes] of fases) {
-                    console.log(`    fase: ${fase}`);
-                    for (const [enlace, incidente] of incidentes) {
-                        console.log(`      [${enlace}] => Nodo ${incidente.id()}`);
-                    }
-                }
-            }
-        } else {
-            console.log("  No tiene");
-        }
-
-        console.log(`Número de referencias a él: ${this._referencias}`);
-        console.log("Fin Nodo\n");
-
-        return true;
-    }
 
 
     /**
