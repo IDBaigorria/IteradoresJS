@@ -49,6 +49,20 @@ class Errores {
     throw new Error("Método _error() debe ser implementado por la clase que herede.");
   }
 
+      /**
+     * Elimina todos los errores registrados en el sistema.
+     *
+     * Vacía por completo la pila de errores acumulados, permitiendo
+     * comenzar un nuevo ciclo de diagnóstico sin interferencias
+     * de mensajes anteriores.
+     *
+     * @returns {void}
+     * @since 1.3.1
+     */
+    static limpiar_errores() {
+        throw new Error("Método limpiar_errores() debe ser implementado por la clase que herede.");
+    }
+    
   /**
    * Imprime en HTML la lista de errores registrados.
    * 
@@ -136,5 +150,7 @@ class Errores {
   static desactivar_errores() {
     throw new Error("Método desactivar_errores() debe ser implementado por la clase que herede.");
   }
+
+  
 }
 export {Errores}

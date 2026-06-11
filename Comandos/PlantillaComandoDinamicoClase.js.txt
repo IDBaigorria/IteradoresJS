@@ -1,0 +1,48 @@
+// ═══════════════════════════════════════════════════════════
+// PLANTILLA DE COMANDO DINÁMICO (CLASE ANÓNIMA)
+// ═══════════════════════════════════════════════════════════
+// Úsela cuando necesite crear un comando en tiempo de ejecución
+// sin definir un archivo separado.
+// La clase extiende Comando y se registra inmediatamente (o se
+// encola si el Controlador aún no está inicializado).
+
+import { Comando } from '../Comandos/index.js';  // ajuste la ruta
+import { Controlador } from '../Controlador/Controlador.js';
+
+const ComandoDinamico = class extends Comando {
+    static nombre() {
+        return 'dinamico:accion';
+    }
+
+    static solo_desarrollo() {
+        return false; // true si solo debe existir en desarrollo
+    }
+
+    ejecutar(token, ...args) {
+        // Lógica del comando aquí
+        console.log('Ejecutando comando dinámico');
+        return true;
+    }
+
+    reversa() {
+        // Si no es reversible:
+        return null;
+
+        // Si es reversible, ejemplo:
+        /*
+        return (token, ...args) => {
+            // deshacer cambios
+            return true;
+        };
+        */
+    }
+};
+
+// Opción A: registro inmediato (si el Controlador ya está inicializado)
+Controlador.registrar_comando_desde_clase(ComandoDinamico);
+
+// Opción B: registro diferido/inmediato automático (recomendado)
+// Controlador.encolar_comando(ComandoDinamico);
+
+// Ahora puede ejecutarse
+// Controlador.ejecutar_comando('dinamico:accion', 'arg1');

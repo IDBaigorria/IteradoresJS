@@ -48,7 +48,20 @@ class Alertas {
   static _alerta(alerta) {
     throw new Error("Método _alerta() debe ser implementado por la clase que herede.");
   }
-
+    /**
+     * Elimina todas las alertas registradas en el sistema.
+     *
+     * Vacía por completo la pila de alertas acumuladas, permitiendo
+     * comenzar un nuevo ciclo de diagnóstico sin interferencias
+     * de mensajes anteriores.
+     *
+     * @returns {void}
+     * @since 1.3.1
+     */
+    static limpiar_alertas() {
+        throw new Error("Método limpiar_alertas() debe ser implementado por la clase que herede.");
+    }
+    
   /**
    * Imprime la lista de alertas registrados.
    * 

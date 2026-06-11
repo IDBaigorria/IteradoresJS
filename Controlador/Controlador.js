@@ -2,6 +2,8 @@ import { Conf, Entorno } from '../Configuracion/index.js';
 import { Objeto } from "../Nucleo/index.js";
 import { Nodo } from '../Nodos/Nodo.js';
 import{PerdurarSuperestructura, PerdurarSuperestructuraStringIndexedDB, PerdurarSuperestructuraStringJSON, PerdurarSuperestructuraStringXML, PerdurarSuperestructuraElectricosStringIndexedDB} from './PerdurarSuperestructura/index.js';
+import{Comandos} from './interfaces/index.js';
+import{Comando} from '../Comandos/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 console.log("Controlador");
 
@@ -12,9 +14,10 @@ console.log("Controlador");
  * @class
  * @extends Objeto
  * @implements {Nodos.PerdurarSuperestructura.PerdurarSuperestructura}
+ * @implements {Nodos.Interfaces.Comandos}
  * @memberof Controlador
  */
-class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura) {
+class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos) {
 /** 
      * @type {string} Método de persistencia activo por defecto
      */
@@ -185,12 +188,15 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
                 Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
                 Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
                 Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
-                this.inicializo = true;
                 Controlador.establecer_metodo("EIndexedDB");
-                alert("sii");
-            } else {
-                console.error("Error: clases requeridas no definidas");
-            }
+                // ──────────────────────────────────────────────
+                // Carga asíncrona de comandos (siempre)
+                // ──────────────────────────────────────────────
+                this.cargar_comandos_pendientes();
+                console.log('✅ Comandos registrados:', Object.keys(this.comandos));
+
+                this.inicializo = true;
+            } 
        // }
     }
     // ──────────────────────────────────────────────────────────
@@ -243,6 +249,232 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             return;
         }
         callback(this.token);
+    }
+   
+    // ══════════════════════════════════════════════════════
+    // INTERFAZ COMANDOS
+    // ══════════════════════════════════════════════════════
+
+    /** @type {Object<string, {manejador: Function, reversa: ?Function}>} */
+    static comandos = {};
+
+    /** @type {Array<Function>} Pila de reversiones para deshacer. */
+    static historial = [];
+
+    /** @type {Array<{clase?: typeof Comando, instancia?: Comando}>} */
+    static registro_pendiente = [];
+
+    /**
+     * Registra un nuevo comando en el sistema.
+     *
+     * El registro se permite en todos los entornos de forma predeterminada.
+     * Si se establece `solo_desarrollo = true`, el comando solo se registrará
+     * en modo desarrollo, evitando exponer herramientas de depuración en producción.
+     *
+     * Si el comando ya existía, se sobrescribe y se emite una alerta.
+     *
+     * @param {string}        nombre
+     * @param {Function}      manejador
+     * @param {Function|null} [reversa=null]
+     * @param {boolean}       [solo_desarrollo=false]
+     * @returns {boolean}
+     *
+     * @example
+     * Controlador.registrar_comando('debug:imprimir', (token) => {
+     *     if (!Entorno.permite_pruebas()) { ... }
+     *     Objeto.imprimir_errores();
+     * }, null, true);
+     *
+     * @see Controlador.ejecutar_comando
+     * @see Controlador.deshacer_ultimo
+     * @since 1.3.1
+     */
+    static registrar_comando(nombre, manejador, reversa = null, solo_desarrollo = false) {
+        if (solo_desarrollo && !Entorno.es_desarrollo()) {
+            Controlador._alerta(
+                `El comando '${nombre}' es de desarrollo y no puede registrarse en el entorno actual.`
+            );
+            return false;
+        }
+
+        if (this.comandos[nombre]) {
+            Controlador._alerta(`El comando '${nombre}' ya está registrado y será sobrescrito.`);
+        }
+
+        this.comandos[nombre] = {
+            manejador,
+            reversa
+        };
+        return true;
+    }
+
+    /**
+     * Registra un comando a partir de una instancia que implementa {@link Comando}.
+     *
+     * @param {Comando} comando Instancia del comando.
+     * @returns {boolean}
+     * @since 1.3.1
+     */
+    static registrar_comando_desde_instancia(comando) {
+        const nombre = comando.constructor.nombre();
+        const solo_desarrollo = comando.constructor.solo_desarrollo();
+
+        const manejador = (token, ...args) => comando.ejecutar(token, ...args);
+
+        let reversa = null;
+        const fn_reversa = comando.reversa();
+        if (typeof fn_reversa === 'function') {
+            reversa = (token, ...args) => comando.reversa()(token, ...args);
+        }
+
+        return this.registrar_comando(nombre, manejador, reversa, solo_desarrollo);
+    }
+
+    /**
+     * Registra un comando a partir de una clase que implementa {@link Comando}.
+     *
+     * @param {typeof Comando} clase Clase del comando.
+     * @returns {boolean}
+     * @since 1.3.1
+     */
+    static registrar_comando_desde_clase(clase) {
+        if (typeof clase.nombre !== 'function' || typeof clase.solo_desarrollo !== 'function') {
+            Controlador._error('La clase no cumple con la interfaz Comando.');
+            return false;
+        }
+
+        const instancia = new clase();
+        return this.registrar_comando_desde_instancia(instancia);
+    }
+
+    /**
+     * Encola un comando para registro diferido o inmediato.
+     *
+     * @param {typeof Comando | Comando} comando Clase o instancia.
+     * @returns {void}
+     * @since 1.3.1
+     */
+    static encolar_comando(comando) {
+        if (this.inicializo) {
+            if (comando instanceof Comando) {
+                this.registrar_comando_desde_instancia(comando);
+            } else {
+                this.registrar_comando_desde_clase(comando);
+            }
+            return;
+        }
+
+        if (comando instanceof Comando) {
+            this.registro_pendiente.push({ instancia: comando });
+        } else {
+            this.registro_pendiente.push({ clase: comando });
+        }
+    }
+
+    /**
+     * Procesa la lista de comandos pendientes y los registra.
+     *
+     * @returns {number} Cantidad de comandos registrados.
+     * @since 1.3.1
+     */
+    static cargar_comandos_pendientes() {
+        let contador = 0;
+        for (const entrada of this.registro_pendiente) {
+            if (entrada.instancia) {
+                if (this.registrar_comando_desde_instancia(entrada.instancia)) {
+                    contador++;
+                }
+            } else if (entrada.clase) {
+                if (this.registrar_comando_desde_clase(entrada.clase)) {
+                    contador++;
+                }
+            }
+        }
+        this.registro_pendiente = [];
+        return contador;
+    }
+
+    /**
+     * Ejecuta un comando previamente registrado.
+     *
+     * Busca el manejador asociado al nombre, verifica los permisos
+     * mediante {@link Controlador.tiene_permiso} y lo invoca con el token interno
+     * y los argumentos proporcionados.
+     *
+     * Si el comando tiene definida una reversa, esta se guarda en el historial
+     * para poder deshacerla posteriormente con {@link Controlador.deshacer_ultimo}.
+     *
+     * @param {string} nombre Nombre del comando.
+     * @param {...*}   args   Argumentos adicionales para el manejador.
+     *
+     * @returns {*} El resultado del manejador, o `null` si el comando no existe,
+     *              el entorno no permite la ejecución o se deniega el permiso.
+     *
+     * @example
+     * Controlador.ejecutar_comando('debug:imprimir');
+     *
+     * @see Controlador.registrar_comando
+     * @see Controlador.tiene_permiso
+     * @see Controlador.deshacer_ultimo
+     * @since 1.3.1
+     */
+    static ejecutar_comando(nombre, ...args) {
+        if (!this.comandos[nombre]) {
+            Controlador._error(`Comando desconocido: '${nombre}'.`);
+            return null;
+        }
+
+        if (!Controlador.tiene_permiso(nombre)) {
+            Controlador._error(`Permiso denegado para el comando '${nombre}'.`);
+            return null;
+        }
+
+        const registro = this.comandos[nombre];
+        const token = Controlador.token;
+        const resultado = registro.manejador(token, ...args);
+
+        if (registro.reversa) {
+            this.historial.push(() => registro.reversa(token, ...args));
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Verifica si el usuario actual tiene permiso para ejecutar el comando.
+     *
+     * **Placeholder:** actualmente retorna `true` para cualquier comando.
+     *
+     * @param {string} nombre_comando Nombre del comando.
+     * @returns {boolean}
+     *
+     * @see Controlador.ejecutar_comando
+     * @since 1.3.1
+     */
+    static tiene_permiso(nombre_comando) {
+        // TODO: implementar verificación real
+        return true;
+    }
+
+    /**
+     * Deshace el último comando ejecutado que tuviera reversa.
+     *
+     * Extrae de la pila de historial la reversa más reciente y la invoca.
+     * Si no hay comandos para deshacer, emite una alerta y retorna `null`.
+     *
+     * @returns {*} El resultado de la reversa, o `null` si no hay nada que deshacer.
+     *
+     * @see Controlador.ejecutar_comando
+     * @see Controlador.registrar_comando
+     * @since 1.3.1
+     */
+    static deshacer_ultimo() {
+        if (!this.historial.length) {
+            Controlador._alerta('No hay comandos para deshacer.');
+            return null;
+        }
+        const reversa = this.historial.pop();
+        return reversa();
     }
 
 }

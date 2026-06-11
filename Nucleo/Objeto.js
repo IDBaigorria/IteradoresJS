@@ -319,6 +319,43 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
     }
 
   }
+  /**
+   * Elimina todos los errores registrados ([Interface Errores]{@link Nucleo.Interfaces.Errores}).
+   *
+   * Este metodo pertenece a la interfaz:
+   * - [Interfaz Errores]{@link Nucleo.Interfaces.Errores}
+   *
+   * Vacía la pila interna de errores y reinicia el contador asociado,
+   * permitiendo liberar memoria y comenzar una nueva fase de depuración
+   * sin arrastrar mensajes previos.
+   *
+   * Es útil al inicio de cada prueba unitaria o al cambiar de contexto
+   * de ejecución, para asegurarse de que los errores mostrados
+   * corresponden exclusivamente al escenario actual.
+   *
+   * ---
+   * 🔗 Métodos relacionados:
+   * - [_error]{@link Nucleo.Objeto._error}
+   * - [imprimir_errores]{@link Nucleo.Objeto.imprimir_errores}
+   * - [limpiar_alertas]{@link Nucleo.Objeto.limpiar_alertas}
+   *
+   * ---
+   * @example
+   * // Al iniciar una prueba
+   * MiClase.limpiar_errores();
+   *
+   * // ... ejecutar código que puede fallar ...
+   *
+   * // Mostrar solo los errores de esta prueba
+   * MiClase.imprimir_errores();
+   *
+   * @returns {void}
+   * @since 1.3.1
+   */
+  static limpiar_errores() {
+      Objeto._errores = [];
+      Objeto._contador_errores = 0;
+  }
 
   /**
    * Auxiliar. Agrega un error a la lista interna de errores.
@@ -501,7 +538,7 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    */
   static _imprimir_errores_html() {
     if (!Objeto._errores || Objeto._errores.length === 0) {
-        console.warn("(No hay errores registrados)");
+        console.log("(No hay errores registrados)");
         return;
     }
 
@@ -946,6 +983,44 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
       }
     }
   }
+  /**
+   * Elimina todas las alertas registradas ([Interface Alertas]{@link Nucleo.Interfaces.Alertas}).
+   *
+   * Este metodo pertenece a la interfaz:
+   * - [Interfaz Alertas]{@link Nucleo.Interfaces.Alertas}
+   *
+   * Vacía la pila interna de alertas y reinicia el contador asociado,
+   * permitiendo liberar memoria y comenzar una nueva fase de diagnóstico
+   * sin arrastrar mensajes previos.
+   *
+   * Es útil al inicio de cada prueba unitaria o al cambiar de contexto
+   * de ejecución, para asegurarse de que las alertas mostradas
+   * corresponden exclusivamente al escenario actual.
+   *
+   * ---
+   * 🔗 Métodos relacionados:
+   * - [_alerta]{@link Nucleo.Objeto._alerta}
+   * - [imprimir_alertas]{@link Nucleo.Objeto.imprimir_alertas}
+   * - [limpiar_errores]{@link Nucleo.Objeto.limpiar_errores}
+   *
+   * ---
+   * @example
+   * // Al iniciar una prueba
+   * MiClase.limpiar_alertas();
+   *
+   * // ... ejecutar código que puede generar avisos ...
+   *
+   * // Mostrar solo las alertas de esta prueba
+   * MiClase.imprimir_alertas();
+   *
+   * @returns {void}
+   * @since 1.3.1
+   */
+  static limpiar_alertas() {
+      Objeto._alertas = [];
+      Objeto._contador_alertas = 0;
+  }
+
 
   /**
    * Auxiliar. Agrega un alerta a la lista interna de alertas.
