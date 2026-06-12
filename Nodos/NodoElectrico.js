@@ -5,7 +5,7 @@ import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { generarUUID } from "../miscelaneas/generarUUID.js";
 import { IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso} from "./Interfaces/index.js";
 
-console.log("Nodo");
+console.log("NodoElectrico");
 
 /**
  * Clase Enlace (contenedor de enlace con peso perezoso)
@@ -47,7 +47,7 @@ class Enlace {
 /**
  * Clase NodoElectrico
  * 
- * Todos los enlaces que generen estos nodos seran de "doble via", por eso cada Nodo maneja dos estrucuras
+ * Todos los enlaces que generen estos nodos seran de "doble via", por eso cada NodoElectrico maneja dos estrucuras
  * internas: adyacentes e incidentes. conteniendo los enlaces de salida y de entrada respectivamente.
  * 
  * Extiente la clase Nodo implementando FabricaDeNodosElectricos (estatica), Fase, Energia e IncidentesDobleVia.
@@ -163,7 +163,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     static _fases = new Set(['a']);
 
     /**
-     * Establece la fase global en la que trabajan todos los nodos.
+     * Establece la fase global en la que trabajan todos los nodos eléctricos.
      * Requiere token de autorización.
      *
      * @param {String} token Token de autorización
@@ -233,7 +233,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      **********************************************************************************************/
 
     /**
-     * Ejecuta una función por cada fase que tiene actividad en este nodo.
+     * Ejecuta una función por cada fase que tiene actividad en este nodo eléctrico.
      *
      * Una fase tiene "actividad" en el nodo si existe al menos un adyacente o un incidente
      * en esa fase. El método recorre las estructuras internas `_adyacentes` e `_incidentes`
@@ -270,7 +270,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         // Conjunto para almacenar fases únicas
         const fases_unicas = new Set();
 
-        // Recorrer adyacentes (estructura: Map<fase, Map<enlace, Nodo>>)
+        // Recorrer adyacentes (estructura: Map<fase, Map<enlace, NodoElectrico>>)
         if (this._adyacentes && this._adyacentes.size > 0) {
             for (const [fase, adyacentes_por_fase] of this._adyacentes) {
                 if (adyacentes_por_fase && adyacentes_por_fase.size > 0) {
@@ -279,7 +279,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             }
         }
 
-        // Recorrer incidentes (estructura: Map<idNodo, Map<fase, Map<enlace, Nodo>>>)
+        // Recorrer incidentes (estructura: Map<idNodo, Map<fase, Map<enlace, NodoElectrico>>>)
         if (this._incidentes && this._incidentes.size > 0) {
             for (const fases_por_nodo of this._incidentes.values()) {
                 if (fases_por_nodo && fases_por_nodo.size > 0) {
@@ -318,7 +318,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     #capacidad;
 
     /**
-     * Devuelve la capacidad máxima de energía del nodo.
+     * Devuelve la capacidad máxima de energía del nodo eléctrico.
      *
      * Este valor se establece en el momento de la creación del nodo
      * (a través de los métodos estáticos de fábrica) y no puede modificarse
@@ -343,7 +343,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Devuelve la fuga de energía por ciclo del nodo.
+     * Devuelve la fuga de energía por ciclo del nodo eléctrico.
      *
      * Este valor se establece en la creación del nodo (a través de los métodos
      * estáticos de fábrica). Representa la cantidad de energía que el nodo pierde
@@ -416,7 +416,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      */
     static crear(capacidad=Conf.CAPACIDAD_NODO_ELECTRICO, fuga=Conf.FUGA_NODO_ELECTRICO) {
       const nodo = new this();
-      NodoElectrico._superestructura.set(nodo.id(),nodo);
+      Nodo._superestructura.set(nodo.id(),nodo);
       nodo.#fuga=fuga;
       nodo.#capacidad=capacidad;
       return nodo;
@@ -480,23 +480,23 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
       }/* else {// esta parte la voy a quitar cuando encuentre donde se usa
         if (typeof dato !== 'object') {
           if (Array.isArray(dato)) {
-            let nodo = Nodo.crear_con_dato("ARRAY");
+            let nodo = NodoElectrico.crear_con_dato("ARRAY");
             let nodoAux = nodo;
             for (const valor of dato) {
-              const nodoAux2 = Nodo.crear_con_dato(valor, true);
+              const nodoAux2 = NodoElectrico.crear_con_dato(valor, true);
               nodo._adyacente_en(nodoAux2, "siguiente");
               nodo = nodoAux2;
             }
             return nodoAux;
           } else {
-            const nodo = Nodo.();
+            const nodo = NodoElectrico.();
             nodo._dato(dato);
             return nodo;
           }
         } else {
-          const nodo = Nodo.();
+          const nodo = NodoElectrico.();
           for (const prop in dato) {
-            nodo._adyacente_en(Nodo.crear_con_dato(dato[prop], true), prop);
+            nodo._adyacente_en(NodoElectrico.crear_con_dato(dato[prop], true), prop);
           }
           return nodo;
         }
@@ -561,7 +561,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
        // Nodo.agregar_nodo_especial(nodo);
         return nodo;
       } else {
-        Nodo._error(`No se pudo  el nodo con id ${id}`);
+        NodoElectrico._error(`No se pudo  el nodo con id ${id}`);
         return null;
       }
    }
@@ -569,7 +569,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Crear un nuevo nodo encapsulando un dato y asignándole un identificador válido (Interfaz {@link Nodos.Interfaces.FabricaDeNodosElectricos}).
      *
-     * Este método combina las capacidades de {@link Nodos.NodoElectricoElectricos.crear_con_dato crear_con_dato()}  
+     * Este método combina las capacidades de {@link Nodos.NodoElectrico.crear_con_dato crear_con_dato()}  
      * y {@link Nodos.NodoElectrico.crear_con_id crear_con_id()}.  
      * Permite instanciar un nodo con un valor cualquiera (primitivo, complejo u otro nodo) y a la vez asignarle
      * un identificador único *especial* que debe pasar la validación de {@link Nodos.Objeto.es_id_especial}.
@@ -697,8 +697,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * console.log(nodo2.id()); //1
      * console.log(NodoElectrico.cantidad_de_nodos());//2
      * 
-     * //caso 3: se le pasa un parametro no Nodo y una funcion callback (crea una instancia de Nodo
-     * //con el dato pasado por parametro. Además invoca a la funcion callback y le pasa el Nodo creado
+     * //caso 3: se le pasa un parametro no Nodo y una funcion callback (crea una instancia de NodoElectrico
+     * //con el dato pasado por parametro. Además invoca a la funcion callback y le pasa el NodoElectrico creado
      * //y otro parametro booleano para que pueda verificar si el dato original era un nodo o no)
      * const nodo3 = NodoElectrico.nodo("soy nodo 3", (nodo, esNodo) => {
      *     if (esNodo){
@@ -710,8 +710,8 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * console.log(nodo3.id());//2
      * condole.log(NodoElectrico.cantidad_de_nodos());//3
      * 
-     * //caso 4: se le pasa un parametro que es un Nodo y una funcion callback (crea una instancia de Nodo
-     * //con el dato pasado por parametro. Además invoca a la funcion callback y le pasa el Nodo creado
+     * //caso 4: se le pasa un parametro que es un Nodo y una funcion callback (crea una instancia de NodoElectrico
+     * //con el dato pasado por parametro. Además invoca a la funcion callback y le pasa el NodoElectrico creado
      * //y otro parametro booleano para que pueda verificar si el dato original era un nodo o no)
      * const nodo4 = NodoElectrico.nodo(nodo3, (nodo, esNodo) => {
      *     if (esNodo){
@@ -1008,7 +1008,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     // -----------------------------------------------------------------
 
     /**
-     * Devuelve la capacidad máxima de energía del nodo.
+     * Devuelve la capacidad máxima de energía del nodo eléctrico.
      *
      * Este valor se establece en el momento de la creación del nodo
      * (a través de los métodos estáticos de fábrica) y no puede modificarse
@@ -1033,7 +1033,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Devuelve la fuga de energía por ciclo del nodo.
+     * Devuelve la fuga de energía por ciclo del nodo eléctrico.
      *
      * Este valor se establece en la creación del nodo (a través de los métodos
      * estáticos de fábrica). Representa la cantidad de energía que el nodo pierde
@@ -1058,7 +1058,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Devuelve la energía actual del nodo en la fase activa,
+     * Devuelve la energía actual del nodo eléctrico en la fase activa,
      * aplicando previamente todas las fugas pendientes según el tiempo real transcurrido.
      *
      * Este método llama internamente a `#fugar()` para actualizar la energía
@@ -1214,7 +1214,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     // -----------------------------------------------------------------
 
     /**
-     * Añade energía al nodo en la fase activa.
+     * Añade energía al nodo eléctrico en la fase activa.
      *
      * **Secuencia de operaciones:**
      * 1. Aplica las fugas pendientes llamando a `#fugar()`.
@@ -1259,7 +1259,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     // -----------------------------------------------------------------
 
     /**
-     * Registra un callback para cuando el nodo se satura (por instancia).
+     * Registra un callback para cuando el nodo eléctrico se satura (por instancia).
      *
      * **Modos de ejecución:**
      * - `reemplazar = true` (por defecto): este callback **reemplaza** al callback por defecto de la fase.
@@ -1304,7 +1304,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Registra un callback para cuando el nodo se agota (energía llega a 0) por instancia.
+     * Registra un callback para cuando el nodo eléctrico se agota (energía llega a 0) por instancia.
      *
      * **Modos de ejecución:**
      * - `reemplazar = true`: reemplaza al callback por defecto de la fase.
@@ -1346,7 +1346,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Registra un callback por defecto de saturación para una fase determinada.
      *
-     * Este callback se ejecutará cuando un nodo en esa fase se sature,
+     * Este callback se ejecutará cuando un nodo eléctrico en esa fase se sature,
      * **siempre que no exista un callback de instancia que lo reemplace**.
      *
      * ---
@@ -1415,7 +1415,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
     /**
      * Registra un callback global que se ejecutará cuando **todas las fases**
-     * del nodo se queden sin energía (energía = 0).
+     * del nodo eléctrico se queden sin energía (energía = 0).
      *
      * Este callback es útil para detectar que el nodo ha quedado completamente inactivo.
      *
@@ -1451,7 +1451,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *  Reemplazo de los metodos existentes
      **********************************************************************************************/
     /**
-     * Verifica si el nodo tiene al menos un adyacente (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
+     * Verifica si el nodo eléctrico tiene al menos un adyacente (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
 	 * Este método comprueba si tiene al menos un nodo adyacente. O dicho de otro modo
 	 * si tiene conexiones "salientes"; en tal caso devuelve true; caso contrario devuelve 
@@ -1527,7 +1527,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Verifica si el nodo actual tiene como adyacente al nodo indicado (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
+     * Verifica si el nodo eléctrico actual tiene como adyacente al nodo indicado (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
      * Comprueba si el nodo actual enlaza directamente hacia el nodo pasado como parámetro.  
      * Para optimizar, se valida tanto que el nodo actual posea adyacentes salientes 
@@ -1566,7 +1566,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * }
      *
      * @note Solo devuelve el nombre del enlace si realmente existe; `false` en caso contrario.
-     * @param {Nodo} nodo Nodo a verificar.
+     * @param {NodoElectrico} nodo Nodo a verificar.
      * @return {string|boolean} Nombre del enlace si existe, `false` en caso contrario.
      * @public
      * @since 0.0.1
@@ -1627,7 +1627,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * @note Devuelve `null` si no hay nodo en el enlace.
      * @param {string} enlace El identificador del enlace a consultar
-     * @return {Nodo|null} Nodo adyacente si existe, `null` en caso contrario
+     * @return {NodoElectrico|null} Nodo adyacente si existe, `null` en caso contrario
      */
     adyacente(enlace) {
         console.log("s1");
@@ -1663,7 +1663,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Devuelve una copia de todos los adyacentes (Interfaz {@link Nodos.Interfaces.Adyacentes# Adyacentes}).
      *
-     * Retorna todos los nodos adyacentes del nodo actual en un `Map` independiente, 
+     * Retorna todos los nodos adyacentes del nodo eléctrico actual en un `Map` independiente, 
      * asegurando que sea una "foto" del estado al momento de la llamada.  
      * Si el nodo no tiene adyacentes, devuelve `null`.  
      * Se utiliza para obtener de manera segura los enlaces actuales sin exponer la referencia interna.
@@ -1715,7 +1715,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * @note Se devuelve un nuevo Map, copia superficial de #adyacentes.
      * @param void
-     * @return {?Map<string|number, Nodo>} Map con nodos adyacentes o `null` si no existen
+     * @return {?Map<string|number, NodoElectrico>} Map con nodos adyacentes o `null` si no existen
      * @public
      * @since V0.0.1
      */
@@ -1737,7 +1737,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Devuelve la cantidad de adyacentes (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
-     * Retorna el número total de nodos adyacentes actualmente vinculados al nodo.  
+     * Retorna el número total de nodos adyacentes actualmente vinculados al nodo eléctrico.  
      * Si no existen adyacentes, devuelve `0`.  
      * Este método permite conocer de manera rápida el grado de salida del nodo.
      *
@@ -1789,10 +1789,10 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * A diferencia de {@link Nodos.NodoElectrico#cantidad_de_adyacentes cantidad_de_adyacentes()}
      * que solo cuenta en la **fase actual**, este método recorre todas las fases
-     * en las que el nodo tiene actividad y suma la totalidad de enlaces salientes.
+     * en las que el nodo eléctrico tiene actividad y suma la totalidad de enlaces salientes.
      *
      * Es especialmente útil cuando se trabaja con múltiples fases y se necesita
-     * conocer el grado de salida global del nodo, independientemente de la fase activa.
+     * conocer el grado de salida global del nodo eléctrico, independientemente de la fase activa.
      *
      * La implementación es **opcional** según la interfaz, pero en `NodoElectrico`
      * se implementa completamente.
@@ -2014,7 +2014,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * 
      * ---
      * 🔗 Método complementario:
-     * - {@link Nodos.Nodo#eliminar_adyacentes eliminar_adyacentes}
+     * - {@link Nodos.NodoElectrico#eliminar_adyacentes eliminar_adyacentes}
      *
      * ---
      * 🔗 Otros métodos relacionados:
@@ -2038,7 +2038,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * @note También elimina la relación incidente correspondiente.
      * @param {string} enlace Nombre del enlace a eliminar
-     * @return {Nodo|null} Nodo eliminado o null si no existe
+     * @return {NodoElectrico|null} Nodo eliminado o null si no existe
      * @public
      * @since 0.0.1
      */
@@ -2076,9 +2076,9 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Elimina todos los enlaces del nodo (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
+     * Elimina todos los enlaces del nodo eléctrico (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
-     * Borra todas las conexiones salientes del nodo.  
+     * Borra todas las conexiones salientes del nodo eléctrico.  
      * Si no existen enlaces a adyacentes, lanza una alerta y devuelve un Map vacío.  
      * Si existen enlaces salientes, antes de eliminarlos, genera una copia de los
      * mismos con sus nodos adyacentes actuales y los devuelve. 
@@ -2087,11 +2087,11 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 	   * ⚠️ Importante: Este método no elimina los nodos del sistema. Si se eliminan
 	   * todos los enlaces que conectan a un nodo este aún permanece en el sistema 
 	   * como nodo suelto a menos que se use el metodo estatico
-	   * {@link ./classes/Nodos.Nodo.eliminar Nodo::eliminar($nodo)}
+	   * {@link ./classes/Nodos.NodoElectrico.eliminar NodoElectrico::eliminar($nodo)}
      * 
      * ---
      * 🔗 Método complementario:
-     * - {@link Nodos.Nodo#eliminar_enlace eliminar_enlace}
+     * - {@link Nodos.NodoElectrico#eliminar_enlace eliminar_enlace}
      *
      * ---
      * 🔗 Otros métodos relacionados:
@@ -2111,9 +2111,9 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * ---
      * @example 
      * //Ejemplo de uso:
-     * const nodo = Nodo.crear_con_id("nodo");
-     * const otroA = Nodo.crear_con_id("otroA");
-     * const otroB = Nodo.crear_con_id("otroB");
+     * const nodo = NodoElectrico.crear_con_id("nodo");
+     * const otroA = NodoElectrico.crear_con_id("otroA");
+     * const otroB = NodoElectrico.crear_con_id("otroB");
      * nodo._adyacente_en(otroA, "A");
      * nodo._adyacente_en(otroB, "B");
      * console.log("Se agregaron enlaces:")
@@ -2141,7 +2141,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @public
      * @note Devuelve un Map con todos los adyacentes antes de eliminarlos.
      * @param void
-     * @return {Map<string|number, Nodo>} Map con los nodos eliminados, o Map vacío si no había adyacentes
+     * @return {Map<string|number, NodoElectrico>} Map con los nodos eliminados, o Map vacío si no había adyacentes
      * @since Modificado en V3.2.3
      * @deprecated
      */
@@ -2243,7 +2243,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      **********************************************************************************************/
 
      /**
-     * Verifica si el nodo es adyacente de al menos un nodo(Interfaz {@link Nodos.Interfaces.Incidentes Incidentes}).
+     * Verifica si el nodo eléctrico es adyacente de al menos un nodo (Interfaz {@link Nodos.Interfaces.Incidentes Incidentes}).
      *
      * Evalúa si no existe al menos otro nodo que lo tenga él como adyacente. O dicho de 
      * otro modo, si no tiene conexiones "entrantes"; en tal caso se concidera "suelto"
@@ -2316,7 +2316,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Verifica si el nodo actual es adyacente del nodo indicado (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
+     * Verifica si el nodo eléctrico actual es adyacente del nodo indicado (Interfaz {@link Nodos.Interfaces.Adyacentes Adyacentes}).
      *
      * Comprueba si el nodo actual se encuentra enlazado desde el nodo pasado como parámetro.  
      * Para optimizar, se valida tanto que el nodo actual posea conexiones entrantes 
@@ -2324,7 +2324,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * ---
      * 🔗 Método complementario:
-     * - {@link Nodos.Nodo#tiene_adyacente_a tiene_adyacente_a()}
+     * - {@link Nodos.NodoElectrico#tiene_adyacente_a tiene_adyacente_a()}
      *
      * ---
      * 🔗 Otros métodos relacionados:
@@ -2356,7 +2356,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * }
      *
      * @note Solo devuelve el nombre del enlace si realmente existe; `false` en caso contrario.
-     * @param {Nodo} nodo Nodo a verificar.
+     * @param {NodoElectrico} nodo Nodo a verificar.
      * @return {string|boolean} Nombre del enlace si existe, `false` en caso contrario.
      * @public
      * @since 0.0.1
@@ -2419,7 +2419,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * @note 
      * @param {string} enlace El identificador del enlace a consultar
-     * @return {Nodo|null} Nodo adyacente si existe, `null` en caso contrario
+     * @return {NodoElectrico|null} Nodo adyacente si existe, `null` en caso contrario
      */
     /*incidente(enlace) {
         if (!NodoElectrico.validar_nombre_enlace(enlace)){
@@ -2444,7 +2444,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Devuelve una copia de todos los incidentes (Interfaz {@link Nodos.Interfaces.Incidentes# Incidentes}).
      *
-     * Retorna todos los nodos incidentes del nodo actual en un `Map` independiente, 
+     * Retorna todos los nodos incidentes del nodo eléctrico actual en un `Map` independiente, 
      * asegurando que sea una "foto" del estado al momento de la llamada.  
      * Si el nodo no tiene incidentes, devuelve `null`.  
      * Se utiliza para obtener de manera segura los enlaces actuales sin exponer la referencia interna.
@@ -2496,7 +2496,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * @note Se devuelve un nuevo Map, copia superficial de #adyacentes.
      * @param void
-     * @return {?Map<string|number, Nodo>} Map con nodos adyacentes o `null` si no existen
+     * @return {?Map<string|number, NodoElectrico>} Map con nodos adyacentes o `null` si no existen
      * @public
      * @since V0.0.1
      */
@@ -2522,7 +2522,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Devuelve la cantidad de incidentes (Interfaz {@link Nodos.Interfaces.Incidentes Incidentes}).
      *
-     * Retorna el número total de nodos incidentes actualmente vinculados al nodo.  
+     * Retorna el número total de nodos incidentes actualmente vinculados al nodo eléctrico.  
      * Si no existen incidentes, devuelve `0`.  
      * Este método permite conocer de manera rápida el grado de salida del nodo.
      *
@@ -2753,7 +2753,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * 
      * ---
      * 🔗 Método complementario:
-     * - {@link Nodos.Nodo#eliminar_adyacente eliminar_adyacente}
+     * - {@link Nodos.NodoElectrico#eliminar_adyacente eliminar_adyacente}
      *
      * ---
      * 🔗 Otros métodos relacionados:
@@ -2826,7 +2826,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * - {@link Nodos.NodoElectrico#incidentes incidentes}
      * 
      * 🔗 Otros métodos relacionados:
-     * - {@link Nodos.Nodo#eliminar_adyacente eliminar_adyacente}
+     * - {@link Nodos.NodoElectrico#eliminar_adyacente eliminar_adyacente}
      * - {@link Nodos.NodoElectrico#_adyacente _adyacente}
      * - {@link Nodos.NodoElectrico#_adyacente_en _adyacente_en}
      * - {@link Nodos.NodoElectrico#cantidad_de_adyacentes cantidad_de_adyacentes}
@@ -2879,11 +2879,11 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * Este token es generado por la clase Nodo y entregado únicamente al Controlador
      * durante el proceso de registro, con el fin de validar las operaciones que
-     * invoquen directa o indirectamente a {@link NodoElectrico.por_cada_nodo_ejecutar}.
+     * invoquen directa o indirectamente a {@link Nodo.por_cada_nodo_ejecutar}.
      *
      * @type {string}
      * @private
-     * @see NodoElectrico.registrar_controlador
+     * @see Nodo.registrar_controlador
      */
    // static _token = generarUUID();
 
@@ -2949,7 +2949,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * **Ejemplo 5 – Enlace sin nodo previo**
      * ```javascript
-     * // Si el enlace 'nuevo' apunta a un Nodo, _peso lo convierte en Enlace y asigna.
+     * // Si el enlace 'nuevo' apunta a un NodoElectrico, _peso lo convierte en Enlace y asigna.
      * nodo._adyacente_en(otro, 'nuevo');
      * nodo._peso('nuevo', 42);                     // ahora 'nuevo' tiene peso 42
      * ```
@@ -3115,7 +3115,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /**
      * Ordena los adyacentes de la fase actual según el valor del peso en una dimensión.
      *
-     * Recorre todos los enlaces salientes del nodo en la fase activa y los ordena
+     * Recorre todos los enlaces salientes del nodo eléctrico en la fase activa y los ordena
      * por el valor del peso asociado a la dimensión indicada. Los enlaces que **no
      * poseen** esa dimensión de peso reciben un valor implícito de `0` para el
      * ordenamiento, lo que significa que:
@@ -3271,7 +3271,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     /*************************************************************************************************************/
 
     /**
-     * Imprime el nodo en el formato adecuado (HTML o consola) según el entorno configurado.
+     * Imprime el nodo eléctrico en el formato adecuado (HTML o consola) según el entorno configurado.
      *
     * **Restricción de entorno:** solo se ejecuta en desarrollo o pruebas.
     * En producción, emite una alerta y no genera salida, ya que este método está pensado
@@ -3295,22 +3295,40 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      */
     imprimir() {
         if (!Entorno.permite_pruebas()) {
-            this.constructor._alerta(
-                'Impresión de nodos no permitida en entorno de producción.'
-            );
+            this.constructor._alerta('Impresión de nodos no permitida en entorno de producción.');
             return;
         }
 
         if (Entorno.es_consola()) {
             this._imprimir_consola();
         } else {
-            return this._imprimir_html();
+            const html = this._imprimir_html();
+
+            // Insertar en el contenedor global (comportamiento individual)
+            let contenedor = document.getElementById(Conf.NODOS_CONTENEDOR_ID);
+            if (!contenedor) {
+                contenedor = document.createElement("div");
+                contenedor.id = Conf.NODOS_CONTENEDOR_ID;
+                contenedor.style.cssText = `
+                    background: ${Conf.NODOS_COLORES.fondo};
+                    color: ${Conf.NODOS_COLORES.texto};
+                    padding: 1em;
+                    margin: 1em 0;
+                    border: 1px solid ${Conf.NODOS_COLORES.borde};
+                    font-family: monospace;
+                    white-space: pre-wrap;
+                `;
+                document.body.appendChild(contenedor);
+            }
+            contenedor.innerHTML += html;
+
+            return html;   // por si alguien necesita el string
         }
     }
     
 
     /**
-     * Imprime el nodo en formato texto plano (consola).
+     * Imprime el nodo eléctrico en formato texto plano (consola).
      *
      * Muestra todos los datos relevantes del nodo **en la fase actual**,
      * incluyendo pesos de los enlaces.
@@ -3327,7 +3345,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
         const fase = NodoElectrico._fase_actual;
 
-        console.log(`%c>> NODO ELECTRICO ${this.id()}${this.es_especial() ? " (ESP)" : ""}`, estilo);
+        console.log(`%c>> NODO ELÉCTRICO ${this.id()}${this.es_especial() ? " (ESP)" : ""}`, estilo);
         const dato = this.dato();
         if (typeof dato === "string") console.log(`%cDato: ${dato}`, estilo);
         else if (dato === null) console.log(`%cDato: null`, estilo);
@@ -3372,7 +3390,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Imprime el nodo en formato HTML, insertándolo en #nodos-log..
+     * Imprime el nodo eléctrico en formato HTML, insertándolo en #nodos-log..
      *
      * Genera un bloque HTML con todos los datos del nodo **en la fase activa**,
      * incluyendo enlaces navegables y visualización de pesos.
@@ -3388,29 +3406,12 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      */
     _imprimir_html() {
         const colores = Conf.NODOS_COLORES;
-        const contenedor_id = Conf.NODOS_CONTENEDOR_ID;
-
-        let contenedor = document.getElementById(contenedor_id);
-        if (!contenedor) {
-            contenedor = document.createElement("div");
-            contenedor.id = contenedor_id;
-            contenedor.style.cssText = `
-                background: ${colores.fondo};
-                color: ${colores.texto};
-                padding: 1em;
-                margin: 1em 0;
-                border: 1px solid ${colores.borde};
-                font-family: monospace;
-                white-space: pre-wrap;
-            `;
-            document.body.appendChild(contenedor);
-        }
-
         const fase = NodoElectrico._fase_actual;
         const id = this.id();
         const dato = this.dato();
 
-        let html = `<div style="margin-bottom:1em;">`;
+        // Contenedor con los mismos estilos que en PHP
+        let html = `<div style="background:${colores.fondo}; color:${colores.texto}; padding:1em; margin:1em 0; border:1px solid ${colores.borde}; font-family:monospace; white-space:pre-wrap;">`;
         html += `<strong>NODO ELÉCTRICO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
         if (typeof dato === "string") html += dato;
         else if (dato === null) html += "null";
@@ -3471,7 +3472,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         html += `Número de referencias a él: ${this._referencias}<br/>`;
         html += `</div>`;
 
-        contenedor.innerHTML += html;
+        return html;
     }
 
     /* ──── Helpers privados para formateo de pesos ──── */
@@ -3520,10 +3521,10 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
     }
 
     /**
-     * Imprime todos los nodos de la superestructura en formato HTML.
+     * Imprime todos los nodos eléctricos de la superestructura en formato HTML.
      * 
      * Esta función recorre todos los nodos de la superestructura y ejecuta el método
-     * {@link Nodos.Nodo#imprimir imprimir()} en cada uno, generando una salida visual útil
+     * {@link Nodos.NodoElectrico#imprimir imprimir()} en cada uno, generando una salida visual útil
      * para depuración o inspección.
      * 
      * @returns {boolean} `true` si se imprimieron nodos, `false` si la superestructura está vacía.
@@ -3557,16 +3558,16 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
 
     /**
-     * Imprime todos los nodos de la superestructura en formato de texto (modo consola).
+     * Imprime todos los nodos eléctricos de la superestructura en formato de texto (modo consola).
      * 
      * Esta función recorre todos los nodos de la superestructura y ejecuta el método
-     * {@link Nodos.Nodo#imprimir2 imprimir2()} de cada nodo, generando una salida en texto plano.
+     * {@link Nodos.NodoElectrico#imprimir2 imprimir2()} de cada nodo, generando una salida en texto plano.
      * Está pensada exclusivamente para depuración en entornos de consola.
      * 
      * @returns {boolean} `true` si se imprimieron nodos, `false` si la superestructura está vacía.
      */
     /*static imprimir_superestructura2() {
-        if (!Nodo.hay_nodos_en_superestructura()) {
+        if (!NodoElectrico.hay_nodos_en_superestructura()) {
             NodoElectrico._alerta("la superestructura está vacía");
             return false;
         }
@@ -3577,4 +3578,4 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         return true;
     }*/
 }
-export {NodoElectrico}
+export {NodoElectrico, Enlace}

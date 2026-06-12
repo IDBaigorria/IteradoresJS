@@ -144,27 +144,64 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * {@link Nodos.Nodo.por_cada_nodo_ejecutar}, usando el token interno que
      * {@link Controlador} recibió durante la inicialización.
      *
-     * Si la superestructura está vacía, emite una alerta y retorna `false`.
+     * Si la superestructura está vacía, se muestra un mensaje informativo
+     * en el contenedor correspondiente (HTML) o en la consola.
      *
-     * @returns {boolean} `true` si se imprimió al menos un nodo, `false` en caso contrario.
+     * @returns {boolean} `true` si se ejecutó sin errores, `false` si ocurrió un problema.
      *
      * @since 1.3.0 Unifica imprimir_superestructura e imprimir_superestructura2.
+     * @version 1.3.2 Añadido mensaje cuando la superestructura está vacía y encabezado HTML.
      *
      * @see Nodos.Nodo#imprimir
      * @see Configuracion.Entorno
      */
     static imprimir_superestructura() {
+        const colores = Conf.NODOS_COLORES;
+        const contenedor_id = Conf.NODOS_CONTENEDOR_ID;
+
+        // Obtener o crear el contenedor HTML
+        let contenedor = document.getElementById(contenedor_id);
+        if (!contenedor) {
+            contenedor = document.createElement("div");
+            contenedor.id = contenedor_id;
+            contenedor.style.cssText = `
+                background: ${colores.fondo};
+                color: ${colores.texto};
+                padding: 1em;
+                margin: 1em 0;
+                border: 1px solid ${colores.borde};
+                font-family: monospace;
+                white-space: pre-wrap;
+            `;
+            document.body.appendChild(contenedor);
+        }
+
+        // Encabezado común para ambos entornos
+        const encabezado = "===== SUPERESTRUCTURA =====";
+        if (Entorno.es_consola()) {
+            const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
+            console.log(`%c${encabezado}`, estilo);
+        } else {
+            // En HTML, mostramos el encabezado dentro del contenedor
+            contenedor.innerHTML = `<h3>${encabezado}</h3>`;
+        }
+
+        // Verificar si hay nodos en la superestructura
         if (!Nodo.hay_nodos_en_superestructura()) {
-            Controlador._alerta("Controlador.imprimir_superestructura() — la superestructura está vacía");
+            const mensaje = "No hay nodos en la superestructura.";
+            if (Entorno.es_consola()) {
+                console.log(mensaje);
+            } else {
+                // En HTML, añadimos el mensaje debajo del encabezado
+                contenedor.innerHTML += `<p>${mensaje}</p>`;
+            }
             return false;
         }
 
-        // Encabezado opcional para consola
-        if (Entorno.es_consola()) {
-            const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
-            console.log("%c===== SUPERESTRUCTURA =====", estilo);
-        }
+        // Si hay nodos, limpiamos el contenedor (por si tenía un mensaje anterior)
+       // contenedor.innerHTML = '';
 
+        // Iterar sobre todos los nodos e imprimirlos
         const funcion = nodo => nodo.imprimir();
         Nodo.por_cada_nodo_ejecutar(Controlador.token, funcion, null);
 
@@ -255,7 +292,14 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     // INTERFAZ COMANDOS
     // ══════════════════════════════════════════════════════
 
-    /** @type {Object<string, {manejador: Function, reversa: ?Function}>} */
+    /**
+     * Mapa de comandos registrados.
+     * @type {Object<string, {
+     *     manejador: Function,
+     *     reversa: ?Function,
+     *     clase: ?typeof Comando
+     * }>}
+     */
     static comandos = {};
 
     /** @type {Array<Function>} Pila de reversiones para deshacer. */
@@ -288,6 +332,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @see Controlador.ejecutar_comando
      * @see Controlador.deshacer_ultimo
      * @since 1.3.1
+     * @version 1.3.2
      */
     static registrar_comando(nombre, manejador, reversa = null, solo_desarrollo = false) {
         if (solo_desarrollo && !Entorno.es_desarrollo()) {
@@ -303,39 +348,65 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
         this.comandos[nombre] = {
             manejador,
-            reversa
+            reversa,
+            clase: null,   // Comando registrado manualmente sin clase
         };
         return true;
     }
 
+
     /**
      * Registra un comando a partir de una instancia que implementa {@link Comando}.
+     *
+     * Además, valida que los nombres de los parámetros definidos por el comando
+     * no colisionen con las {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS
+     * palabras reservadas}. Si se detecta una colisión, el registro se rechaza
+     * y se emite un error.
      *
      * @param {Comando} comando Instancia del comando.
      * @returns {boolean}
      * @since 1.3.1
+     * @version 1.3.2
      */
     static registrar_comando_desde_instancia(comando) {
         const nombre = comando.constructor.nombre();
         const solo_desarrollo = comando.constructor.solo_desarrollo();
+        const clase = comando.constructor;
 
-        const manejador = (token, ...args) => comando.ejecutar(token, ...args);
+        // Verificar palabras reservadas
+        if (!Controlador._validar_parametros_reservados(clase)) {
+            return false;
+        }
+
+        const manejador = (token, args) => comando.ejecutar(token, args);
 
         let reversa = null;
         const fn_reversa = comando.reversa();
         if (typeof fn_reversa === 'function') {
-            reversa = (token, ...args) => comando.reversa()(token, ...args);
+            reversa = (token, args) => comando.reversa()(token, args);
         }
 
-        return this.registrar_comando(nombre, manejador, reversa, solo_desarrollo);
+        this.comandos[nombre] = {
+            manejador,
+            reversa,
+            clase,   // Guardar la clase para el parseo
+        };
+
+        return true;
     }
 
     /**
      * Registra un comando a partir de una clase que implementa {@link Comando}.
      *
+     * Además, valida que los nombres de los parámetros definidos por el comando
+     * no colisionen con las {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS
+     * palabras reservadas}. Si se detecta una colisión, el registro se rechaza
+     * y se emite un error.
+     * 
      * @param {typeof Comando} clase Clase del comando.
      * @returns {boolean}
      * @since 1.3.1
+     * @version 1.3.2
      */
     static registrar_comando_desde_clase(clase) {
         if (typeof clase.nombre !== 'function' || typeof clase.solo_desarrollo !== 'function') {
@@ -343,8 +414,38 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             return false;
         }
 
+        // Verificar palabras reservadas
+        if (!Controlador._validar_parametros_reservados(clase)) {
+            return false;
+        }
+
         const instancia = new clase();
         return this.registrar_comando_desde_instancia(instancia);
+    }
+
+    /**
+     * Verifica que los parámetros del comando no usen palabras reservadas.
+     *
+     * @param {typeof Comando} clase Clase del comando.
+     * @returns {boolean}
+     * @private
+     */
+    static _validar_parametros_reservados(clase) {
+        if (typeof clase.parametros !== 'function') {
+            return true;
+        }
+
+        const reservadas = Conf.PALABRAS_RESERVADAS_COMANDOS;
+        const parametros = clase.parametros();
+        for (const param of parametros) {
+            if (reservadas.includes(param.nombre)) {
+                Controlador._error(
+                    `El comando '${clase.nombre()}' usa una palabra reservada como parámetro: '${param.nombre}'.`
+                );
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -397,26 +498,96 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     /**
      * Ejecuta un comando previamente registrado.
      *
-     * Busca el manejador asociado al nombre, verifica los permisos
-     * mediante {@link Controlador.tiene_permiso} y lo invoca con el token interno
-     * y los argumentos proporcionados.
+     * Este método es el punto central de ejecución del sistema de comandos.
+     * Se encarga de localizar el manejador asociado al comando, verificar
+     * permisos, parsear y validar argumentos, mostrar ayuda cuando se solicita
+     * y, finalmente, invocar la lógica del comando.
      *
-     * Si el comando tiene definida una reversa, esta se guarda en el historial
-     * para poder deshacerla posteriormente con {@link Controlador.deshacer_ultimo}.
+     * **Flujo de ejecución detallado:**
      *
-     * @param {string} nombre Nombre del comando.
-     * @param {...*}   args   Argumentos adicionales para el manejador.
+     * 1. **Búsqueda del comando:** Busca el nombre en el mapa interno de
+     *    comandos registrados. Si no existe, registra un error con
+     *    {@link Controlador._error} y retorna `null`.
      *
-     * @returns {*} El resultado del manejador, o `null` si el comando no existe,
-     *              el entorno no permite la ejecución o se deniega el permiso.
+     * 2. **Verificación de permisos:** Invoca {@link Controlador.tiene_permiso}
+     *    para comprobar si el usuario actual está autorizado. Si no lo está,
+     *    registra un error y retorna `null`. Por ahora,
+     *    {@link Controlador.tiene_permiso} es un placeholder que retorna `true`.
+     *
+     * 3. **Detección de solicitud de ayuda:** Examina cada argumento en
+     *    busca de las palabras reservadas definidas en
+     *    {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS}
+     *    (`man`, `help`, `h`). Si encuentra alguna, invoca
+     *    {@link Controlador._mostrar_ayuda} con la clase del comando y
+     *    retorna `true` sin ejecutar el comando.
+     *
+     * 4. **Parseo y validación de argumentos:** Si el comando tiene una clase
+     *    asociada y ésta implementa el método {@link Comando.parametros},
+     *    se obtiene la definición de parámetros y se invoca
+     *    {@link Controlador._parsear_y_validar_args} para convertir los
+     *    argumentos crudos en una estructura normalizada. Si hay errores
+     *    de validación (flags/opciones desconocidas, parámetros obligatorios
+     *    faltantes), se registran con {@link Controlador._error}, se muestra
+     *    la ayuda y se retorna `null`.
+     *
+     * 5. **Ejecución del manejador:** Invoca el manejador del comando con el
+     *    token de seguridad interno y los argumentos parseados (o crudos, si
+     *    no hay definición de parámetros).
+     *
+     * 6. **Registro de reversa:** Si el comando tiene definida una función de
+     *    reversa (proporcionada durante el registro), la almacena en la pila
+     *    de historial para que pueda ser deshecha posteriormente con
+     *    {@link Controlador.deshacer_ultimo}.
+     *
+     * **Solicitudes de ayuda:**
+     * Las palabras reservadas (`--man`, `--help`, `-h`) están centralizadas
+     * en {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS}.
+     * Al detectar cualquiera de ellas, el sistema muestra automáticamente
+     * la ayuda generada a partir de {@link Comando.descripcion},
+     * {@link Comando.parametros} y {@link Comando.ejemplos}, adaptando
+     * el formato al entorno (consola o HTML). La ejecución del comando **no**
+     * se realiza.
+     *
+     * **Validación de argumentos:**
+     * Si el comando define parámetros, el método
+     * {@link Controlador._parsear_y_validar_args} compara cada argumento
+     * recibido contra la definición. Los argumentos que no coinciden con
+     * ningún parámetro declarado se registran como error y provocan la
+     * visualización de la ayuda.
+     *
+     * ⚠️ **Importante para desarrolladores de comandos:**
+     * No utilice ninguna de las palabras reservadas como nombre de un
+     * parámetro en {@link Comando.parametros}. El sistema rechazará el
+     * registro de comandos que infrinjan esta regla mediante
+     * {@link Controlador.registrar_comando_desde_instancia} o
+     * {@link Controlador.registrar_comando_desde_clase}.
+     *
+     * @param {string} nombre Nombre del comando (ej. 'depuracion:imprimir').
+     * @param {...*}   args   Argumentos para el manejador (crudos, serán parseados).
+     *
+     * @returns {*} El resultado devuelto por el manejador del comando, o
+     *              `null` si el comando no existe, no hay permiso o los
+     *              argumentos son inválidos. Retorna `true` si se mostró
+     *              la ayuda.
      *
      * @example
-     * Controlador.ejecutar_comando('debug:imprimir');
+     * // Ejecución básica
+     * Controlador.ejecutar_comando('depuracion:imprimir');
+     *
+     * // Con argumentos
+     * Controlador.ejecutar_comando('depuracion:imprimir', '--errores');
+     *
+     * // Solicitar ayuda
+     * Controlador.ejecutar_comando('depuracion:imprimir', '--man');
      *
      * @see Controlador.registrar_comando
      * @see Controlador.tiene_permiso
      * @see Controlador.deshacer_ultimo
+     * @see Controlador._mostrar_ayuda
+     * @see Controlador._parsear_y_validar_args
+     * @see Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS
      * @since 1.3.1
+     * @version 1.3.2
      */
     static ejecutar_comando(nombre, ...args) {
         if (!this.comandos[nombre]) {
@@ -430,14 +601,189 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         }
 
         const registro = this.comandos[nombre];
+        const clase = registro.clase;
+        const manejador = registro.manejador;
+
+        // Detectar solicitud de ayuda
+        const ayuda_flags = Conf.PALABRAS_RESERVADAS_COMANDOS;
+        for (const arg of args) {
+            const sin_guiones = String(arg).replace(/^-+/, '');
+            if (ayuda_flags.includes(sin_guiones)) {
+                if (clase !== null) {
+                    Controlador._mostrar_ayuda(clase);
+                } else {
+                    console.log(`Comando '${nombre}' (sin ayuda disponible).`);
+                }
+                return true;
+            }
+        }
+
+        // Parsear y validar argumentos solo si el comando tiene definición
+        let args_parseados;
+        if (clase && typeof clase.parametros === 'function') {
+            const definicion = clase.parametros();
+            args_parseados = Controlador._parsear_y_validar_args(definicion, args, clase);
+            if (args_parseados === null) {
+                return null;
+            }
+        } else {
+            // Sin definición: pasar los argumentos tal cual
+            args_parseados = args;
+        }
+
         const token = Controlador.token;
-        const resultado = registro.manejador(token, ...args);
+        const resultado = manejador(token, args_parseados);
 
         if (registro.reversa) {
-            this.historial.push(() => registro.reversa(token, ...args));
+            this.historial.push(() => registro.reversa(token, args_parseados));
         }
 
         return resultado;
+    }
+
+    /**
+     * Valida los argumentos crudos contra la definición de parámetros del comando.
+     *
+     * @param {Object[]} definicion Definición de parámetros.
+     * @param {Array}    args       Argumentos crudos.
+     * @param {typeof Comando} clase Clase del comando (para mostrar ayuda).
+     * @returns {Object|null} Estructura con 'posicionales', 'banderas' y 'opciones',
+     *                        o `null` si hay errores.
+     * @private
+     * @since 1.3.2
+     */
+    static _parsear_y_validar_args(definicion, args, clase) {
+        const posicionales = [];
+        const banderas = {};
+        const opciones = {};
+
+        // Inicializar defectos
+        for (const param of definicion) {
+            if (param.tipo === 'bandera') {
+                banderas[param.nombre] = param.defecto ?? false;
+            } else if (param.tipo === 'opcion' && param.defecto !== undefined) {
+                opciones[param.nombre] = param.defecto;
+            }
+        }
+
+        for (const arg of args) {
+            if (typeof arg === 'string' && arg.startsWith('--')) {
+                const sin_guiones = arg.slice(2);
+                if (sin_guiones.includes('=')) {
+                    const [clave, valor] = sin_guiones.split('=', 2);
+                    opciones[clave] = valor;
+                } else {
+                    banderas[sin_guiones] = true;
+                }
+            } else {
+                posicionales.push(arg);
+            }
+        }
+
+        const nombres_conocidos = definicion.map(p => p.nombre);
+        const errores = [];
+
+        // Validar banderas desconocidas
+        for (const nombre of Object.keys(banderas)) {
+            if (!nombres_conocidos.includes(nombre)) {
+                errores.push(`Flag desconocido: '--${nombre}'.`);
+            }
+        }
+
+        // Validar opciones desconocidas
+        for (const nombre of Object.keys(opciones)) {
+            if (!nombres_conocidos.includes(nombre)) {
+                errores.push(`Opción desconocida: '--${nombre}'.`);
+            }
+        }
+
+        // Validar parámetros según definición
+        let pos_def = 0;
+        for (const param of definicion) {
+            const nombre = param.nombre;
+            const tipo = param.tipo;
+            const obligatorio = param.obligatorio ?? false;
+            const valores_permitidos = param.valores ?? null;
+
+            if (tipo === 'posicional') {
+                if (obligatorio && posicionales[pos_def] === undefined) {
+                    errores.push(`Falta el argumento posicional '${nombre}' (obligatorio). Valores permitidos: ${valores_permitidos.join(', ')}.`);
+                } else if (posicionales[pos_def] !== undefined && valores_permitidos) {
+                    if (!valores_permitidos.includes(posicionales[pos_def])) {
+                        errores.push(`Valor inválido para '${nombre}': '${posicionales[pos_def]}'. Valores permitidos: ${valores_permitidos.join(', ')}.`);
+                    }
+                }
+                pos_def++;
+            } else if (tipo === 'opcion' && valores_permitidos && opciones[nombre] !== undefined) {
+                if (!valores_permitidos.includes(opciones[nombre])) {
+                    errores.push(`Valor inválido para '--${nombre}': '${opciones[nombre]}'. Valores permitidos: ${valores_permitidos.join(', ')}.`);
+                }
+            }
+        }
+
+        if (errores.length > 0) {
+            for (const error of errores) {
+                Controlador._error(error);
+            }
+            Controlador._mostrar_ayuda(clase);
+            return null;
+        }
+
+        return { posicionales, banderas, opciones };
+    }
+
+    /**
+     * Muestra la ayuda de un comando en el formato adecuado según el entorno.
+     *
+     * La ayuda se genera dinámicamente consultando los métodos
+     * {@link Comando.descripcion}, {@link Comando.parametros} y
+     * {@link Comando.ejemplos} de la clase del comando. Si alguno de estos
+     * métodos no está definido, se omite la sección correspondiente.
+     *
+     * @param {typeof Comando} clase Clase del comando.
+     * @private
+     * @since 1.3.2
+     */
+    static _mostrar_ayuda(clase) {
+        const nombre = clase.nombre();
+        let ayuda = `Comando: ${nombre}\n`;
+
+        // Descripción (opcional)
+        if (typeof clase.descripcion === 'function') {
+            ayuda += clase.descripcion() + '\n';
+        }
+
+        // Parámetros (opcionales)
+        if (typeof clase.parametros === 'function') {
+            const parametros = clase.parametros();
+            if (parametros.length > 0) {
+                ayuda += '\nParámetros:\n';
+                for (const p of parametros) {
+                    const obligatorio = p.obligatorio ? ' (obligatorio)' : '';
+                    ayuda += `  --${p.nombre} [${p.tipo}]${obligatorio}: ${p.descripcion}\n`;
+                }
+            }
+        }
+
+        // Ejemplos (opcionales)
+        if (typeof clase.ejemplos === 'function') {
+            const ejemplos = clase.ejemplos();
+            if (ejemplos.length > 0) {
+                ayuda += '\nEjemplos:\n';
+                for (const ej of ejemplos) {
+                    ayuda += `  ${ej}\n`;
+                }
+            }
+        }
+
+        // Salida según entorno
+        if (Entorno.es_consola()) {
+            console.log(ayuda);
+        } else {
+            const pre = document.createElement('pre');
+            pre.textContent = ayuda;
+            document.body.appendChild(pre);
+        }
     }
 
     /**

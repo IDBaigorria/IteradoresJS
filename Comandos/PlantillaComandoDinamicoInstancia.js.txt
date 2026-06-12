@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════
-// PLANTILLA DE COMANDO DINÁMICO (INSTANCIA EXISTENTE)
+// PLANTILLA DE COMANDO DINÁMICO (INSTANCIA EXISTENTE) — v1.3.2
 // ═══════════════════════════════════════════════════════════
 // Úsela cuando reciba una instancia que ya cumple la interfaz
 // Comando (por ejemplo, generada desde un nodo o recuperada de
 // un almacenamiento) y desee registrarla en el sistema.
 
-import { Comando } from '../Comandos/index.js';  // ajuste la ruta
-import { Controlador } from '../Controlador/Controlador.js';
+import { Comando } from '../Comandos/index.js';  // ajuste la ruta si es necesario 
+import { Controlador } from '../Controlador/Controlador.js'; // ajuste la ruta si es necesario
 
 /** @type {Comando} */
 const comandoExistente = obtenerComandoDeAlgunaFuente(); // ejemplo
@@ -19,9 +19,8 @@ if (comandoExistente instanceof Comando) {
     // el Controlador aún no esté inicializado)
     // Controlador.encolar_comando(comandoExistente);
 
-    // Ejecutar
-    // Controlador.ejecutar_comando(comandoExistente.constructor.nombre(), 'arg1');
+    // Ejecutar (los argumentos se parsean automáticamente)
+    // Controlador.ejecutar_comando(comandoExistente.constructor.nombre(), '--bandera1');
 } else {
-    // Manejar error
     console.error("La instancia no cumple la interfaz Comando.");
 }

@@ -13,14 +13,13 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * **Entorno:** solo disponible en desarrollo (o indicar si también en pruebas/producción).
  * **Reversible:** [Sí/No] – [si es reversible, explicar cómo se deshace].
  *
- * @since 1.3.1
+ * @since [versión]
+ * @version [Versión]
  */
 export class Comando[Nombre] extends Comando {
     /**
      * Nombre único del comando.
-     *
-     * Debe seguir la convención `categoria:accion` (ej. 'debug:limpiar').
-     *
+     * Debe seguir la convención `categoria:accion` (ej. 'depuracion:limpiar').
      * @returns {string}
      */
     static nombre() {
@@ -29,9 +28,6 @@ export class Comando[Nombre] extends Comando {
 
     /**
      * Indica si el comando solo debe registrarse en entorno de desarrollo.
-     *
-     * Si retorna `true`, el comando no se registrará en producción.
-     *
      * @returns {boolean}
      */
     static solo_desarrollo() {
@@ -39,25 +35,111 @@ export class Comando[Nombre] extends Comando {
     }
 
     /**
+     * Breve descripción de lo que hace el comando.
+     * Se utiliza en la ayuda generada automáticamente por el Controlador.
+     * @returns {string}
+     */
+    static descripcion() {
+        return 'Descripción corta de la funcionalidad del comando.';
+    }
+
+    /**
+     * Define los parámetros que acepta el comando.
+     *
+     * Cada entrada es un objeto con las propiedades:
+     * - nombre      (string)   Nombre del parámetro (sin guiones).
+     * - tipo        (string)   'posicional', 'bandera' u 'opcion'.
+     * - obligatorio (boolean)  Si es obligatorio.
+     * - defecto     (any)      Valor por defecto.
+     * - descripcion (string)   Texto explicativo para la ayuda.
+     * - valores     (string[]) (Opcional) Lista de valores permitidos.
+     *
+     * ⚠️ No use las palabras reservadas definidas en
+     * {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS}
+     * (actualmente 'man', 'help', 'h', ayuda, ay) como nombres de parámetros.
+     *
+     * @returns {Object[]}
+     */
+    static parametros() {
+        return [
+            /*
+            // Ejemplo de una bandera booleana
+            {
+                nombre: 'errores',
+                tipo: 'bandera',
+                obligatorio: false,
+                defecto: false,
+                descripcion: 'Muestra solo los errores.',
+            },
+            // Ejemplo de una opción con valor
+            {
+                nombre: 'formato',
+                tipo: 'opcion',
+                obligatorio: false,
+                defecto: 'json',
+                descripcion: 'Formato de salida (json, texto, html).',
+                valores: ['json', 'texto', 'html'],
+            },
+            // Ejemplo de un argumento posicional
+            {
+                nombre: 'accion',
+                tipo: 'posicional',
+                obligatorio: true,
+                descripcion: 'Acción a realizar (activar, desactivar).',
+                valores: ['activar', 'desactivar'],
+            },
+            */
+        ];
+    }
+
+    /**
+     * Proporciona uno o varios ejemplos de uso del comando.
+     * @returns {string[]}
+     */
+    static ejemplos() {
+        return [
+            'categoria:accion --bandera1',
+            'categoria:accion --bandera1 --opcion=valor',
+        ];
+    }
+
+    /**
      * Ejecuta la lógica del comando.
      *
-     * @param {string} token Token de seguridad proporcionado por Controlador.
-     * @param {...*}   args  Argumentos adicionales para el comando.
+     * Recibe los argumentos ya validados y normalizados por el Controlador.
+     * La estructura del parámetro `args` depende de si ha declarado una
+     * definición de parámetros:
+     *
+     * - **Con definición:** `args` es un objeto con las propiedades
+     *   `posicionales` (Array), `banderas` (Object) y `opciones` (Object).
+     * - **Sin definición:** `args` es un Array con los argumentos crudos.
+     *
+     * @param {string} token Token de seguridad.
+     * @param {Object|Array} args Argumentos normalizados.
      * @returns {*} Resultado de la ejecución.
      */
-    ejecutar(token, ...args) {
+    ejecutar(token, args) {
         // TODO: Implementar la lógica del comando
 
-        // Ejemplo de guarda de entorno
+        // ─── Ejemplo de acceso a los argumentos ─────────────────
+        // const banderas = args.banderas;
+        // const opciones = args.opciones;
+        // const posicionales = args.posicionales;
+        //
+        // if (banderas.errores) { ... }
+        // const formato = opciones.formato ?? 'json';
+        // const accion = posicionales[0] ?? null;
+
+        // ─── Ejemplo de guarda de entorno ──────────────────────
         if (!Entorno.permite_pruebas()) {
             console.log(`El comando '${this.constructor.nombre()}' solo está disponible en desarrollo o pruebas.`);
             return false;
         }
 
-        // Ejemplo de uso de token para operaciones protegidas
+        // ─── Ejemplo de uso de token para operaciones protegidas ─
         // Controlador.imprimir_superestructura(token);
 
-        // Ejemplo de uso de Objeto para diagnóstico
+        // ─── Ejemplo de uso de Objeto para diagnóstico ─────────
         // Objeto.imprimir_errores();
         // Objeto.imprimir_alertas();
 
@@ -66,7 +148,6 @@ export class Comando[Nombre] extends Comando {
 
     /**
      * Proporciona la función de reversa, o `null` si el comando no es reversible.
-     *
      * @returns {Function|null}
      */
     reversa() {
@@ -75,7 +156,7 @@ export class Comando[Nombre] extends Comando {
 
         // Si es reversible, ejemplo:
         /*
-        return (token, ...args) => {
+        return (token, args) => {
             // Lógica para deshacer lo que hizo ejecutar()
             return true;
         };

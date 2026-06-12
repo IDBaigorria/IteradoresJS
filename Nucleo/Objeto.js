@@ -507,9 +507,12 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @returns {void} No devuelve ningún valor.
    */
   static imprimir_errores() {
+     // console.log("klj");
       if (Entorno.es_consola()) {
+    //    console.log("lll");
           this._imprimir_errores_consola();
       } else {
+    //    console.log("kjhd");
           this._imprimir_errores_html();
       }
   }
@@ -537,10 +540,7 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @see Configuracion.Entorno::es_consola()
    */
   static _imprimir_errores_html() {
-    if (!Objeto._errores || Objeto._errores.length === 0) {
-        console.log("(No hay errores registrados)");
-        return;
-    }
+
 
     const colores = Conf.ERRORES_COLORES;
     const contenedor_id = Conf.ERRORES_CONTENEDOR_ID;
@@ -562,6 +562,10 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
     }
 
     contenedor.innerHTML = "<h3>===== ERRORES =====</h3>";
+    if (!Objeto._errores || Objeto._errores.length === 0) {
+        contenedor.innerHTML +="(No hay errores registrados)";
+        return;
+    }
 
     for (const error of Objeto._errores) {
         const pila = error.pila || [];
@@ -1202,10 +1206,7 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @see Configuracion.Entorno.es_consola
    */
   static _imprimir_alertas_html() {
-    if (!Objeto._alertas || Objeto._alertas.length === 0) {
-        console.warn("(No hay alertas registrados)");
-        return;
-    }
+
 
     const colores = Conf.ALERTAS_COLORES;
     const contenedor_id = Conf.ALERTAS_CONTENEDOR_ID;
@@ -1227,7 +1228,10 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
     }
 
     contenedor.innerHTML = "<h3>===== ALERTAS =====</h3>";
-
+    if (!Objeto._alertas || Objeto._alertas.length === 0) {
+        contenedor.innerHTML +="(No hay alertas registrados)";
+        return;
+    }
     for (const alerta of Objeto._alertas) {
         const pila = alerta.pila || [];
         const cant = pila.length;

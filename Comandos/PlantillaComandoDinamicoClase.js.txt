@@ -1,13 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// PLANTILLA DE COMANDO DINÁMICO (CLASE ANÓNIMA)
+// PLANTILLA DE COMANDO DINÁMICO (CLASE ANÓNIMA) — v1.3.2
 // ═══════════════════════════════════════════════════════════
 // Úsela cuando necesite crear un comando en tiempo de ejecución
 // sin definir un archivo separado.
-// La clase extiende Comando y se registra inmediatamente (o se
-// encola si el Controlador aún no está inicializado).
 
-import { Comando } from '../Comandos/index.js';  // ajuste la ruta
-import { Controlador } from '../Controlador/Controlador.js';
+import { Comando } from '../Comando.js'; // ajuste la ruta
+import { Controlador } from '../../Controlador/Controlador.js';
 
 const ComandoDinamico = class extends Comando {
     static nombre() {
@@ -18,23 +16,34 @@ const ComandoDinamico = class extends Comando {
         return false; // true si solo debe existir en desarrollo
     }
 
-    ejecutar(token, ...args) {
-        // Lógica del comando aquí
+    static descripcion() {
+        return 'Descripción breve del comando dinámico.';
+    }
+
+    static parametros() {
+        return [
+            // Definir aquí los parámetros igual que en una clase estática
+        ];
+    }
+
+    static ejemplos() {
+        return [
+            'dinamico:accion --bandera1',
+        ];
+    }
+
+    ejecutar(token, args) {
+        // Acceder a los argumentos ya parseados
+        // const banderas = args.banderas;
+        // const opciones = args.opciones;
+        // const posicionales = args.posicionales;
+
         console.log('Ejecutando comando dinámico');
         return true;
     }
 
     reversa() {
-        // Si no es reversible:
-        return null;
-
-        // Si es reversible, ejemplo:
-        /*
-        return (token, ...args) => {
-            // deshacer cambios
-            return true;
-        };
-        */
+        return null; // o devolver una función
     }
 };
 
@@ -45,4 +54,4 @@ Controlador.registrar_comando_desde_clase(ComandoDinamico);
 // Controlador.encolar_comando(ComandoDinamico);
 
 // Ahora puede ejecutarse
-// Controlador.ejecutar_comando('dinamico:accion', 'arg1');
+// Controlador.ejecutar_comando('dinamico:accion', '--bandera1');

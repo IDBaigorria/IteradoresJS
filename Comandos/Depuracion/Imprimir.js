@@ -4,48 +4,67 @@ import { Entorno } from '../../Configuracion/Entorno.js';
 import { Conf } from '../../Configuracion/Configuracion.js';
 import { Objeto } from '../../Nucleo/Objeto.js';
 
-/**
- * Comando que imprime errores, alertas y la superestructura.
- *
- * Solo está disponible en entornos de desarrollo y pruebas.
- * No es reversible.
- *
- * @since 1.3.1
- */
 export class ComandoDepuracionImprimir extends Comando {
-    static nombre() {
-        return 'debug:imprimir';
+    static nombre() { return 'depuracion:imprimir'; }
+    static solo_desarrollo() { return true; }
+
+    static descripcion() {
+        return 'Muestra los registros de errores, alertas y la superestructura. Sin argumentos, muestra todo.';
     }
 
-    static solo_desarrollo() {
-        return true;
+    static parametros() {
+        return [
+            { nombre: 'errores', tipo: 'bandera', obligatorio: false, defecto: false, descripcion: 'Muestra solo los errores.' },
+            { nombre: 'alertas',  tipo: 'bandera', obligatorio: false, defecto: false, descripcion: 'Muestra solo las alertas.' },
+            { nombre: 'super',   tipo: 'bandera', obligatorio: false, defecto: false, descripcion: 'Muestra solo la superestructura.' },
+        ];
     }
 
-    ejecutar(token, ...args) {
+    static ejemplos() {
+        return ['depuracion:imprimir', 'depuracion:imprimir --errores --alertas', 'depuracion:imprimir --super'];
+    }
+
+    ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            console.log("El comando 'debug:imprimir' solo está disponible en desarrollo o pruebas.");
+            console.log("Solo desarrollo/pruebas.");
             return false;
         }
 
-        console.log("%c--- ERRORES ---", `color: ${Conf.ERRORES_COLORES.texto}; background: ${Conf.ERRORES_COLORES.fondo};`);
-        Objeto.imprimir_errores();
-        console.log("%c--- ALERTAS ---", `color: ${Conf.ALERTAS_COLORES.texto}; background: ${Conf.ALERTAS_COLORES.fondo};`);
-        Objeto.imprimir_alertas();
-        console.log("%c--- SUPERESTRUCTURA ---", `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`);
-        Controlador.imprimir_superestructura(token);
+        const banderas = args.banderas;
+        const mostrar_todo = !banderas.errores && !banderas.alertas && !banderas.super;
+
+        // 1. Imprimir las categorías solicitadas
+        if (mostrar_todo || banderas.errores) {
+            Objeto.imprimir_errores();    // ya incluye título y estilo
+        }
+        if (mostrar_todo || banderas.alertas) {
+            Objeto.imprimir_alertas();
+        }
+        if (mostrar_todo || banderas.super) {
+            Controlador.imprimir_superestructura();
+        }
+
+        // 2. En HTML, ocultar contenedores no solicitados
+        if (!Entorno.es_consola()) {
+            const cont_errores = document.getElementById('errores-log');
+            const cont_alertas = document.getElementById('alertas-log');
+            const cont_nodos   = document.getElementById('nodos-log');
+
+            if (cont_errores) {
+                cont_errores.style.display = (mostrar_todo || banderas.errores) ? '' : 'none';
+            }
+            if (cont_alertas) {
+                cont_alertas.style.display = (mostrar_todo || banderas.alertas) ? '' : 'none';
+            }
+            if (cont_nodos) {
+                cont_nodos.style.display = (mostrar_todo || banderas.super) ? '' : 'none';
+            }
+        }
+
         return true;
     }
 
-    reversa() {
-        return null;
-    }
+    reversa() { return null; }
 }
 
-// ═══════════════════════════════════════════════════════════
-// AUTOENCOLACIÓN: No debe faltar esta línea
-// ═══════════════════════════════════════════════════════════
 Controlador.encolar_comando(ComandoDepuracionImprimir);
-// ✅ Ahora (sin ciclo)
-/*import('../../Controlador/Controlador.js').then(module => {
-    module.Controlador.encolar_comando(ComandoDepuracionImprimir);
-});*/

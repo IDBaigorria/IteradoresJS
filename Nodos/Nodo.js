@@ -2364,19 +2364,38 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * @see #_imprimir_html
      * @see Configuracion.Entorno
      */
-    imprimir() {
-        if (!Entorno.permite_pruebas()) {
-            this.constructor._alerta('Impresión de nodos no permitida en entorno de producción.');
-            this.constructor._alerta('Impresión de nodos no permitida en entorno de producción.');
-            return;
-        }
-
-        if (Entorno.es_consola()) {
-            this._imprimir_consola();
-        } else {
-            return this._imprimir_html();
-        }
+imprimir() {
+    if (!Entorno.permite_pruebas()) {
+        this.constructor._alerta('Impresión de nodos no permitida en entorno de producción.');
+        return;
     }
+
+    if (Entorno.es_consola()) {
+        this._imprimir_consola();
+    } else {
+        const html = this._imprimir_html();
+
+        // Insertar en el contenedor global (comportamiento individual)
+        let contenedor = document.getElementById(Conf.NODOS_CONTENEDOR_ID);
+        if (!contenedor) {
+            contenedor = document.createElement("div");
+            contenedor.id = Conf.NODOS_CONTENEDOR_ID;
+            contenedor.style.cssText = `
+                background: ${Conf.NODOS_COLORES.fondo};
+                color: ${Conf.NODOS_COLORES.texto};
+                padding: 1em;
+                margin: 1em 0;
+                border: 1px solid ${Conf.NODOS_COLORES.borde};
+                font-family: monospace;
+                white-space: pre-wrap;
+            `;
+            document.body.appendChild(contenedor);
+        }
+        contenedor.innerHTML += html;
+
+        return html;   // por si alguien necesita el string
+    }
+}
 
     /**
      * Imprime el nodo en formato texto plano (consola).
@@ -2428,31 +2447,14 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * @private
      * @since 1.3.0
      */
-   _imprimir_html() {
+_imprimir_html() {
     const colores = Conf.NODOS_COLORES;
-    const contenedor_id = Conf.NODOS_CONTENEDOR_ID;
-
-    let contenedor = document.getElementById(contenedor_id);
-    if (!contenedor) {
-        contenedor = document.createElement("div");
-        contenedor.id = contenedor_id;
-        contenedor.style.cssText = `
-            background: ${colores.fondo};
-            color: ${colores.texto};
-            padding: 1em;
-            margin: 1em 0;
-            border: 1px solid ${colores.borde};
-            font-family: monospace;
-            white-space: pre-wrap;
-        `;
-        document.body.appendChild(contenedor);
-    }
-
     const id = this.id();
     const dato = this.dato();
     const adyacentes = this.adyacentes();
 
-    let html = `<div style="margin-bottom:1em;">`;
+    // Contenedor del nodo con los mismos estilos que PHP
+    let html = `<div style="background:${colores.fondo}; color:${colores.texto}; padding:1em; margin:1em 0; border:1px solid ${colores.borde}; font-family:monospace; white-space:pre-wrap;">`;
     html += `<strong>NODO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
     if (typeof dato === "string") html += dato;
     else if (dato === null) html += "null";
@@ -2473,8 +2475,10 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
     html += `Número de referencias a él: ${this._referencias}<br/>`;
     html += `</div>`;
 
-    contenedor.innerHTML += html;
-  }
+    //contenedor.innerHTML += html;
+
+    return html;
+}
     
 
     /**
