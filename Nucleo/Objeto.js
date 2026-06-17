@@ -383,7 +383,7 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
     };
 
     Objeto._contador_errores++;
-    console.log(Objeto._errores);
+    //console.log(Objeto._errores);
   }
   /**
    * Imprime los errores en la consola del navegador o terminal.

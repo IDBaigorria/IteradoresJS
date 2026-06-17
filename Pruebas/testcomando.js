@@ -1,3 +1,4 @@
+
 // ============================================================
 // TEST DE COMANDO (JS)
 // ============================================================
@@ -7,7 +8,10 @@
 // ❌ = no implementado
 // ============================================================
 
-import { Objeto, Nodo, NodoElectrico, Comando, Controlador, Conf, Entorno } from '../index.js';
+import { Objeto, Nodo, NodoElectrico, Comando, Comunicador, Controlador, Conf, Entorno } from '../index.js';
+import './../Comunicadores/index.js'
+import './../Comandos/index.js';         // puebla registro_pendiente
+//import './../Comunicadores/index.js';    // puebla registro_comunicadores_pendiente
 
 
 // alert("prueba comand2222");
@@ -277,7 +281,7 @@ Controlador.ejecutar_prueba((token) => {
 console.groupEnd();
 */
 // ─── 9. Pruebas de comando reversible con argumentos ───
-console.group('🔹 Comando reversible con argumentos');
+/*console.group('🔹 Comando reversible con argumentos');
 
 Controlador.ejecutar_prueba((token) => {
     console.log("▶ 9.1 Ejecutar 'prueba:crear_nodo' con argumentos");
@@ -304,6 +308,60 @@ Controlador.ejecutar_prueba((token) => {
    // NodoElectrico.imprimir_alertas();
     Controlador.ejecutar_comando("depuracion:imprimir");
     console.log('✅ Pruebas de comando reversible completadas');
+});
+
+console.groupEnd();*/
+// ──────────────────────────────────────────────────────────
+// 10. PRUEBAS DE LA VERSIÓN 1.3.3 (COMUNICADORES)
+// ──────────────────────────────────────────────────────────
+console.group('🔹 Comunicadores y comandos de comunicación v1.3.3');
+
+Controlador.ejecutar_prueba((token) => {
+
+    // ─── 10.1 Escribir en salida estándar ────────────────────
+    console.log('▶ 10.1 Escribir en salida estándar mediante Controlador.escribir_salida()');
+    Controlador.escribir_salida('   Mensaje de prueba desde escribir_salida (debe verse en el formato adecuado)');
+/*
+    // Prueba 10.2
+     console.log('▶ 10.2 Comunicación:escribir en salida consola');
+
+    Controlador.ejecutar_comando('comunicacion:escribir', 'salida_depuracion_consola', 'Hola desde prueba');
+
+
+    // ─── 10.3 Comunicación con archivos (limitado en navegador)
+    console.log('▶ 10.3 Leer y descargar archivo (limitado en navegador, solo descarga)');
+    Controlador.ejecutar_comando('comunicacion:escribir', 'archivo', 'Contenido de prueba', 'test.txt');
+
+    // ─── 10.4 Listar directorio (no soportado en navegador) ──
+    console.log('▶ 10.4 Intentar listar directorio (debe mostrar error informativo)');
+    Controlador.ejecutar_comando('comunicacion:listar', 'archivo', '.');
+    NodoElectrico.imprimir_errores();
+    NodoElectrico.limpiar_errores();
+
+    // ─── 10.5 Ayuda de comandos de comunicación ─────────────
+    console.log('▶ 10.5 Ayuda de comunicación:leer');
+    Controlador.ejecutar_comando('comunicacion:leer', '--help');
+
+    // ─── 10.6 Verificar comandos de depuración actualizados ──
+    console.log('▶ 10.6 Comandos de depuración con nueva salida');
+    NodoElectrico.limpiar_errores();
+    NodoElectrico.limpiar_alertas();
+    NodoElectrico._error("Error de prueba v1.3.3");
+    NodoElectrico._alerta("Alerta de prueba v1.3.3");
+
+    console.log('   Ejecutando depuracion:imprimir (debe verse el error y la alerta):');
+    Controlador.ejecutar_comando('depuracion:imprimir');
+
+    console.log('   Ejecutando depuracion:limpiar --errores:');
+    Controlador.ejecutar_comando('depuracion:limpiar', '--errores');
+    console.log('   Verificación (errores deberían estar vacíos):');
+    Controlador.ejecutar_comando('depuracion:imprimir', '--errores');
+
+    console.log('   Ejecutando depuracion:limpiar (limpiar todo):');
+    Controlador.ejecutar_comando('depuracion:limpiar');
+    Controlador.ejecutar_comando('depuracion:imprimir');*/
+
+    console.log('✅ Pruebas de la versión 1.3.3 completadas');
 });
 
 console.groupEnd();

@@ -26,7 +26,7 @@ export class ComandoDepuracionImprimir extends Comando {
 
     ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            console.log("Solo desarrollo/pruebas.");
+            Controlador.escribir_salida("Solo desarrollo/pruebas.");
             return false;
         }
 
@@ -35,7 +35,7 @@ export class ComandoDepuracionImprimir extends Comando {
 
         // 1. Imprimir las categorías solicitadas
         if (mostrar_todo || banderas.errores) {
-            Objeto.imprimir_errores();    // ya incluye título y estilo
+            Objeto.imprimir_errores();
         }
         if (mostrar_todo || banderas.alertas) {
             Objeto.imprimir_alertas();

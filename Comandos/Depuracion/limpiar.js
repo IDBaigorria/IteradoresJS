@@ -2,7 +2,6 @@ import { Comando } from '../Comando.js';
 import { Controlador } from '../../Controlador/Controlador.js';
 import { Entorno } from '../../Configuracion/Entorno.js';
 import { Objeto } from '../../Nucleo/Objeto.js';
-
 /**
  * Comando que limpia las pilas de errores y alertas acumuladas.
  *
@@ -13,7 +12,7 @@ import { Objeto } from '../../Nucleo/Objeto.js';
  * **Reversible:** No.
  *
  * @since 1.3.1
- * @version 1.3.2
+ * @version 1.3.3
  */
 export class ComandoDepuracionLimpiar extends Comando {
     static nombre() { return 'depuracion:limpiar'; }
@@ -42,21 +41,21 @@ export class ComandoDepuracionLimpiar extends Comando {
 
     ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            console.log("El comando 'depuracion:limpiar' solo está disponible en desarrollo o pruebas.");
+            Controlador.escribir_salida("El comando 'depuracion:limpiar' solo está disponible en desarrollo o pruebas.");
             return false;
         }
 
         const banderas = args.banderas;
-        const limpiarErrores = banderas.errores || banderas.todo || (!banderas.errores && !banderas.alertas && !banderas.todo);
-        const limpiarAlertas = banderas.alertas || banderas.todo || (!banderas.errores && !banderas.alertas && !banderas.todo);
+        const limpiar_errores = banderas.errores || banderas.todo || (!banderas.errores && !banderas.alertas && !banderas.todo);
+        const limpiar_alertas = banderas.alertas || banderas.todo || (!banderas.errores && !banderas.alertas && !banderas.todo);
 
-        if (limpiarErrores) {
+        if (limpiar_errores) {
             Objeto.limpiar_errores();
-            console.log('Pila de errores limpiada.');
+            Controlador.escribir_salida('Pila de errores limpiada.');
         }
-        if (limpiarAlertas) {
+        if (limpiar_alertas) {
             Objeto.limpiar_alertas();
-            console.log('Pila de alertas limpiada.');
+            Controlador.escribir_salida('Pila de alertas limpiada.');
         }
 
         return true;
@@ -65,7 +64,4 @@ export class ComandoDepuracionLimpiar extends Comando {
     reversa() { return null; }
 }
 
-// ═══════════════════════════════════════════════════════════
-// AUTOENCOLACIÓN
-// ═══════════════════════════════════════════════════════════
 Controlador.encolar_comando(ComandoDepuracionLimpiar);

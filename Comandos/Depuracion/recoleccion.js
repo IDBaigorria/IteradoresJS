@@ -14,7 +14,7 @@ import { Objeto } from '../../Nucleo/Objeto.js';
  * **Reversible:** No.
  *
  * @since 1.3.1
- * @version 1.3.2
+ * @version 1.3.3
  */
 export class ComandoDepuracionRecoleccion extends Comando {
     static nombre() { return 'depuracion:recoleccion'; }
@@ -49,36 +49,36 @@ export class ComandoDepuracionRecoleccion extends Comando {
 
     ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            console.log("El comando 'depuracion:recoleccion' solo está disponible en desarrollo o pruebas.");
+            Controlador.escribir_salida("El comando 'depuracion:recoleccion' solo está disponible en desarrollo o pruebas.");
             return false;
         }
 
         const posicionales = args.posicionales;
         const banderas = args.banderas;
         const accion = posicionales[0] ?? null;
-        const afectarErrores = banderas.errores || (!banderas.errores && !banderas.alertas);
-        const afectarAlertas = banderas.alertas || (!banderas.errores && !banderas.alertas);
+        const afectar_errores = banderas.errores || (!banderas.errores && !banderas.alertas);
+        const afectar_alertas = banderas.alertas || (!banderas.errores && !banderas.alertas);
 
         if (accion === 'activar') {
-            if (afectarErrores) {
+            if (afectar_errores) {
                 Objeto.activar_errores();
-                console.log('Recolección de errores activada.');
+                Controlador.escribir_salida('Recolección de errores activada.');
             }
-            if (afectarAlertas) {
+            if (afectar_alertas) {
                 Objeto.activar_alertas();
-                console.log('Recolección de alertas activada.');
+                Controlador.escribir_salida('Recolección de alertas activada.');
             }
         } else if (accion === 'desactivar') {
-            if (afectarErrores) {
+            if (afectar_errores) {
                 Objeto.desactivar_errores();
-                console.log('Recolección de errores desactivada.');
+                Controlador.escribir_salida('Recolección de errores desactivada.');
             }
-            if (afectarAlertas) {
+            if (afectar_alertas) {
                 Objeto.desactivar_alertas();
-                console.log('Recolección de alertas desactivada.');
+                Controlador.escribir_salida('Recolección de alertas desactivada.');
             }
         } else {
-            console.log(`Acción no reconocida: '${accion}'. Use 'activar' o 'desactivar'.`);
+            Controlador.escribir_salida(`Acción no reconocida: '${accion}'. Use 'activar' o 'desactivar'.`);
             return false;
         }
 

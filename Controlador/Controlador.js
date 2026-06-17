@@ -2,6 +2,8 @@ import { Conf, Entorno } from '../Configuracion/index.js';
 import { Objeto } from "../Nucleo/index.js";
 import { Nodo } from '../Nodos/Nodo.js';
 import{PerdurarSuperestructura, PerdurarSuperestructuraStringIndexedDB, PerdurarSuperestructuraStringJSON, PerdurarSuperestructuraStringXML, PerdurarSuperestructuraElectricosStringIndexedDB} from './PerdurarSuperestructura/index.js';
+import { Comunicadores } from './interfaces/index.js';  // ← se mantiene (interfaz)
+// ❌ ELIMINADO: import{Comunicador} from '../Comunicadores/Comunicador.js';
 import{Comandos} from './interfaces/index.js';
 import{Comando} from '../Comandos/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
@@ -17,7 +19,7 @@ console.log("Controlador");
  * @implements {Nodos.Interfaces.Comandos}
  * @memberof Controlador
  */
-class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos) {
+class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores) {
 /** 
      * @type {string} Método de persistencia activo por defecto
      */
@@ -208,34 +210,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return true;
     }
 
-    /** @type {boolean} */
-    static inicializo = false;
 
-    /**
-     * Inicializa el sistema registrando las clases principales.
-     * Solo se ejecuta una vez.
-     * 
-     * @returns {void}
-     */
-    static inicializar() {
-        if (!this.inicializo) {
-           // if (typeof Nodo !== "undefined" && typeof PerdurarSuperestructura !== "undefined") {
-                Nodo.registrar_controlador(Controlador);
-                Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
-                Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
-                Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
-                Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
-                Controlador.establecer_metodo("EIndexedDB");
-                // ──────────────────────────────────────────────
-                // Carga asíncrona de comandos (siempre)
-                // ──────────────────────────────────────────────
-                this.cargar_comandos_pendientes();
-                console.log('✅ Comandos registrados:', Object.keys(this.comandos));
-
-                this.inicializo = true;
-            } 
-       // }
-    }
     // ──────────────────────────────────────────────────────────
     // MÉTODO PARA PRUEBAS: ejecutar_prueba
     // ──────────────────────────────────────────────────────────
@@ -822,6 +797,401 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         const reversa = this.historial.pop();
         return reversa();
     }
+     // ══════════════════════════════════════════════════════
+    // INTERFAZ COMUNICADORES
+    // ══════════════════════════════════════════════════════
+
+    /**
+     * Mapa de comunicadores registrados.
+     *
+     * Estructura:
+     * {
+     *     'nombre_comunicador': {
+     *         instancia: Comunicador,   // Instancia única del comunicador
+     *         clase: typeof Comunicador // Clase del comunicador
+     *     },
+     *     ...
+     * }
+     *
+     * @type {Object<string, {instancia: Comunicador, clase: typeof Comunicador}>}
+     */
+    static comunicadores = {};
+
+    /**
+     * Lista de comunicadores pendientes de registro.
+     *
+     * Se pobla mediante {@link encolar_comunicador} durante la carga
+     * de módulos. Al finalizar la inicialización, {@link cargar_comunicadores_pendientes}
+     * los procesa y registra.
+     *
+     * @type {Array<{clase?: typeof Comunicador, instancia?: Comunicador}>}
+     */
+    static registro_comunicadores_pendiente = [];
+
+    /**
+     * Registra un nuevo comunicador a partir de una clase que cumple
+     * el contrato de comunicador (métodos estáticos `nombre`, `solo_desarrollo`).
+     *
+     * No requiere importar la interfaz Comunicador, usando duck typing.
+     *
+     * @param {Function} clase Clase del comunicador.
+     * @returns {boolean} `true` si se registró correctamente.
+     * @since 1.3.3
+     */
+    static registrar_comunicador_desde_clase(clase) {
+        if (typeof clase.nombre !== 'function' || typeof clase.solo_desarrollo !== 'function') {
+            Controlador._error('La clase no cumple con el contrato de Comunicador.');
+            return false;
+        }
+
+        const instancia = new clase();
+        return this.registrar_comunicador_desde_instancia(instancia);
+    }
+
+    /**
+     * Registra un nuevo comunicador a partir de una instancia que cumple
+     * el contrato de comunicador (métodos `enviar`, `solicitar`, etc.).
+     *
+     * Si ya existe un comunicador con el mismo nombre, emite una alerta y
+     * sobrescribe la entrada anterior.
+     *
+     * @param {Object} comunicador Instancia del comunicador.
+     * @returns {boolean} `true` si se registró correctamente.
+     * @since 1.3.3
+     */
+    static registrar_comunicador_desde_instancia(comunicador) {
+        // Duck typing: verificamos que tenga los métodos esenciales
+        if (typeof comunicador.enviar !== 'function' || typeof comunicador.solicitar !== 'function') {
+            Controlador._error('La instancia no cumple con el contrato de Comunicador.');
+            return false;
+        }
+
+        const nombre = comunicador.constructor.nombre();
+        const clase = comunicador.constructor;
+
+        if (this.comunicadores[nombre]) {
+            Controlador._alerta(`El comunicador '${nombre}' ya está registrado y será sobrescrito.`);
+        }
+
+        this.comunicadores[nombre] = {
+            instancia: comunicador,
+            clase: clase
+        };
+
+        return true;
+    }
+
+    /**
+     * Encola un comunicador para registro diferido o inmediato.
+     *
+     * Acepta tanto una clase como una instancia que cumplan el contrato
+     * de comunicador (duck typing). Si el Controlador ya está inicializado,
+     * el registro es inmediato; en caso contrario, se guarda en la lista
+     * de pendientes.
+     *
+     * @param {Function|Object} comunicador Clase o instancia.
+     * @returns {void}
+     * @since 1.3.3
+     */
+    static encolar_comunicador(comunicador) {
+        if (this.inicializo) {
+            // Registro inmediato
+            if (typeof comunicador === 'function') {
+                this.registrar_comunicador_desde_clase(comunicador);
+            } else {
+                this.registrar_comunicador_desde_instancia(comunicador);
+            }
+            return;
+        }
+
+        // Registro diferido
+        if (typeof comunicador === 'function') {
+            this.registro_comunicadores_pendiente.push({ clase: comunicador });
+        } else {
+            this.registro_comunicadores_pendiente.push({ instancia: comunicador });
+        }
+    }
+
+    /**
+     * Procesa la lista de comunicadores autoencolados y los registra.
+     * ... (documentación sin cambios) ...
+     */
+    static cargar_comunicadores_pendientes() {
+        let contador = 0;
+
+        for (const entrada of this.registro_comunicadores_pendiente) {
+            let exito = false;
+
+            if (entrada.instancia) {
+                exito = this.registrar_comunicador_desde_instancia(entrada.instancia);
+            } else if (entrada.clase) {
+                exito = this.registrar_comunicador_desde_clase(entrada.clase);
+            }
+
+            if (exito) {
+                contador++;
+            }
+        }
+
+        this.registro_comunicadores_pendiente = [];
+        return contador;
+    }
+
+    /**
+     * Obtiene la instancia única de un comunicador por su nombre.
+     *
+     * Si se invoca sin argumentos (o con el valor especial `'predeterminado'`),
+     * devuelve automáticamente el comunicador de salida estándar correspondiente
+     * al entorno actual:
+     * - En **consola** → {@link SalidaDepuracionConsola} (`salida_depuracion_consola`).
+     * - En **navegador** → {@link SalidaDepuracionHTML} (`salida_depuracion_html`).
+     *
+     * En cualquier otro caso, busca el comunicador en el mapa interno y verifica
+     * que el usuario actual tenga permiso para utilizarlo mediante
+     * {@link Controlador.tiene_permiso_comunicador}.
+     *
+     * Si el comunicador no existe o el usuario no tiene permiso, retorna `null`
+     * y registra un error.
+     *
+     * @param {string} [nombre='predeterminado'] Nombre del comunicador
+     *     (ej. `'archivo'`, `'http'`). Si se omite o es `'predeterminado'`,
+     *     se usa la salida estándar según el entorno.
+     *
+     * @returns {Comunicador|null} La instancia del comunicador,
+     *                             o `null` si no está disponible.
+     *
+     * @example
+     * // Obtener la salida estándar (consola o HTML según Entorno)
+     * const salida = Controlador.comunicador();
+     * salida.enviar('', 'Hola mundo');
+     *
+     * // Obtener un comunicador específico
+     * const http = Controlador.comunicador('http');
+     * if (http) {
+     *     http.enviar('https://api.example.com', datos);
+     * }
+     *
+     * @see SalidaDepuracionHTML
+     * @see SalidaDepuracionConsola
+     * @since 1.3.3
+     */
+    static comunicador(nombre = 'predeterminado') {
+        if (nombre === 'predeterminado') {
+            nombre = Entorno.es_consola() ? 'salida_depuracion_consola' : 'salida_depuracion_html';
+        }
+
+        if (!this.comunicadores[nombre]) {
+            Controlador._error(`Comunicador desconocido: '${nombre}'.`);
+            return null;
+        }
+
+        if (!Controlador.tiene_permiso_comunicador(nombre)) {
+            Controlador._error(`Permiso denegado para el comunicador '${nombre}'.`);
+            return null;
+        }
+
+        return this.comunicadores[nombre].instancia;
+    }
+
+    /**
+     * Escribe un mensaje en la salida estándar configurada según el entorno.
+     *
+     * Obtiene el comunicador predeterminado ({@link SalidaDepuracionHTML}
+     * o {@link SalidaDepuracionConsola}) y envía el mensaje a través de él.
+     *
+     * Es el equivalente a `console.log`, pero adaptado al tipo de salida
+     * definido en {@link Configuracion.Entorno}.
+     *
+     * @param {string} mensaje Texto a escribir en la salida estándar.
+     *
+     * @returns {void}
+     *
+     * @example
+     * Controlador.escribir_salida("Operación completada.");
+     *
+     * @since 1.3.3
+     */
+    static escribir_salida(mensaje) {
+        const salida = Controlador.comunicador();   // predeterminado
+        if (salida) {
+            salida.enviar('', mensaje);
+        }
+    }
+
+    /**
+     * Verifica si el usuario actual tiene permiso para usar el comunicador.
+     *
+     * **Placeholder:** actualmente retorna `true` para cualquier comunicador.
+     * En el futuro se integrará con un sistema de roles/permisos.
+     *
+     * @param {string} nombre Nombre del comunicador.
+     *
+     * @returns {boolean} `true` si el usuario tiene permiso, `false` en caso contrario.
+     *
+     * @see Controlador.comunicador
+     * @since 1.3.3
+     */
+    static tiene_permiso_comunicador(nombre) {
+        // TODO: implementar verificación real de permisos
+        return true;
+    }
+
+    /**
+     * Registra los comandos genéricos de comunicación.
+     *
+     * Se invoca durante {@link inicializar} para que estén disponibles
+     * tanto para programadores como para el futuro sistema de aprendizaje.
+     *
+     * @returns {void}
+     * @since 1.3.3
+     */
+    static _registrar_comandos_comunicacion() {
+        // ─── comunicación:leer ───────────────────────────────
+        this.registrar_comando('comunicacion:leer', (token, args) => {
+            const medio   = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
+            const destino = Array.isArray(args) ? args[1] || '' : (args.opciones?.destino || args.posicionales?.[1] || '');
+            if (!medio) {
+                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:leer'.");
+                return null;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return null;
+            return comunicador.solicitar(destino);
+        }, null, false);
+
+        // ─── comunicación:escribir ────────────────────────────
+        this.registrar_comando('comunicacion:escribir', (token, args) => {
+            const medio   = args[0] ?? null;
+            const mensaje = args[1] ?? '';
+            const destino = args[2] ?? '';   // predeterminado: cadena vacía
+            if (!medio) {
+                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escribir'.");
+                return false;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return false;
+            comunicador.enviar(destino, mensaje);
+            return true;
+        }, null, false);
+
+        // ─── comunicación:preguntar ───────────────────────────
+        this.registrar_comando('comunicacion:preguntar', (token, args) => {
+            const medio   = Array.isArray(args) ? args[0] || 'salida_depuracion_consola' : (args.opciones?.medio || args.posicionales?.[0] || 'salida_depuracion_consola');
+            const mensaje = Array.isArray(args) ? args[1] || '' : (args.opciones?.mensaje || args.posicionales?.[1] || '');
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return null;
+            if (medio === 'salida_depuracion_consola') {
+                return prompt(mensaje);
+            }
+            return comunicador.solicitar('', mensaje);
+        }, null, false);
+
+        // ─── comunicación:eliminar ────────────────────────────
+        this.registrar_comando('comunicacion:eliminar', (token, args) => {
+            const medio   = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
+            const destino = Array.isArray(args) ? args[1] || '' : (args.opciones?.destino || args.posicionales?.[1] || '');
+            if (!medio) {
+                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:eliminar'.");
+                return false;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return false;
+            comunicador.enviar(destino, null, { accion: 'eliminar' });
+            return true;
+        }, null, false);
+
+        // ─── comunicación:listar ──────────────────────────────
+        this.registrar_comando('comunicacion:listar', (token, args) => {
+            const medio   = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
+            const destino = Array.isArray(args) ? args[1] || '.' : (args.opciones?.destino || args.posicionales?.[1] || '.');
+            if (!medio) {
+                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:listar'.");
+                return null;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return null;
+            return comunicador.solicitar(destino, null, { accion: 'listar' });
+        }, null, false);
+
+        // ─── comunicación:escuchar ─────────────────────────────
+        this.registrar_comando('comunicacion:escuchar', (token, args) => {
+            const medio = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
+            if (!medio) {
+                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escuchar'.");
+                return false;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return false;
+            comunicador.escuchar((mensaje) => {
+                const salida = Controlador.comunicador();
+                salida?.enviar('', `[${medio}] Recibido: ${JSON.stringify(mensaje)}`);
+            });
+            return true;
+        }, null, false);
+
+        // ─── Alias archivo:leer ───────────────────────────────
+        this.registrar_comando('archivo:leer', (token, args) => {
+            const destino = Array.isArray(args) ? args[0] || '' : (args.posicionales?.[0] || '');
+            return Controlador.ejecutar_comando('comunicacion:leer', 'archivo', destino);
+        }, null, false);
+
+        // ─── Alias archivo:escribir ────────────────────────────
+        this.registrar_comando('archivo:escribir', (token, args) => {
+            const destino = Array.isArray(args) ? args[0] || '' : (args.opciones?.destino || '');
+            const mensaje = Array.isArray(args) ? args[1] || '' : (args.opciones?.mensaje || '');
+            return Controlador.ejecutar_comando('comunicacion:escribir', 'archivo', destino, mensaje);
+        }, null, false);
+
+        // ─── Alias archivo:eliminar ────────────────────────────
+        this.registrar_comando('archivo:eliminar', (token, args) => {
+            const destino = Array.isArray(args) ? args[0] || '' : (args.posicionales?.[0] || '');
+            return Controlador.ejecutar_comando('comunicacion:eliminar', 'archivo', destino);
+        }, null, false);
+
+        // ─── Alias archivo:listar ─────────────────────────────
+        this.registrar_comando('archivo:listar', (token, args) => {
+            const destino = Array.isArray(args) ? args[0] || '.' : (args.posicionales?.[0] || '.');
+            return Controlador.ejecutar_comando('comunicacion:listar', 'archivo', destino);
+        }, null, false);
+    }
+
+    /** @type {boolean} */
+    static inicializo = false;
+
+    /**
+     * Inicializa el sistema registrando las clases principales.
+     * Solo se ejecuta una vez.
+     * 
+     * @returns {Promise<void>}
+     */
+    static async inicializar() {
+        if (!this.inicializo) {
+            Nodo.registrar_controlador(Controlador);
+            Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
+            Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
+            Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
+            Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
+            Controlador.establecer_metodo("EIndexedDB");
+
+            // ──────────────────────────────────────────────
+            // Carga y registro de comandos (siempre)
+            // ──────────────────────────────────────────────
+            this.cargar_comandos_pendientes();
+
+            // Procesar y registrar los comunicadores autoencolados
+            this.cargar_comunicadores_pendientes();
+
+            // Registrar los comandos genéricos de comunicación
+            this._registrar_comandos_comunicacion();
+
+
+            console.log('✅ Comandos registrados:', Object.keys(this.comandos));
+
+            this.inicializo = true;
+        }
+    }
+
+
 
 }
 
