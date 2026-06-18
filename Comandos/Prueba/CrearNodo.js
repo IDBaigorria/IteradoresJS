@@ -1,5 +1,5 @@
 import { Comando } from '../Comando.js';
-import { Controlador } from '../../Controlador/Controlador.js';
+import { RegistroGlobal } from '../../Controlador/RegistroGlobal.js';
 import { NodoElectrico } from '../../Nodos/index.js';
 
 /**
@@ -10,11 +10,14 @@ import { NodoElectrico } from '../../Nodos/index.js';
  *
  * **Reversible:** Sí – elimina el nodo creado.
  *
+ * @class ComandoPruebaCrearNodo
+ * @extends Comando
  * @since 1.3.2
+ * @version 1.3.4
  */
 export class ComandoPruebaCrearNodo extends Comando {
-    /** @type {number} */
-    nodo_creado_id;
+    /** @type {number|null} ID del nodo creado, para la reversa. */
+    nodo_creado_id = null;
 
     static nombre() { return 'prueba:crear_nodo'; }
     static solo_desarrollo() { return false; }
@@ -38,6 +41,13 @@ export class ComandoPruebaCrearNodo extends Comando {
         ];
     }
 
+    /**
+     * Crea un nodo eléctrico con los parámetros indicados.
+     *
+     * @param {string} token Token de seguridad.
+     * @param {Object} args  Argumentos parseados (contiene `posicionales` y `opciones`).
+     * @returns {string} Mensaje con el ID del nodo creado.
+     */
     ejecutar(token, args) {
         const dato = args.posicionales?.[0] ?? 'Nodo de prueba';
         const capacidad = parseInt(args.opciones?.capacidad ?? 100);
@@ -49,6 +59,11 @@ export class ComandoPruebaCrearNodo extends Comando {
         return `Nodo creado con id: ${this.nodo_creado_id}`;
     }
 
+    /**
+     * Proporciona la función de reversa que elimina el nodo creado.
+     *
+     * @returns {Function} Callback que recibe token y args, y deshace la creación.
+     */
     reversa() {
         const id = this.nodo_creado_id;
         return (token, args) => {
@@ -62,4 +77,7 @@ export class ComandoPruebaCrearNodo extends Comando {
     }
 }
 
-Controlador.encolar_comando(ComandoPruebaCrearNodo);
+// ═══════════════════════════════════════════════════════════
+// AUTOENCOLACIÓN
+// ═══════════════════════════════════════════════════════════
+RegistroGlobal.encolar_comando(ComandoPruebaCrearNodo);

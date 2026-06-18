@@ -1,8 +1,16 @@
-import { Comando } from 'Comando.js';
-import { Controlador } from '../Controlador/Controlador.js';
-import { Entorno } from '../Configuracion/Entorno.js';
-import { Conf } from '../Configuracion/Configuracion.js';
-import { Objeto } from '../Nucleo/Objeto.js';
+// ═══════════════════════════════════════════════════════════
+// PLANTILLA DE COMANDO ESTÁTICO — v1.3.4
+// ═══════════════════════════════════════════════════════════
+// Úsela como base para crear un nuevo comando que residirá en
+// su propio archivo dentro de una categoría (p. ej. Depuracion,
+// Prueba, etc.). La clase debe extender Comando y finalizar con
+// la autoencolación en RegistroGlobal.
+
+import { Comando } from '../Comando.js';
+import { RegistroGlobal } from '../../Controlador/RegistroGlobal.js';   
+import { Entorno } from '../../Configuracion/Entorno.js';
+import { Conf } from '../../Configuracion/Configuracion.js';
+import { Objeto } from '../../Nucleo/Objeto.js';
 
 /**
  * [Descripción breve del comando].
@@ -13,6 +21,8 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * **Entorno:** solo disponible en desarrollo (o indicar si también en pruebas/producción).
  * **Reversible:** [Sí/No] – [si es reversible, explicar cómo se deshace].
  *
+ * @class Comando[Categoria][Nombre]
+ * @extends Comando
  * @since [versión]
  * @version [Versión]
  */
@@ -132,12 +142,15 @@ export class Comando[Nombre] extends Comando {
 
         // ─── Ejemplo de guarda de entorno ──────────────────────
         if (!Entorno.permite_pruebas()) {
-            console.log(`El comando '${this.constructor.nombre()}' solo está disponible en desarrollo o pruebas.`);
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.escribir_salida(`El comando '${this.constructor.nombre()}' solo está disponible en desarrollo o pruebas.`);
             return false;
         }
 
-        // ─── Ejemplo de uso de token para operaciones protegidas ─
-        // Controlador.imprimir_superestructura(token);
+        // ─── Acceso a servicios del Controlador a través de RegistroGlobal ─
+        // const ctrl = RegistroGlobal.controlador();
+        // ctrl?.imprimir_superestructura();
+        // ctrl?.escribir_salida("Mensaje de salida");
 
         // ─── Ejemplo de uso de Objeto para diagnóstico ─────────
         // Objeto.imprimir_errores();
@@ -165,6 +178,17 @@ export class Comando[Nombre] extends Comando {
 }
 
 // ═══════════════════════════════════════════════════════════
-// AUTOENCOLACIÓN: No debe faltar esta línea
+// OBSERVACIONES FINALES
 // ═══════════════════════════════════════════════════════════
-Controlador.encolar_comando(Comando[Nombre]);
+// 1. Registre este archivo en el índice de comandos para que
+//    la autoencolación se ejecute. En Comandos/index.js añada:
+//    import './Depuracion/NombreDelComando.js';
+// 2. Si el comando necesita usar servicios del Controlador
+//    (escribir_salida, imprimir_superestructura, etc.), hágalo
+//    a través de RegistroGlobal:
+//    const ctrl = RegistroGlobal.controlador();
+//    ctrl?.escribir_salida("mensaje");
+// 3. La autoencolación de abajo garantiza que el comando esté
+//    disponible incluso si el Controlador se inicializa después.
+// ═══════════════════════════════════════════════════════════
+RegistroGlobal.encolar_comando(Comando[Nombre]);

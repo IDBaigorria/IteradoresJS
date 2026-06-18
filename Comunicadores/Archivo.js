@@ -1,5 +1,5 @@
 import { Comunicador } from './Comunicador.js';
-import { Controlador } from '../Controlador/Controlador.js';
+import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
 import { Entorno } from '../Configuracion/Entorno.js';
 import { Conf } from '../Configuracion/Configuracion.js';
 import { Objeto } from '../Nucleo/Objeto.js';
@@ -7,10 +7,14 @@ import { Objeto } from '../Nucleo/Objeto.js';
 /**
  * Comunicador para lectura/escritura de archivos en el navegador.
  *
- * Usa la API de selección de archivos para leer y la generación de
- * Blobs para descargar. No tiene acceso al sistema de archivos real.
+ * Usa la API de selección de archivos (`<input type="file">`) para leer
+ * y genera Blobs/descargas para escribir. No tiene acceso al sistema
+ * de archivos real.
  *
+ * @class Archivo
+ * @extends Comunicador
  * @since 1.3.3
+ * @version 1.3.4
  */
 export class Archivo extends Comunicador {
     static nombre() { return 'archivo'; }
@@ -18,9 +22,12 @@ export class Archivo extends Comunicador {
     static descripcion() { return 'Comunicador para leer y descargar archivos en el navegador.'; }
 
     /**
-     * @param {string} destino   Nombre sugerido para la descarga.
-     * @param {*}      mensaje   Contenido a descargar.
-     * @param {Object} [opciones={}] Opciones adicionales.
+     * Descarga un archivo (por defecto) o realiza otras acciones indicadas en opciones.
+     *
+     * @param {string} [destino=''] Nombre sugerido para la descarga.
+     * @param {*}      [mensaje=null] Contenido a descargar.
+     * @param {Object} [opciones={}] Opciones adicionales (p.ej. `{ accion: 'descargar' }`).
+     * @returns {void}
      */
     enviar(destino = '', mensaje = null, opciones = {}) {
         const accion = opciones.accion || 'descargar';
@@ -36,12 +43,12 @@ export class Archivo extends Comunicador {
     }
 
     /**
-     * Lee un archivo seleccionado por el usuario.
+     * Lee un archivo seleccionado por el usuario mediante diálogo.
      *
-     * @param {string} destino   Ignorado (se usa el diálogo).
-     * @param {*}      mensaje   Ignorado.
-     * @param {Object} [opciones={}] Opciones.
-     * @returns {Promise<string|null>}
+     * @param {string} [destino=''] Ignorado.
+     * @param {*}      [mensaje=null] Ignorado.
+     * @param {Object} [opciones={}] Opciones adicionales.
+     * @returns {Promise<string|null>} Contenido del archivo o `null` si se cancela.
      */
     solicitar(destino = '', mensaje = null, opciones = {}) {
         return new Promise((resolve) => {
@@ -49,7 +56,10 @@ export class Archivo extends Comunicador {
             input.type = 'file';
             input.onchange = () => {
                 const file = input.files[0];
-                if (!file) { resolve(null); return; }
+                if (!file) {
+                    resolve(null);
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result);
                 reader.readAsText(file);
@@ -73,4 +83,8 @@ export class Archivo extends Comunicador {
     /** @inheritdoc */
     establecer_credenciales(credenciales) {}
 }
-Controlador.encolar_comunicador(Archivo);
+
+// ═══════════════════════════════════════════════════════════
+// AUTOENCOLACIÓN
+// ═══════════════════════════════════════════════════════════
+RegistroGlobal.encolar_comunicador(Archivo);

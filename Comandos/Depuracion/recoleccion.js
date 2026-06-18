@@ -1,5 +1,5 @@
 import { Comando } from '../Comando.js';
-import { Controlador } from '../../Controlador/Controlador.js';
+import { RegistroGlobal } from '../../Controlador/RegistroGlobal.js';
 import { Entorno } from '../../Configuracion/Entorno.js';
 import { Objeto } from '../../Nucleo/Objeto.js';
 
@@ -13,8 +13,10 @@ import { Objeto } from '../../Nucleo/Objeto.js';
  * **Entorno:** solo disponible en desarrollo y pruebas.
  * **Reversible:** No.
  *
+ * @class ComandoDepuracionRecoleccion
+ * @extends Comando
  * @since 1.3.1
- * @version 1.3.3
+ * @version 1.3.4
  */
 export class ComandoDepuracionRecoleccion extends Comando {
     static nombre() { return 'depuracion:recoleccion'; }
@@ -47,9 +49,17 @@ export class ComandoDepuracionRecoleccion extends Comando {
         ];
     }
 
+    /**
+     * Ejecuta la activación o desactivación de la recolección.
+     *
+     * @param {string} token Token de seguridad.
+     * @param {Object} args  Argumentos parseados (contiene `posicionales` y `banderas`).
+     * @returns {boolean} `true` si se ejecutó correctamente.
+     */
     ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            Controlador.escribir_salida("El comando 'depuracion:recoleccion' solo está disponible en desarrollo o pruebas.");
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.escribir_salida("El comando 'depuracion:recoleccion' solo está disponible en desarrollo o pruebas.");
             return false;
         }
 
@@ -59,26 +69,28 @@ export class ComandoDepuracionRecoleccion extends Comando {
         const afectar_errores = banderas.errores || (!banderas.errores && !banderas.alertas);
         const afectar_alertas = banderas.alertas || (!banderas.errores && !banderas.alertas);
 
+        const ctrl = RegistroGlobal.controlador();
+
         if (accion === 'activar') {
             if (afectar_errores) {
                 Objeto.activar_errores();
-                Controlador.escribir_salida('Recolección de errores activada.');
+                ctrl?.escribir_salida('Recolección de errores activada.');
             }
             if (afectar_alertas) {
                 Objeto.activar_alertas();
-                Controlador.escribir_salida('Recolección de alertas activada.');
+                ctrl?.escribir_salida('Recolección de alertas activada.');
             }
         } else if (accion === 'desactivar') {
             if (afectar_errores) {
                 Objeto.desactivar_errores();
-                Controlador.escribir_salida('Recolección de errores desactivada.');
+                ctrl?.escribir_salida('Recolección de errores desactivada.');
             }
             if (afectar_alertas) {
                 Objeto.desactivar_alertas();
-                Controlador.escribir_salida('Recolección de alertas desactivada.');
+                ctrl?.escribir_salida('Recolección de alertas desactivada.');
             }
         } else {
-            Controlador.escribir_salida(`Acción no reconocida: '${accion}'. Use 'activar' o 'desactivar'.`);
+            ctrl?.escribir_salida(`Acción no reconocida: '${accion}'. Use 'activar' o 'desactivar'.`);
             return false;
         }
 
@@ -91,4 +103,4 @@ export class ComandoDepuracionRecoleccion extends Comando {
 // ═══════════════════════════════════════════════════════════
 // AUTOENCOLACIÓN
 // ═══════════════════════════════════════════════════════════
-Controlador.encolar_comando(ComandoDepuracionRecoleccion);
+RegistroGlobal.encolar_comando(ComandoDepuracionRecoleccion);

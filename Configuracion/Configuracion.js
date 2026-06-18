@@ -217,14 +217,6 @@ class Conf {
      */
     static NODOS_CONTENEDOR_ID= 'nodos-log';
 
-     /**
-     * Palabras reservadas que no pueden usarse como nombres de parámetros
-     * en los comandos. Se utilizan para solicitar la ayuda del comando.
-     *
-     * @type {string[]}
-     * @since 1.3.2
-     */
-    static PALABRAS_RESERVADAS_COMANDOS= ['man', 'help', 'h', 'manual','ayuda', 'ay'];
 
   /* =========================
    BLOQUE: ASTROS PRECONFIGURADOS (OPCIÓN MIXTA)

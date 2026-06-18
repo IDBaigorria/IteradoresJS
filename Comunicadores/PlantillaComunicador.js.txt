@@ -1,0 +1,137 @@
+// ═══════════════════════════════════════════════════════════
+// PLANTILLA DE COMUNICADOR ESTÁTICO — v1.3.4
+// ═══════════════════════════════════════════════════════════
+// Úsela como base para crear un nuevo comunicador que residirá
+// en su propio archivo dentro de la carpeta Comunicadores.
+// La clase debe extender Comunicador y finalizar con la
+// autoencolación en RegistroGlobal.
+
+import { Comunicador } from './Comunicador.js';
+import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
+
+/**
+ * [Descripción breve del comunicador].
+ *
+ * [Explicación detallada de su propósito, protocolo que utiliza,
+ * si necesita credenciales, etc.]
+ *
+ * **Entorno:** disponible en todos los entornos (o indicar solo desarrollo).
+ *
+ * @class Comunicador[Nombre]
+ * @extends Comunicador
+ * @since [versión]
+ * @version [Versión]
+ */
+export class Comunicador[Nombre] extends Comunicador {
+    /**
+     * Nombre único del comunicador (ej. 'http', 'archivo', 'salida_estandar').
+     * @returns {string}
+     */
+    static nombre() {
+        return 'nombre_unico';
+    }
+
+    /**
+     * Indica si el comunicador solo debe estar disponible en desarrollo.
+     * @returns {boolean}
+     */
+    static solo_desarrollo() {
+        return false;
+    }
+
+    /**
+     * Breve descripción del comunicador.
+     * @returns {string}
+     */
+    static descripcion() {
+        return 'Descripción corta del comunicador.';
+    }
+
+    /**
+     * Envía datos al destino especificado.
+     *
+     * @param {string} destino   Destino del mensaje (URL, ruta, canal…).
+     * @param {*}      mensaje   Datos a enviar.
+     * @param {Object} [opciones={}] Opciones adicionales.
+     * @returns {void}
+     */
+    enviar(destino, mensaje = null, opciones = {}) {
+        // TODO: Implementar el envío
+    }
+
+    /**
+     * Envía datos y espera una respuesta.
+     *
+     * @param {string} destino   Destino del mensaje.
+     * @param {*}      mensaje   Datos a enviar.
+     * @param {Object} [opciones={}] Opciones adicionales.
+     * @returns {*} Respuesta recibida.
+     */
+    solicitar(destino, mensaje = null, opciones = {}) {
+        // TODO: Implementar la solicitud y devolver la respuesta
+        return null;
+    }
+
+    /**
+     * Escucha eventos o mensajes entrantes (modo suscripción).
+     *
+     * @param {Function} callback Función que se ejecutará al recibir un mensaje.
+     * @returns {void}
+     */
+    escuchar(callback) {
+        // Si no aplica, dejar vacío
+    }
+
+    /**
+     * Cierra los recursos del comunicador.
+     * @returns {void}
+     */
+    cerrar() {
+        // Liberar recursos si es necesario
+    }
+
+    /**
+     * Devuelve el estado actual del comunicador.
+     * @returns {string} (ej. 'conectado', 'cerrado', 'activo')
+     */
+    estado() {
+        // TODO: Devolver el estado real
+        return 'activo';
+    }
+
+    /**
+     * Configura la autenticación del comunicador.
+     *
+     * @param {Object} opciones Opciones que se pasarán a enviar/solicitar.
+     * @returns {void}
+     */
+    autenticar(opciones) {
+        // Si no requiere autenticación, dejar vacío
+    }
+
+    /**
+     * Establece credenciales u otros parámetros de autenticación.
+     *
+     * @param {Object} credenciales Datos necesarios para autenticarse.
+     * @returns {void}
+     */
+    establecer_credenciales(credenciales) {
+        // Almacenar credenciales para usar en autenticar()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// OBSERVACIONES FINALES
+// ═══════════════════════════════════════════════════════════
+// 1. Registre este archivo en el índice de comunicadores para
+//    que la autoencolación se ejecute. En Comunicadores/index.js
+//    añada:
+//    import './NombreDelComunicador.js';
+// 2. Los comunicadores no deberían necesitar acceder al
+//    Controlador, pero si es imprescindible, puede obtenerlo
+//    mediante RegistroGlobal.controlador().
+// 3. La autoencolación de abajo garantiza que el comunicador
+//    esté disponible incluso si el Controlador se inicializa
+//    después.
+// ═══════════════════════════════════════════════════════════
+RegistroGlobal.encolar_comunicador(Comunicador[Nombre]);

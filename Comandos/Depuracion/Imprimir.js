@@ -1,9 +1,19 @@
 import { Comando } from '../Comando.js';
-import { Controlador } from '../../Controlador/Controlador.js';
+import { RegistroGlobal } from '../../Controlador/RegistroGlobal.js';
 import { Entorno } from '../../Configuracion/Entorno.js';
-import { Conf } from '../../Configuracion/Configuracion.js';
 import { Objeto } from '../../Nucleo/Objeto.js';
 
+/**
+ * Comando que imprime errores, alertas y la superestructura.
+ *
+ * Solo está disponible en entornos de desarrollo y pruebas.
+ * No es reversible.
+ *
+ * @class ComandoDepuracionImprimir
+ * @extends Comando
+ * @since 1.3.1
+ * @version 1.3.4
+ */
 export class ComandoDepuracionImprimir extends Comando {
     static nombre() { return 'depuracion:imprimir'; }
     static solo_desarrollo() { return true; }
@@ -26,39 +36,28 @@ export class ComandoDepuracionImprimir extends Comando {
 
     ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            Controlador.escribir_salida("Solo desarrollo/pruebas.");
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.escribir_salida("Solo desarrollo/pruebas.");
             return false;
         }
 
         const banderas = args.banderas;
         const mostrar_todo = !banderas.errores && !banderas.alertas && !banderas.super;
 
-        // 1. Imprimir las categorías solicitadas
-        if (mostrar_todo || banderas.errores) {
-            Objeto.imprimir_errores();
-        }
-        if (mostrar_todo || banderas.alertas) {
-            Objeto.imprimir_alertas();
-        }
+        if (mostrar_todo || banderas.errores) Objeto.imprimir_errores();
+        if (mostrar_todo || banderas.alertas) Objeto.imprimir_alertas();
         if (mostrar_todo || banderas.super) {
-            Controlador.imprimir_superestructura();
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.imprimir_superestructura();
         }
 
-        // 2. En HTML, ocultar contenedores no solicitados
         if (!Entorno.es_consola()) {
             const cont_errores = document.getElementById('errores-log');
             const cont_alertas = document.getElementById('alertas-log');
             const cont_nodos   = document.getElementById('nodos-log');
-
-            if (cont_errores) {
-                cont_errores.style.display = (mostrar_todo || banderas.errores) ? '' : 'none';
-            }
-            if (cont_alertas) {
-                cont_alertas.style.display = (mostrar_todo || banderas.alertas) ? '' : 'none';
-            }
-            if (cont_nodos) {
-                cont_nodos.style.display = (mostrar_todo || banderas.super) ? '' : 'none';
-            }
+            if (cont_errores) cont_errores.style.display = (mostrar_todo || banderas.errores) ? '' : 'none';
+            if (cont_alertas) cont_alertas.style.display = (mostrar_todo || banderas.alertas) ? '' : 'none';
+            if (cont_nodos)   cont_nodos.style.display   = (mostrar_todo || banderas.super)   ? '' : 'none';
         }
 
         return true;
@@ -67,4 +66,5 @@ export class ComandoDepuracionImprimir extends Comando {
     reversa() { return null; }
 }
 
-Controlador.encolar_comando(ComandoDepuracionImprimir);
+// Autoencolación
+RegistroGlobal.encolar_comando(ComandoDepuracionImprimir);

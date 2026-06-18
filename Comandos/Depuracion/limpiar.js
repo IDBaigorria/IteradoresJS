@@ -1,7 +1,8 @@
 import { Comando } from '../Comando.js';
-import { Controlador } from '../../Controlador/Controlador.js';
+import { RegistroGlobal } from '../../Controlador/RegistroGlobal.js';
 import { Entorno } from '../../Configuracion/Entorno.js';
 import { Objeto } from '../../Nucleo/Objeto.js';
+
 /**
  * Comando que limpia las pilas de errores y alertas acumuladas.
  *
@@ -11,8 +12,10 @@ import { Objeto } from '../../Nucleo/Objeto.js';
  * **Entorno:** solo disponible en desarrollo y pruebas.
  * **Reversible:** No.
  *
+ * @class ComandoDepuracionLimpiar
+ * @extends Comando
  * @since 1.3.1
- * @version 1.3.3
+ * @version 1.3.4
  */
 export class ComandoDepuracionLimpiar extends Comando {
     static nombre() { return 'depuracion:limpiar'; }
@@ -39,9 +42,17 @@ export class ComandoDepuracionLimpiar extends Comando {
         ];
     }
 
+    /**
+     * Ejecuta la limpieza de pilas de errores y/o alertas.
+     *
+     * @param {string} token Token de seguridad.
+     * @param {Object} args  Argumentos parseados (contiene `banderas`).
+     * @returns {boolean} `true` si se ejecutó correctamente.
+     */
     ejecutar(token, args) {
         if (!Entorno.permite_pruebas()) {
-            Controlador.escribir_salida("El comando 'depuracion:limpiar' solo está disponible en desarrollo o pruebas.");
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.escribir_salida("El comando 'depuracion:limpiar' solo está disponible en desarrollo o pruebas.");
             return false;
         }
 
@@ -49,13 +60,15 @@ export class ComandoDepuracionLimpiar extends Comando {
         const limpiar_errores = banderas.errores || banderas.todo || (!banderas.errores && !banderas.alertas && !banderas.todo);
         const limpiar_alertas = banderas.alertas || banderas.todo || (!banderas.errores && !banderas.alertas && !banderas.todo);
 
+        const ctrl = RegistroGlobal.controlador();
+
         if (limpiar_errores) {
             Objeto.limpiar_errores();
-            Controlador.escribir_salida('Pila de errores limpiada.');
+            ctrl?.escribir_salida('Pila de errores limpiada.');
         }
         if (limpiar_alertas) {
             Objeto.limpiar_alertas();
-            Controlador.escribir_salida('Pila de alertas limpiada.');
+            ctrl?.escribir_salida('Pila de alertas limpiada.');
         }
 
         return true;
@@ -64,4 +77,7 @@ export class ComandoDepuracionLimpiar extends Comando {
     reversa() { return null; }
 }
 
-Controlador.encolar_comando(ComandoDepuracionLimpiar);
+// ═══════════════════════════════════════════════════════════
+// AUTOENCOLACIÓN
+// ═══════════════════════════════════════════════════════════
+RegistroGlobal.encolar_comando(ComandoDepuracionLimpiar);

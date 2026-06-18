@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// PLANTILLA DE COMANDO DINÁMICO (CLASE ANÓNIMA) — v1.3.2
+// PLANTILLA DE COMANDO DINÁMICO (CLASE ANÓNIMA) — v1.3.4
 // ═══════════════════════════════════════════════════════════
 // Úsela cuando necesite crear un comando en tiempo de ejecución
 // sin definir un archivo separado.
 
 import { Comando } from '../Comando.js'; // ajuste la ruta
-import { Controlador } from '../../Controlador/Controlador.js';
+import { RegistroGlobal } from '../../Controlador/RegistroGlobal.js';
 
 const ComandoDinamico = class extends Comando {
     static nombre() {
@@ -38,7 +38,8 @@ const ComandoDinamico = class extends Comando {
         // const opciones = args.opciones;
         // const posicionales = args.posicionales;
 
-        console.log('Ejecutando comando dinámico');
+        const ctrl = RegistroGlobal.controlador();
+        ctrl?.escribir_salida('Ejecutando comando dinámico');
         return true;
     }
 
@@ -47,11 +48,22 @@ const ComandoDinamico = class extends Comando {
     }
 };
 
-// Opción A: registro inmediato (si el Controlador ya está inicializado)
-Controlador.registrar_comando_desde_clase(ComandoDinamico);
+// ─── REGISTRO AUTOMÁTICO ─────────────────────────────────
+// RegistroGlobal decidirá la vía adecuada:
+// - Si el Controlador ya está inicializado, lo registra inmediatamente.
+// - Si no, lo encola para que se registre cuando el Controlador se inicie.
+const ctrl = RegistroGlobal.controlador();
+if (ctrl) {
+    // El Controlador ya existe: registrar directamente
+    ctrl.registrar_comando_desde_clase(ComandoDinamico);
+} else {
+    // El Controlador aún no está listo: encolar para registro diferido
+    RegistroGlobal.encolar_comando(ComandoDinamico);
+}
 
-// Opción B: registro diferido/inmediato automático (recomendado)
-// Controlador.encolar_comando(ComandoDinamico);
+// Alternativa: siempre encolar (útil si se prefiere un único mecanismo)
+// RegistroGlobal.encolar_comando(ComandoDinamico);
 
-// Ahora puede ejecutarse
-// Controlador.ejecutar_comando('dinamico:accion', '--bandera1');
+// Ahora puede ejecutarse (si el Controlador está inicializado)
+// const ctrl = RegistroGlobal.controlador();
+// ctrl?.ejecutar_comando('dinamico:accion', '--bandera1');

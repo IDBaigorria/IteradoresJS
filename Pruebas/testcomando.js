@@ -321,7 +321,7 @@ Controlador.ejecutar_prueba((token) => {
     // ─── 10.1 Escribir en salida estándar ────────────────────
     console.log('▶ 10.1 Escribir en salida estándar mediante Controlador.escribir_salida()');
     Controlador.escribir_salida('   Mensaje de prueba desde escribir_salida (debe verse en el formato adecuado)');
-/*
+
     // Prueba 10.2
      console.log('▶ 10.2 Comunicación:escribir en salida consola');
 
@@ -335,7 +335,7 @@ Controlador.ejecutar_prueba((token) => {
     // ─── 10.4 Listar directorio (no soportado en navegador) ──
     console.log('▶ 10.4 Intentar listar directorio (debe mostrar error informativo)');
     Controlador.ejecutar_comando('comunicacion:listar', 'archivo', '.');
-    NodoElectrico.imprimir_errores();
+    NodoElectrico.imprimir_alertas();
     NodoElectrico.limpiar_errores();
 
     // ─── 10.5 Ayuda de comandos de comunicación ─────────────
@@ -359,7 +359,7 @@ Controlador.ejecutar_prueba((token) => {
 
     console.log('   Ejecutando depuracion:limpiar (limpiar todo):');
     Controlador.ejecutar_comando('depuracion:limpiar');
-    Controlador.ejecutar_comando('depuracion:imprimir');*/
+    Controlador.ejecutar_comando('depuracion:imprimir');
 
     console.log('✅ Pruebas de la versión 1.3.3 completadas');
 });

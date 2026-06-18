@@ -1,26 +1,34 @@
 // ═══════════════════════════════════════════════════════════
-// PLANTILLA DE COMANDO DINÁMICO (INSTANCIA EXISTENTE) — v1.3.2
+// PLANTILLA DE COMANDO DINÁMICO (INSTANCIA EXISTENTE) — v1.3.4
 // ═══════════════════════════════════════════════════════════
 // Úsela cuando reciba una instancia que ya cumple la interfaz
 // Comando (por ejemplo, generada desde un nodo o recuperada de
 // un almacenamiento) y desee registrarla en el sistema.
 
-import { Comando } from '../Comandos/index.js';  // ajuste la ruta si es necesario 
-import { Controlador } from '../Controlador/Controlador.js'; // ajuste la ruta si es necesario
+import { Comando } from '../Comandos/index.js';  // ajuste la ruta
+import { RegistroGlobal } from '../Controlador/RegistroGlobal.js'; // ajuste la ruta
 
 /** @type {Comando} */
 const comandoExistente = obtenerComandoDeAlgunaFuente(); // ejemplo
 
 if (comandoExistente instanceof Comando) {
-    // Opción A: registro inmediato
-    Controlador.registrar_comando_desde_instancia(comandoExistente);
+    // ─── Obtener el Controlador desde RegistroGlobal ─────────
+    const ctrl = RegistroGlobal.controlador();
 
-    // Opción B: encolar (recomendado si hay posibilidad de que
-    // el Controlador aún no esté inicializado)
-    // Controlador.encolar_comando(comandoExistente);
+    if (ctrl) {
+        // Opción A: registro inmediato (recomendada si el Controlador ya está inicializado)
+        ctrl.registrar_comando_desde_instancia(comandoExistente);
 
-    // Ejecutar (los argumentos se parsean automáticamente)
-    // Controlador.ejecutar_comando(comandoExistente.constructor.nombre(), '--bandera1');
+        // Ejecutar (los argumentos se parsean automáticamente)
+        // ctrl.ejecutar_comando(comandoExistente.constructor.nombre(), '--bandera1');
+    } else {
+        // Opción B: el Controlador aún no está listo.
+        // Puede encolar la clase (no la instancia) para registro diferido,
+        // pero perderá el estado particular de esta instancia.
+        // Solo recomendado si el comando no depende de propiedades de la instancia.
+        RegistroGlobal.encolar_comando(comandoExistente);
+        console.warn('Controlador no inicializado. Se ha encolado la clase del comando (sin estado).');
+    }
 } else {
-    console.error("La instancia no cumple la interfaz Comando.");
+    console.error('La instancia no cumple la interfaz Comando.');
 }

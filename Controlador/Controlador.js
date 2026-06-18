@@ -1,13 +1,20 @@
 import { Conf, Entorno } from '../Configuracion/index.js';
 import { Objeto } from "../Nucleo/index.js";
 import { Nodo } from '../Nodos/Nodo.js';
-import{PerdurarSuperestructura, PerdurarSuperestructuraStringIndexedDB, PerdurarSuperestructuraStringJSON, PerdurarSuperestructuraStringXML, PerdurarSuperestructuraElectricosStringIndexedDB} from './PerdurarSuperestructura/index.js';
-import { Comunicadores } from './interfaces/index.js';  // ← se mantiene (interfaz)
-// ❌ ELIMINADO: import{Comunicador} from '../Comunicadores/Comunicador.js';
-import{Comandos} from './interfaces/index.js';
-import{Comando} from '../Comandos/index.js';
+// Si se necesita NodoElectrico en inicializar, importarlo:
+// import { NodoElectrico } from '../Nodos/NodoElectrico.js';
+import {
+    PerdurarSuperestructura,
+    PerdurarSuperestructuraStringIndexedDB,
+    PerdurarSuperestructuraStringJSON,
+    PerdurarSuperestructuraStringXML,
+    PerdurarSuperestructuraElectricosStringIndexedDB
+} from './PerdurarSuperestructura/index.js';
+import { Comandos, Comunicadores } from './interfaces/index.js'; // unificado
+import { Comando } from '../Comandos/index.js';
+import { RegistroGlobal } from './RegistroGlobal.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
-console.log("Controlador");
+// console.log("Controlador");  
 
 /**
  * Clase Controlador que gestiona la persistencia de la superestructura.
@@ -17,10 +24,11 @@ console.log("Controlador");
  * @extends Objeto
  * @implements {Nodos.PerdurarSuperestructura.PerdurarSuperestructura}
  * @implements {Nodos.Interfaces.Comandos}
+ * @implements {Nodos.Interfaces.Comunicadores}
  * @memberof Controlador
  */
 class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores) {
-/** 
+    /** 
      * @type {string} Método de persistencia activo por defecto
      */
     static metodo = Conf.SUPERESTRUCTURA_METODO_PERDURAR;
@@ -200,16 +208,12 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             return false;
         }
 
-        // Si hay nodos, limpiamos el contenedor (por si tenía un mensaje anterior)
-       // contenedor.innerHTML = '';
-
         // Iterar sobre todos los nodos e imprimirlos
         const funcion = nodo => nodo.imprimir();
         Nodo.por_cada_nodo_ejecutar(Controlador.token, funcion, null);
 
         return true;
     }
-
 
     // ──────────────────────────────────────────────────────────
     // MÉTODO PARA PRUEBAS: ejecutar_prueba
@@ -262,7 +266,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         }
         callback(this.token);
     }
-   
+
     // ══════════════════════════════════════════════════════
     // INTERFAZ COMANDOS
     // ══════════════════════════════════════════════════════
@@ -279,9 +283,6 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
     /** @type {Array<Function>} Pila de reversiones para deshacer. */
     static historial = [];
-
-    /** @type {Array<{clase?: typeof Comando, instancia?: Comando}>} */
-    static registro_pendiente = [];
 
     /**
      * Registra un nuevo comando en el sistema.
@@ -329,29 +330,18 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return true;
     }
 
-
     /**
      * Registra un comando a partir de una instancia que implementa {@link Comando}.
-     *
-     * Además, valida que los nombres de los parámetros definidos por el comando
-     * no colisionen con las {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS
-     * palabras reservadas}. Si se detecta una colisión, el registro se rechaza
-     * y se emite un error.
      *
      * @param {Comando} comando Instancia del comando.
      * @returns {boolean}
      * @since 1.3.1
-     * @version 1.3.2
+     * @version 1.3.4 (eliminada validación de palabras reservadas)
      */
     static registrar_comando_desde_instancia(comando) {
         const nombre = comando.constructor.nombre();
         const solo_desarrollo = comando.constructor.solo_desarrollo();
         const clase = comando.constructor;
-
-        // Verificar palabras reservadas
-        if (!Controlador._validar_parametros_reservados(clase)) {
-            return false;
-        }
 
         const manejador = (token, args) => comando.ejecutar(token, args);
 
@@ -373,24 +363,14 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     /**
      * Registra un comando a partir de una clase que implementa {@link Comando}.
      *
-     * Además, valida que los nombres de los parámetros definidos por el comando
-     * no colisionen con las {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS
-     * palabras reservadas}. Si se detecta una colisión, el registro se rechaza
-     * y se emite un error.
-     * 
      * @param {typeof Comando} clase Clase del comando.
      * @returns {boolean}
      * @since 1.3.1
-     * @version 1.3.2
+     * @version 1.3.4 (eliminada validación de palabras reservadas)
      */
     static registrar_comando_desde_clase(clase) {
         if (typeof clase.nombre !== 'function' || typeof clase.solo_desarrollo !== 'function') {
             Controlador._error('La clase no cumple con la interfaz Comando.');
-            return false;
-        }
-
-        // Verificar palabras reservadas
-        if (!Controlador._validar_parametros_reservados(clase)) {
             return false;
         }
 
@@ -399,84 +379,12 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     }
 
     /**
-     * Verifica que los parámetros del comando no usen palabras reservadas.
-     *
-     * @param {typeof Comando} clase Clase del comando.
-     * @returns {boolean}
-     * @private
-     */
-    static _validar_parametros_reservados(clase) {
-        if (typeof clase.parametros !== 'function') {
-            return true;
-        }
-
-        const reservadas = Conf.PALABRAS_RESERVADAS_COMANDOS;
-        const parametros = clase.parametros();
-        for (const param of parametros) {
-            if (reservadas.includes(param.nombre)) {
-                Controlador._error(
-                    `El comando '${clase.nombre()}' usa una palabra reservada como parámetro: '${param.nombre}'.`
-                );
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Encola un comando para registro diferido o inmediato.
-     *
-     * @param {typeof Comando | Comando} comando Clase o instancia.
-     * @returns {void}
-     * @since 1.3.1
-     */
-    static encolar_comando(comando) {
-        if (this.inicializo) {
-            if (comando instanceof Comando) {
-                this.registrar_comando_desde_instancia(comando);
-            } else {
-                this.registrar_comando_desde_clase(comando);
-            }
-            return;
-        }
-
-        if (comando instanceof Comando) {
-            this.registro_pendiente.push({ instancia: comando });
-        } else {
-            this.registro_pendiente.push({ clase: comando });
-        }
-    }
-
-    /**
-     * Procesa la lista de comandos pendientes y los registra.
-     *
-     * @returns {number} Cantidad de comandos registrados.
-     * @since 1.3.1
-     */
-    static cargar_comandos_pendientes() {
-        let contador = 0;
-        for (const entrada of this.registro_pendiente) {
-            if (entrada.instancia) {
-                if (this.registrar_comando_desde_instancia(entrada.instancia)) {
-                    contador++;
-                }
-            } else if (entrada.clase) {
-                if (this.registrar_comando_desde_clase(entrada.clase)) {
-                    contador++;
-                }
-            }
-        }
-        this.registro_pendiente = [];
-        return contador;
-    }
-
-    /**
      * Ejecuta un comando previamente registrado.
      *
      * Este método es el punto central de ejecución del sistema de comandos.
      * Se encarga de localizar el manejador asociado al comando, verificar
-     * permisos, parsear y validar argumentos, mostrar ayuda cuando se solicita
-     * y, finalmente, invocar la lógica del comando.
+     * permisos, parsear los argumentos cuando es posible y, finalmente,
+     * invocar la lógica del comando.
      *
      * **Flujo de ejecución detallado:**
      *
@@ -489,61 +397,28 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      *    registra un error y retorna `null`. Por ahora,
      *    {@link Controlador.tiene_permiso} es un placeholder que retorna `true`.
      *
-     * 3. **Detección de solicitud de ayuda:** Examina cada argumento en
-     *    busca de las palabras reservadas definidas en
-     *    {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS}
-     *    (`man`, `help`, `h`). Si encuentra alguna, invoca
-     *    {@link Controlador._mostrar_ayuda} con la clase del comando y
-     *    retorna `true` sin ejecutar el comando.
-     *
-     * 4. **Parseo y validación de argumentos:** Si el comando tiene una clase
+     * 3. **Parseo de argumentos (opcional):** Si el comando tiene una clase
      *    asociada y ésta implementa el método {@link Comando.parametros},
      *    se obtiene la definición de parámetros y se invoca
      *    {@link Controlador._parsear_y_validar_args} para convertir los
-     *    argumentos crudos en una estructura normalizada. Si hay errores
-     *    de validación (flags/opciones desconocidas, parámetros obligatorios
-     *    faltantes), se registran con {@link Controlador._error}, se muestra
-     *    la ayuda y se retorna `null`.
+     *    argumentos crudos en una estructura normalizada.
+     *    Si no hay definición de parámetros, los argumentos se pasan
+     *    directamente al manejador como un array crudo.
      *
-     * 5. **Ejecución del manejador:** Invoca el manejador del comando con el
-     *    token de seguridad interno y los argumentos parseados (o crudos, si
-     *    no hay definición de parámetros).
+     * 4. **Ejecución del manejador:** Invoca el manejador del comando con el
+     *    token de seguridad interno y los argumentos (parseados o crudos).
      *
-     * 6. **Registro de reversa:** Si el comando tiene definida una función de
+     * 5. **Registro de reversa:** Si el comando tiene definida una función de
      *    reversa (proporcionada durante el registro), la almacena en la pila
      *    de historial para que pueda ser deshecha posteriormente con
      *    {@link Controlador.deshacer_ultimo}.
      *
-     * **Solicitudes de ayuda:**
-     * Las palabras reservadas (`--man`, `--help`, `-h`) están centralizadas
-     * en {@link Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS}.
-     * Al detectar cualquiera de ellas, el sistema muestra automáticamente
-     * la ayuda generada a partir de {@link Comando.descripcion},
-     * {@link Comando.parametros} y {@link Comando.ejemplos}, adaptando
-     * el formato al entorno (consola o HTML). La ejecución del comando **no**
-     * se realiza.
-     *
-     * **Validación de argumentos:**
-     * Si el comando define parámetros, el método
-     * {@link Controlador._parsear_y_validar_args} compara cada argumento
-     * recibido contra la definición. Los argumentos que no coinciden con
-     * ningún parámetro declarado se registran como error y provocan la
-     * visualización de la ayuda.
-     *
-     * ⚠️ **Importante para desarrolladores de comandos:**
-     * No utilice ninguna de las palabras reservadas como nombre de un
-     * parámetro en {@link Comando.parametros}. El sistema rechazará el
-     * registro de comandos que infrinjan esta regla mediante
-     * {@link Controlador.registrar_comando_desde_instancia} o
-     * {@link Controlador.registrar_comando_desde_clase}.
-     *
      * @param {string} nombre Nombre del comando (ej. 'depuracion:imprimir').
-     * @param {...*}   args   Argumentos para el manejador (crudos, serán parseados).
+     * @param {...*}   args   Argumentos para el manejador (crudos, serán parseados si hay definición).
      *
      * @returns {*} El resultado devuelto por el manejador del comando, o
      *              `null` si el comando no existe, no hay permiso o los
-     *              argumentos son inválidos. Retorna `true` si se mostró
-     *              la ayuda.
+     *              argumentos son inválidos.
      *
      * @example
      * // Ejecución básica
@@ -551,18 +426,13 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      *
      * // Con argumentos
      * Controlador.ejecutar_comando('depuracion:imprimir', '--errores');
-     *
-     * // Solicitar ayuda
-     * Controlador.ejecutar_comando('depuracion:imprimir', '--man');
+     * Controlador.ejecutar_comando('comunicacion:escribir', 'archivo', '/ruta', 'contenido');
      *
      * @see Controlador.registrar_comando
      * @see Controlador.tiene_permiso
      * @see Controlador.deshacer_ultimo
-     * @see Controlador._mostrar_ayuda
-     * @see Controlador._parsear_y_validar_args
-     * @see Configuracion.Conf.PALABRAS_RESERVADAS_COMANDOS
      * @since 1.3.1
-     * @version 1.3.2
+     * @version 1.3.4
      */
     static ejecutar_comando(nombre, ...args) {
         if (!this.comandos[nombre]) {
@@ -579,21 +449,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         const clase = registro.clase;
         const manejador = registro.manejador;
 
-        // Detectar solicitud de ayuda
-        const ayuda_flags = Conf.PALABRAS_RESERVADAS_COMANDOS;
-        for (const arg of args) {
-            const sin_guiones = String(arg).replace(/^-+/, '');
-            if (ayuda_flags.includes(sin_guiones)) {
-                if (clase !== null) {
-                    Controlador._mostrar_ayuda(clase);
-                } else {
-                    console.log(`Comando '${nombre}' (sin ayuda disponible).`);
-                }
-                return true;
-            }
-        }
-
-        // Parsear y validar argumentos solo si el comando tiene definición
+        // Parsear argumentos solo si el comando tiene definición
         let args_parseados;
         if (clase && typeof clase.parametros === 'function') {
             const definicion = clase.parametros();
@@ -602,7 +458,6 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
                 return null;
             }
         } else {
-            // Sin definición: pasar los argumentos tal cual
             args_parseados = args;
         }
 
@@ -619,13 +474,16 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     /**
      * Valida los argumentos crudos contra la definición de parámetros del comando.
      *
+     * Si se encuentran errores de validación, los registra con {@link Controlador._error}.
+     *
      * @param {Object[]} definicion Definición de parámetros.
      * @param {Array}    args       Argumentos crudos.
-     * @param {typeof Comando} clase Clase del comando (para mostrar ayuda).
+     * @param {typeof Comando} clase Clase del comando.
      * @returns {Object|null} Estructura con 'posicionales', 'banderas' y 'opciones',
      *                        o `null` si hay errores.
      * @private
      * @since 1.3.2
+     * @version 1.3.4 (eliminada la llamada a _mostrar_ayuda)
      */
     static _parsear_y_validar_args(definicion, args, clase) {
         const posicionales = [];
@@ -700,65 +558,10 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             for (const error of errores) {
                 Controlador._error(error);
             }
-            Controlador._mostrar_ayuda(clase);
             return null;
         }
 
         return { posicionales, banderas, opciones };
-    }
-
-    /**
-     * Muestra la ayuda de un comando en el formato adecuado según el entorno.
-     *
-     * La ayuda se genera dinámicamente consultando los métodos
-     * {@link Comando.descripcion}, {@link Comando.parametros} y
-     * {@link Comando.ejemplos} de la clase del comando. Si alguno de estos
-     * métodos no está definido, se omite la sección correspondiente.
-     *
-     * @param {typeof Comando} clase Clase del comando.
-     * @private
-     * @since 1.3.2
-     */
-    static _mostrar_ayuda(clase) {
-        const nombre = clase.nombre();
-        let ayuda = `Comando: ${nombre}\n`;
-
-        // Descripción (opcional)
-        if (typeof clase.descripcion === 'function') {
-            ayuda += clase.descripcion() + '\n';
-        }
-
-        // Parámetros (opcionales)
-        if (typeof clase.parametros === 'function') {
-            const parametros = clase.parametros();
-            if (parametros.length > 0) {
-                ayuda += '\nParámetros:\n';
-                for (const p of parametros) {
-                    const obligatorio = p.obligatorio ? ' (obligatorio)' : '';
-                    ayuda += `  --${p.nombre} [${p.tipo}]${obligatorio}: ${p.descripcion}\n`;
-                }
-            }
-        }
-
-        // Ejemplos (opcionales)
-        if (typeof clase.ejemplos === 'function') {
-            const ejemplos = clase.ejemplos();
-            if (ejemplos.length > 0) {
-                ayuda += '\nEjemplos:\n';
-                for (const ej of ejemplos) {
-                    ayuda += `  ${ej}\n`;
-                }
-            }
-        }
-
-        // Salida según entorno
-        if (Entorno.es_consola()) {
-            console.log(ayuda);
-        } else {
-            const pre = document.createElement('pre');
-            pre.textContent = ayuda;
-            document.body.appendChild(pre);
-        }
     }
 
     /**
@@ -797,36 +600,17 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         const reversa = this.historial.pop();
         return reversa();
     }
-     // ══════════════════════════════════════════════════════
+
+    // ══════════════════════════════════════════════════════
     // INTERFAZ COMUNICADORES
     // ══════════════════════════════════════════════════════
 
     /**
      * Mapa de comunicadores registrados.
      *
-     * Estructura:
-     * {
-     *     'nombre_comunicador': {
-     *         instancia: Comunicador,   // Instancia única del comunicador
-     *         clase: typeof Comunicador // Clase del comunicador
-     *     },
-     *     ...
-     * }
-     *
      * @type {Object<string, {instancia: Comunicador, clase: typeof Comunicador}>}
      */
     static comunicadores = {};
-
-    /**
-     * Lista de comunicadores pendientes de registro.
-     *
-     * Se pobla mediante {@link encolar_comunicador} durante la carga
-     * de módulos. Al finalizar la inicialización, {@link cargar_comunicadores_pendientes}
-     * los procesa y registra.
-     *
-     * @type {Array<{clase?: typeof Comunicador, instancia?: Comunicador}>}
-     */
-    static registro_comunicadores_pendiente = [];
 
     /**
      * Registra un nuevo comunicador a partir de una clase que cumple
@@ -879,62 +663,6 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         };
 
         return true;
-    }
-
-    /**
-     * Encola un comunicador para registro diferido o inmediato.
-     *
-     * Acepta tanto una clase como una instancia que cumplan el contrato
-     * de comunicador (duck typing). Si el Controlador ya está inicializado,
-     * el registro es inmediato; en caso contrario, se guarda en la lista
-     * de pendientes.
-     *
-     * @param {Function|Object} comunicador Clase o instancia.
-     * @returns {void}
-     * @since 1.3.3
-     */
-    static encolar_comunicador(comunicador) {
-        if (this.inicializo) {
-            // Registro inmediato
-            if (typeof comunicador === 'function') {
-                this.registrar_comunicador_desde_clase(comunicador);
-            } else {
-                this.registrar_comunicador_desde_instancia(comunicador);
-            }
-            return;
-        }
-
-        // Registro diferido
-        if (typeof comunicador === 'function') {
-            this.registro_comunicadores_pendiente.push({ clase: comunicador });
-        } else {
-            this.registro_comunicadores_pendiente.push({ instancia: comunicador });
-        }
-    }
-
-    /**
-     * Procesa la lista de comunicadores autoencolados y los registra.
-     * ... (documentación sin cambios) ...
-     */
-    static cargar_comunicadores_pendientes() {
-        let contador = 0;
-
-        for (const entrada of this.registro_comunicadores_pendiente) {
-            let exito = false;
-
-            if (entrada.instancia) {
-                exito = this.registrar_comunicador_desde_instancia(entrada.instancia);
-            } else if (entrada.clase) {
-                exito = this.registrar_comunicador_desde_clase(entrada.clase);
-            }
-
-            if (exito) {
-                contador++;
-            }
-        }
-
-        this.registro_comunicadores_pendiente = [];
-        return contador;
     }
 
     /**
@@ -1036,6 +764,57 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return true;
     }
 
+
+    /** @type {boolean} */
+    static inicializo = false;
+
+    /**
+     * Inicializa el sistema registrando las clases principales,
+     * procesando los comandos y comunicadores pendientes desde
+     * {@link RegistroGlobal}, y finalmente se inyecta en dicho registro
+     * para que los comandos puedan acceder a los servicios del Controlador.
+     *
+     * @returns {Promise<void>}
+     * @since 1.3.0
+     * @version 1.3.4
+     */
+    static async inicializar() {
+        if (!this.inicializo) {
+            // ─── Registro del controlador ante Nodo ────────────
+            Nodo.registrar_controlador(Controlador);
+
+            // ─── Implementaciones de persistencia ──────────────
+            Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
+            Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
+            Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
+            Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
+            Controlador.establecer_metodo("EIndexedDB");
+
+            // ─── Procesar comandos pendientes desde RegistroGlobal ────
+            for (const entrada of RegistroGlobal.comandos_pendientes) {
+                if (entrada.clase) {
+                    this.registrar_comando_desde_clase(entrada.clase);
+                } else if (entrada.nombre) {
+                    this.registrar_comando(entrada.nombre, entrada.manejador);
+                }
+            }
+
+            // ─── Procesar comunicadores pendientes ─────────────
+            for (const entrada of RegistroGlobal.comunicadores_pendientes) {
+                this.registrar_comunicador_desde_clase(entrada.clase);
+            }
+
+            // ─── Limpiar pendientes e inyectar Controlador ─────
+            RegistroGlobal.limpiar();
+            RegistroGlobal._controlador(this); // `this` es la clase Controlador
+
+            // ─── Registrar comandos genéricos de comunicación ──
+            this._registrar_comandos_comunicacion();
+
+            this.inicializo = true;
+        }
+    }
+
     /**
      * Registra los comandos genéricos de comunicación.
      *
@@ -1044,12 +823,14 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      *
      * @returns {void}
      * @since 1.3.3
+     * @version 1.3.4
+     * @private
      */
     static _registrar_comandos_comunicacion() {
         // ─── comunicación:leer ───────────────────────────────
         this.registrar_comando('comunicacion:leer', (token, args) => {
-            const medio   = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
-            const destino = Array.isArray(args) ? args[1] || '' : (args.opciones?.destino || args.posicionales?.[1] || '');
+            const medio   = args[0] ?? null;
+            const destino = args[1] ?? '';
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'comunicacion:leer'.");
                 return null;
@@ -1063,7 +844,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         this.registrar_comando('comunicacion:escribir', (token, args) => {
             const medio   = args[0] ?? null;
             const mensaje = args[1] ?? '';
-            const destino = args[2] ?? '';   // predeterminado: cadena vacía
+            const destino = args[2] ?? '';
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escribir'.");
                 return false;
@@ -1076,8 +857,8 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
         // ─── comunicación:preguntar ───────────────────────────
         this.registrar_comando('comunicacion:preguntar', (token, args) => {
-            const medio   = Array.isArray(args) ? args[0] || 'salida_depuracion_consola' : (args.opciones?.medio || args.posicionales?.[0] || 'salida_depuracion_consola');
-            const mensaje = Array.isArray(args) ? args[1] || '' : (args.opciones?.mensaje || args.posicionales?.[1] || '');
+            const medio   = args[0] ?? 'salida_depuracion_consola';
+            const mensaje = args[1] ?? '';
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return null;
             if (medio === 'salida_depuracion_consola') {
@@ -1088,8 +869,8 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
         // ─── comunicación:eliminar ────────────────────────────
         this.registrar_comando('comunicacion:eliminar', (token, args) => {
-            const medio   = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
-            const destino = Array.isArray(args) ? args[1] || '' : (args.opciones?.destino || args.posicionales?.[1] || '');
+            const medio   = args[0] ?? null;
+            const destino = args[1] ?? '';
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'comunicacion:eliminar'.");
                 return false;
@@ -1102,8 +883,8 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
         // ─── comunicación:listar ──────────────────────────────
         this.registrar_comando('comunicacion:listar', (token, args) => {
-            const medio   = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
-            const destino = Array.isArray(args) ? args[1] || '.' : (args.opciones?.destino || args.posicionales?.[1] || '.');
+            const medio   = args[0] ?? null;
+            const destino = args[1] ?? '.';
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'comunicacion:listar'.");
                 return null;
@@ -1115,7 +896,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
         // ─── comunicación:escuchar ─────────────────────────────
         this.registrar_comando('comunicacion:escuchar', (token, args) => {
-            const medio = Array.isArray(args) ? args[0] : (args.opciones?.medio || args.posicionales?.[0]);
+            const medio = args[0] ?? null;
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escuchar'.");
                 return false;
@@ -1128,73 +909,9 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             });
             return true;
         }, null, false);
-
-        // ─── Alias archivo:leer ───────────────────────────────
-        this.registrar_comando('archivo:leer', (token, args) => {
-            const destino = Array.isArray(args) ? args[0] || '' : (args.posicionales?.[0] || '');
-            return Controlador.ejecutar_comando('comunicacion:leer', 'archivo', destino);
-        }, null, false);
-
-        // ─── Alias archivo:escribir ────────────────────────────
-        this.registrar_comando('archivo:escribir', (token, args) => {
-            const destino = Array.isArray(args) ? args[0] || '' : (args.opciones?.destino || '');
-            const mensaje = Array.isArray(args) ? args[1] || '' : (args.opciones?.mensaje || '');
-            return Controlador.ejecutar_comando('comunicacion:escribir', 'archivo', destino, mensaje);
-        }, null, false);
-
-        // ─── Alias archivo:eliminar ────────────────────────────
-        this.registrar_comando('archivo:eliminar', (token, args) => {
-            const destino = Array.isArray(args) ? args[0] || '' : (args.posicionales?.[0] || '');
-            return Controlador.ejecutar_comando('comunicacion:eliminar', 'archivo', destino);
-        }, null, false);
-
-        // ─── Alias archivo:listar ─────────────────────────────
-        this.registrar_comando('archivo:listar', (token, args) => {
-            const destino = Array.isArray(args) ? args[0] || '.' : (args.posicionales?.[0] || '.');
-            return Controlador.ejecutar_comando('comunicacion:listar', 'archivo', destino);
-        }, null, false);
     }
-
-    /** @type {boolean} */
-    static inicializo = false;
-
-    /**
-     * Inicializa el sistema registrando las clases principales.
-     * Solo se ejecuta una vez.
-     * 
-     * @returns {Promise<void>}
-     */
-    static async inicializar() {
-        if (!this.inicializo) {
-            Nodo.registrar_controlador(Controlador);
-            Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
-            Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
-            Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
-            Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
-            Controlador.establecer_metodo("EIndexedDB");
-
-            // ──────────────────────────────────────────────
-            // Carga y registro de comandos (siempre)
-            // ──────────────────────────────────────────────
-            this.cargar_comandos_pendientes();
-
-            // Procesar y registrar los comunicadores autoencolados
-            this.cargar_comunicadores_pendientes();
-
-            // Registrar los comandos genéricos de comunicación
-            this._registrar_comandos_comunicacion();
-
-
-            console.log('✅ Comandos registrados:', Object.keys(this.comandos));
-
-            this.inicializo = true;
-        }
-    }
-
-
-
 }
 
 // Ejecutar inicialización global
 Controlador.inicializar();
-export {Controlador}
+export { Controlador };

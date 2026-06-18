@@ -1,5 +1,5 @@
 import { Comunicador } from './Comunicador.js';
-import { Controlador } from '../Controlador/Controlador.js';
+import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
 import { Entorno } from '../Configuracion/Entorno.js';
 import { Conf } from '../Configuracion/Configuracion.js';
 import { Objeto } from '../Nucleo/Objeto.js';
@@ -10,10 +10,13 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * Acumula los mensajes en un buffer interno y los imprime directamente
  * en la consola al invocar {@link enviar}.
  *
+ * @class SalidaDepuracionConsola
+ * @extends Comunicador
  * @since 1.3.3
+ * @version 1.3.4
  */
 export class SalidaDepuracionConsola extends Comunicador {
-    /** @type {string[]} */
+    /** @type {string[]} Buffer interno de mensajes. */
     buffer = [];
 
     static nombre() { return 'salida_depuracion_consola'; }
@@ -21,7 +24,7 @@ export class SalidaDepuracionConsola extends Comunicador {
     static descripcion() { return 'Comunicador de salida para consola (depuración).'; }
 
     /**
-     * Envía un mensaje al buffer y lo imprime en consola.
+     * Envía un mensaje al buffer y lo imprime en `console.log`.
      *
      * @param {string} [destino=''] Ignorado.
      * @param {*}      [mensaje=null] Contenido a mostrar.
@@ -71,4 +74,4 @@ export class SalidaDepuracionConsola extends Comunicador {
 // ═══════════════════════════════════════════════════════════
 // AUTOENCOLACIÓN
 // ═══════════════════════════════════════════════════════════
-Controlador.encolar_comunicador(SalidaDepuracionConsola);
+RegistroGlobal.encolar_comunicador(SalidaDepuracionConsola);
