@@ -218,90 +218,93 @@ class Conf {
     static NODOS_CONTENEDOR_ID= 'nodos-log';
 
 
-  /* =========================
-   BLOQUE: ASTROS PRECONFIGURADOS (OPCIÓN MIXTA)
-   ========================= */
+    // ═══════════════════════════════════════════════════════════
+    // RELOJ ASTRONÓMICO
+    // ═══════════════════════════════════════════════════════════
 
-  /* SOL *//*
-  static SOL = new Astro({
-    nombre: "Sol",
-    masa_kg: 1.98847e30,
-    radio_m: 695700000,
-    periodo_rotacion_s: 25.38 * 24*3600,
-    radio_orbita_ua: 0,
-    periodo_orbital_dias: Infinity,
-    inclinacion_orbital_deg: 0.0,
-    referencia: null,
-    fase_inicial: 0
-  });
-*/
-  /* TIERRA *//*
-  static TIERRA = new Astro({
-    nombre: "Tierra",
-    masa_kg: 5.97219e24,
-    radio_m: 6371008.8,
-    periodo_rotacion_s: 23.9344696 * 3600.0,
-    radio_orbita_ua: 1.00000011,
-    periodo_orbital_dias: 365.256363004,
-    inclinacion_orbital_deg: 0.0,
-    referencia: SOL,
-    fase_inicial: 0.0
-  });
+    /**
+     * Peso del vector solar en la combinación final del Reloj Astronómico.
+     *
+     * Determina la influencia relativa del Sol frente a la Luna en el vector
+     * gravitacional resultante. Un valor mayor da más peso al ciclo día/noche.
+     *
+     * @type {number}
+     * @see RelojAstronomico
+     * @since 1.3.5
+     */
+    static RELOJ_ALFA_SOL = 0.7;
 
-  /* LUNA *//*
-  static LUNA = new Astro({
-    nombre: "Luna",
-    masa_kg: 7.342e22,
-    radio_m: 1737100,
-    periodo_rotacion_s: 27.321661 * 24*3600,
-    radio_orbita_ua: 384400 / AU_EN_METROS,
-    periodo_orbital_dias: 27.321661,
-    inclinacion_orbital_deg: 5.145,
-    referencia: TIERRA,
-    fase_inicial: 0.0
-  });
+    /**
+     * Peso del vector lunar en la combinación final del Reloj Astronómico.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_BETA_LUNA = 0.3;
 
-  /* VENUS *//*
-  static VENUS = new Astro({
-    nombre: "Venus",
-    masa_kg: 4.8675e24,
-    radio_m: 6051800,
-    periodo_rotacion_s: -243.025 * 24*3600,
-    radio_orbita_ua: 0.72333566,
-    periodo_orbital_dias: 224.70069,
-    inclinacion_orbital_deg: 3.395,
-    referencia: SOL,
-    fase_inicial: 0.1
-  });
+    /**
+     * Inclinación de la eclíptica respecto al ecuador celeste, en grados.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_INCLINACION_ECLIPTICA = 23.5;
 
-  /* MARTE *//*
-  static MARTE = new Astro({
-    nombre: "Marte",
-    masa_kg: 6.4171e23,
-    radio_m: 3389500,
-    periodo_rotacion_s: 24.6229 * 3600,
-    radio_orbita_ua: 1.523679,
-    periodo_orbital_dias: 686.98,
-    inclinacion_orbital_deg: 1.850,
-    referencia: SOL,
-    fase_inicial: 0.2
-  });
+    /**
+     * Inclinación de la órbita lunar respecto a la eclíptica, en grados.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_INCLINACION_LUNAR = 5.15;
 
-  /* JUPITER *//*
-  static JUPITER = new Astro({
-    nombre: "Jupiter",
-    masa_kg: 1.89813e27,
-    radio_m: 69911000,
-    periodo_rotacion_s: 9.925 * 3600.0,
-    radio_orbita_ua: 5.204267,
-    periodo_orbital_dias: 4332.59,
-    inclinacion_orbital_deg: 1.305,
-    referencia: SOL,
-    fase_inicial: 0.3
-  });
+    /**
+     * Período de precesión del nodo ascendente lunar, en años.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_PERIODO_PRECESION_NODAL = 18.6;
 
-  static LISTA_ASTROS_PRECONFIG = [SOL, TIERRA, LUNA, VENUS, MARTE, JUPITER];
-  static MAPA_ASTROS_PRECONFIG = mapa_por_nombre(LISTA_ASTROS_PRECONFIG);*/
+    /**
+     * Radio medio de la Tierra en metros (reservado para uso futuro).
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_RADIO_TIERRA = 6371000.0;
+
+    /**
+     * Duración de un día solar medio, en segundos.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_SEGUNDOS_POR_DIA = 86400.0;
+
+    /**
+     * Duración de un año juliano (365.25 días), en segundos.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_SEGUNDOS_POR_ANIO = 31557600.0;
+
+    /**
+     * Duración de un mes sinódico lunar (~29.53 días), en segundos.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_SEGUNDOS_POR_MES_SINODICO = 2551442.8;
+
+    /**
+     * Duración de un día sidéreo (23h 56m 4s), en segundos.
+     *
+     * @type {number}
+     * @since 1.3.5
+     */
+    static RELOJ_SEGUNDOS_POR_DIA_SIDEREO = 86164.0905;
 }
 
 export {Conf}

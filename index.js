@@ -53,7 +53,8 @@ import './Comunicadores/index.js';    // puebla comunicadores_pendientes
 export { Objeto } from './Nucleo/index.js';
 export { Nodo } from './Nodos/index.js';
 export { NodoElectrico } from './Nodos/index.js';
+export { RelojAstronomico } from './Tiempo/index.js'
 export { Comunicador } from './Comunicadores/index.js';
 export { Comando } from './Comandos/index.js';
-export { Controlador } from './Controlador/index.js';
+export { Controlador, RegistroGlobal } from './Controlador/index.js';
 export { Conf, Entorno } from './Configuracion/index.js';
