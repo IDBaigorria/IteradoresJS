@@ -305,6 +305,41 @@ class Conf {
      * @since 1.3.5
      */
     static RELOJ_SEGUNDOS_POR_DIA_SIDEREO = 86164.0905;
+
+    // ═══════════════════════════════════════════════════════════
+    // UBICACIÓN GEOGRÁFICA
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Latitud predeterminada cuando no se puede detectar la ubicación real.
+     *
+     * Utilizada por {@link Entorno.obtener_coordenadas} como último recurso.
+     *
+     * @type {number}
+     * @since 1.3.6
+     */
+    static LATITUD_PREDETERMINADA = -34.0;   //Tres Arroyos, Argentina
+
+    /**
+     * Longitud predeterminada cuando no se puede detectar la ubicación real.
+     *
+     * @type {number}
+     * @since 1.3.6
+     */
+    static LONGITUD_PREDETERMINADA = -64.0;
+
+    /**
+     * URL del servicio de geolocalización por IP.
+     *
+     * El servicio debe ser accesible vía fetch desde el navegador (soportar CORS),
+     * gratuito para uso comercial y devolver un JSON con las claves "lat" y "lon"
+     * (o similar, ver mapeo en Entorno.obtener_coordenadas).
+     *
+     * @type {string}
+     * @since 1.3.6
+     */
+    static GEOLOCALIZACION_URL = 'https://ipapi.co/json/';
+    //static GEOLOCALIZACION_URL = 'https://freegeoip.app/json/';
 }
 
 export {Conf}

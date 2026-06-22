@@ -10,10 +10,11 @@ import {
     PerdurarSuperestructuraStringXML,
     PerdurarSuperestructuraElectricosStringIndexedDB
 } from './PerdurarSuperestructura/index.js';
-import { Comandos, Comunicadores } from './interfaces/index.js'; // unificado
+import { Comandos, Comunicadores, VectorGravitacional } from './interfaces/index.js'; // unificado
 import { Comando } from '../Comandos/index.js';
 import { RegistroGlobal } from './RegistroGlobal.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
+import { RelojAstronomico } from '../Tiempo/RelojAstronomico.js';
 // console.log("Controlador");  
 
 /**
@@ -22,12 +23,14 @@ import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
  * Permite elegir el método de guardado (sql, json, texto, etc.) en tiempo de ejecución.
  * @class
  * @extends Objeto
- * @implements {Nodos.PerdurarSuperestructura.PerdurarSuperestructura}
- * @implements {Nodos.Interfaces.Comandos}
- * @implements {Nodos.Interfaces.Comunicadores}
+ * @implements {Controlador.PerdurarSuperestructura.PerdurarSuperestructura}
+ * @implements {Controlador.Interfaces.Comandos}
+ * @implements {Controlador.Interfaces.Comunicadores}
+ * @implements {Controlador.Interfaces.VectorGravitacional}
  * @memberof Controlador
+ * @since 1.2.0
  */
-class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores) {
+class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional) {
     /** 
      * @type {string} Método de persistencia activo por defecto
      */
@@ -808,6 +811,23 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             RegistroGlobal.limpiar();
             RegistroGlobal._controlador(this); // `this` es la clase Controlador
 
+            // ─── Inicializar reloj astronómico con ubicación ───
+            try {
+                const coords = await Entorno.obtener_coordenadas();
+                this._reloj = new RelojAstronomico(coords.latitud, coords.longitud);
+
+                // Escuchar cambios de ubicación (solo en navegador)
+                Entorno.escuchar_cambios((lat, lon) => {
+                    this._actualizar_ubicacion(lat, lon);
+                });
+            } catch (error) {
+                console.warn('No se pudo obtener la ubicación. Usando coordenadas predefinidas.');
+                this._reloj = new RelojAstronomico(
+                    Conf.LATITUD_PREDETERMINADA,
+                    Conf.LONGITUD_PREDETERMINADA
+                );
+            }
+
             // ─── Registrar comandos genéricos de comunicación ──
             this._registrar_comandos_comunicacion();
 
@@ -909,6 +929,52 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             });
             return true;
         }, null, false);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // RELOJ ASTRONÓMICO Y UBICACIÓN (v1.3.6)
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Instancia del reloj astronómico asociada al controlador.
+     *
+     * Se inicializa en {@link inicializar} con las coordenadas obtenidas
+     * de {@link Entorno.obtener_coordenadas}.
+     *
+     * @type {RelojAstronomico|null}
+     * @since 1.3.6
+     * @private
+     */
+    static _reloj = null;
+
+    /**
+     * Devuelve el vector gravitacional correspondiente al instante actual
+     * (o al timestamp proporcionado) según la ubicación del controlador.
+     *
+     * @param {number|null} [timestamp=null] Timestamp Unix (segundos). Si es null, se usa el instante actual.
+     * @returns {{x: number, y: number, z: number}|null} Vector unitario, o null si el reloj no está inicializado.
+     * @since 1.3.6
+     */
+    static vector_gravitacional_actual(timestamp = null) {
+        if (!this._reloj) {
+            this._alerta('Reloj astronómico no inicializado.');
+            return null;
+        }
+        return this._reloj.vector(timestamp);
+    }
+
+    /**
+     * Actualiza manualmente la ubicación del controlador y del reloj astronómico.
+     *
+     * @param {number} latitud  Nueva latitud.
+     * @param {number} longitud Nueva longitud.
+     * @returns {void}
+     * @since 1.3.6
+     */
+    static _actualizar_ubicacion(latitud, longitud) {
+        if (this._reloj) {
+            this._reloj._ubicacion(latitud, longitud);
+        }
     }
 }
 
