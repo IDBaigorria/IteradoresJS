@@ -340,6 +340,62 @@ class Conf {
      */
     static GEOLOCALIZACION_URL = 'https://ipapi.co/json/';
     //static GEOLOCALIZACION_URL = 'https://freegeoip.app/json/';
+
+    // ═══════════════════════════════════════════════════════════
+    // MOTOR DE EJECUCIÓN (v1.3.7)
+    // ═══════════════════════════════════════════════════════════
+    /**
+     * Número máximo de ciclos que ejecuta el motor antes de detenerse.
+     *
+     * Un valor de 0 significa "sin límite" (bucle infinito).
+     * En pruebas, se puede poner un número pequeño (ej. 1 o 2) para verificar
+     * el funcionamiento sin colgar el proceso.
+     *
+     * @type {number}
+     * @since 1.3.7
+     */
+    static MOTOR_MAX_CICLOS = 2; //0=infinito
+    /**
+     * Frecuencia del motor en ciclos por minuto.
+     *
+     * Determina cuántas veces por minuto el motor ejecuta una rodaja de trabajo.
+     * Es la configuración primaria de la que se deriva {@link MOTOR_INTERVALO_MS}.
+     * Un valor de 20 equivale a un ciclo cada 3 segundos.
+     *
+     * @type {number}
+     * @since 1.3.7
+     */
+    static MOTOR_CICLOS_POR_MINUTO = 20;
+
+    /**
+     * Intervalo en milisegundos entre ciclos del motor.
+     *
+     * Se calcula automáticamente como `60000 / MOTOR_CICLOS_POR_MINUTO`.
+     * Con el valor por defecto (20), resulta en 3000 ms.
+     *
+     * @type {number}
+     * @since 1.3.7
+     */
+    static get MOTOR_INTERVALO_MS() {
+        return 60000 / this.MOTOR_CICLOS_POR_MINUTO;
+    }
+
+    /**
+     * Número máximo de comandos que se ejecutan en un solo ciclo del motor.
+     *
+     * @type {number}
+     * @since 1.3.7
+     */
+    static MOTOR_QUANTUM = 20;
+
+    /**
+     * Tiempo máximo en segundos que el motor espera durante una pausa urgente
+     * antes de reanudarse automáticamente.
+     *
+     * @type {number}
+     * @since 1.3.7
+     */
+    static MOTOR_PAUSA_URGENTE_TIMEOUT_S = 30;
 }
 
 export {Conf}

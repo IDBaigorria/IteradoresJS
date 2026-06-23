@@ -5,10 +5,11 @@
 import { Comandos } from './Comandos.js';
 import { Comunicadores } from './Comunicadores.js';
 import { VectorGravitacional } from './VectorGravitacional.js';
+import { Motor } from './Motor.js';
 
 
 /*import { Alertas } from './Alertas.js';
 import { Errores } from './Errores.js';
 import { ErroresYAlertas } from './ErroresYAlertas.js';*/
 
-export { Comandos, Comunicadores, VectorGravitacional }
+export { Comandos, Comunicadores, VectorGravitacional, Motor }

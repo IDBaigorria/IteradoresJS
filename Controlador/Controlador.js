@@ -10,7 +10,7 @@ import {
     PerdurarSuperestructuraStringXML,
     PerdurarSuperestructuraElectricosStringIndexedDB
 } from './PerdurarSuperestructura/index.js';
-import { Comandos, Comunicadores, VectorGravitacional } from './interfaces/index.js'; // unificado
+import { Comandos, Comunicadores, VectorGravitacional, Motor } from './interfaces/index.js'; // unificado
 import { Comando } from '../Comandos/index.js';
 import { RegistroGlobal } from './RegistroGlobal.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
@@ -30,7 +30,7 @@ import { RelojAstronomico } from '../Tiempo/RelojAstronomico.js';
  * @memberof Controlador
  * @since 1.2.0
  */
-class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional) {
+class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor) {
     /** 
      * @type {string} Método de persistencia activo por defecto
      */
@@ -975,6 +975,252 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         if (this._reloj) {
             this._reloj._ubicacion(latitud, longitud);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // MOTOR DE EJECUCIÓN (v1.3.7)
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Estados posibles del motor.
+     *
+     * @enum {string}
+     * @since 1.3.7
+     */
+    static MOTOR_DETENIDO = 'detenido';
+    static MOTOR_ACTIVO = 'activo';
+    static MOTOR_PAUSADO = 'pausado';
+    static MOTOR_PAUSA_URGENTE = 'pausa_urgente';
+
+    /**
+     * Estado actual del motor.
+     * @type {string}
+     * @private
+     */
+    static _estado_motor = Controlador.MOTOR_DETENIDO;
+
+    /**
+     * Índice de la fase que será atendida en el próximo ciclo.
+     * @type {number}
+     * @private
+     */
+    static _indice_fase_actual = 0;
+
+    /**
+     * ID del temporizador del motor (setInterval).
+     * @type {number|null}
+     * @private
+     */
+    static _timer_motor = null;
+
+    /**
+     * ID del temporizador de timeout de pausa urgente.
+     * @type {number|null}
+     * @private
+     */
+    static _pausa_urgente_timer = null;
+
+    /**
+     * Razón de la última pausa urgente.
+     * @type {string}
+     * @private
+     */
+    static _razon_pausa_urgente = '';
+
+    /**
+     * Inicia el motor de ejecución.
+     *
+     * Si ya está activo o pausado, no hace nada.
+     * Arranca un setInterval que llamará a {@link _bucle_motor}
+     * cada {@link Conf.MOTOR_INTERVALO_MS} milisegundos.
+     *
+     * @returns {void}
+     * @since 1.3.7
+     */
+    static _iniciar_motor() {
+        if ([this.MOTOR_ACTIVO, this.MOTOR_PAUSADO].includes(this._estado_motor)) {
+            return;
+        }
+
+        this._estado_motor = this.MOTOR_ACTIVO;
+        this._indice_fase_actual = 0;
+        this._ciclos_ejecutados = 0;
+
+        this._timer_motor = setInterval(() => {
+            if (this._estado_motor !== this.MOTOR_ACTIVO) {
+                return;
+            }
+
+            this._bucle_motor();
+            this._ciclos_ejecutados++;
+
+            const max = Conf.MOTOR_MAX_CICLOS;
+            if (max > 0 && this._ciclos_ejecutados >= max) {
+                this._estado_motor = this.MOTOR_DETENIDO;
+                clearInterval(this._timer_motor);
+                this._timer_motor = null;
+            }
+        }, Conf.MOTOR_INTERVALO_MS);
+    }
+
+    /**
+     * Pausa el motor por solicitud explícita.
+     *
+     * El temporizador se detiene y el estado se conserva.
+     * Se debería persistir la superestructura aquí para evitar pérdidas.
+     *
+     * @returns {void}
+     * @since 1.3.7
+     */
+    static _pausar_motor() {
+        if (this._estado_motor !== this.MOTOR_ACTIVO) {
+            return;
+        }
+
+        this._estado_motor = this.MOTOR_PAUSADO;
+        if (this._timer_motor !== null) {
+            clearInterval(this._timer_motor);
+            this._timer_motor = null;
+        }
+        // TODO: persistir superestructura cuando esté operativo
+        // PerdurarSuperestructura.guardar('motor');
+    }
+
+    /**
+     * Reanuda el motor tras una pausa explícita.
+     *
+     * @returns {void}
+     * @since 1.3.7
+     */
+    static _reanudar_motor() {
+        if (this._estado_motor !== this.MOTOR_PAUSADO) {
+            return;
+        }
+
+        // TODO: cargar superestructura para restaurar estado
+        // PerdurarSuperestructura.cargar('motor');
+
+        this._estado_motor = this.MOTOR_ACTIVO;
+        this._timer_motor = setInterval(() => {
+            this._bucle_motor();
+        }, Conf.MOTOR_INTERVALO_MS);
+    }
+
+    /**
+     * Detiene el motor completamente.
+     *
+     * Limpia el temporizador y el estado interno.
+     *
+     * @returns {void}
+     * @since 1.3.7
+     */
+    static _detener_motor() {
+        // TODO: persistir superestructura antes de detener
+        if (this._timer_motor !== null) {
+            clearInterval(this._timer_motor);
+            this._timer_motor = null;
+        }
+        if (this._pausa_urgente_timer !== null) {
+            clearTimeout(this._pausa_urgente_timer);
+            this._pausa_urgente_timer = null;
+        }
+        this._estado_motor = this.MOTOR_DETENIDO;
+        this._indice_fase_actual = 0;
+    }
+
+    /**
+     * Pausa el motor de forma urgente.
+     *
+     * Se programa una reanudación automática tras
+     * {@link Conf.MOTOR_PAUSA_URGENTE_TIMEOUT_S} segundos.
+     *
+     * @param {string} [razon=''] Motivo de la pausa.
+     * @returns {void}
+     * @since 1.3.7
+     */
+    static _pausar_urgente(razon = '') {
+        if (this._estado_motor !== this.MOTOR_ACTIVO) {
+            return;
+        }
+
+        this._estado_motor = this.MOTOR_PAUSA_URGENTE;
+        this._razon_pausa_urgente = razon;
+
+        // TODO: persistir superestructura
+
+        // Programar reanudación automática
+        this._pausa_urgente_timer = setTimeout(() => {
+            if (this._estado_motor === this.MOTOR_PAUSA_URGENTE) {
+                this._alerta(`Timeout de pausa urgente alcanzado (${Conf.MOTOR_PAUSA_URGENTE_TIMEOUT_S}s). Reanudando.`);
+                this._estado_motor = this.MOTOR_ACTIVO;
+                this._razon_pausa_urgente = '';
+                this._pausa_urgente_timer = null;
+            }
+        }, Conf.MOTOR_PAUSA_URGENTE_TIMEOUT_S * 1000);
+    }
+
+    /**
+     * Ejecuta una rodaja de trabajo del motor.
+     *
+     * Atiende a la fase actual y ejecuta hasta {@link Conf.MOTOR_QUANTUM}
+     * comandos. Si la fase se queda sin comandos, el péndulo avanza
+     * inmediatamente.
+     *
+     * @returns {void}
+     * @since 1.3.7
+     * @private
+     */
+    static _bucle_motor() {
+        if (this._estado_motor !== this.MOTOR_ACTIVO) {
+            return;
+        }
+
+        const fase = this._indice_fase_actual;
+        const quantum = Conf.MOTOR_QUANTUM;
+
+        for (let i = 0; i < quantum; i++) {
+            const comando = this._siguiente_comando_en_fase(fase);
+            if (comando === null) {
+                break;
+            }
+            const resultado = comando();
+            if (resultado === 'PAUSAR_URGENTE') {
+                this._pausar_urgente('Comando solicitó pausa urgente');
+                return;
+            }
+        }
+
+        this._indice_fase_actual = this._pendulo(fase);
+    }
+
+    /**
+     * Devuelve la siguiente fase que debe ser atendida (péndulo).
+     *
+     * Round-robin simple: (fase_actual + 1) % total_fases.
+     *
+     * @param {number} fase_actual Fase que acaba de ser atendida.
+     * @returns {number} Siguiente fase.
+     * @since 1.3.7
+     * @private
+     */
+    static _pendulo(fase_actual) {
+        const total_fases = 3; // TODO: dinámico en el futuro
+        return (fase_actual + 1) % total_fases;
+    }
+
+    /**
+     * Obtiene el siguiente comando pendiente en una fase.
+     *
+     * Placeholder: actualmente no hay colas de comandos por fase.
+     *
+     * @param {number} fase Número de fase.
+     * @returns {Function|null} Comando a ejecutar, o null.
+     * @since 1.3.7
+     * @private
+     */
+    static _siguiente_comando_en_fase(fase) {
+        // TODO: implementar colas de comandos por fase
+        return null;
     }
 }
 
