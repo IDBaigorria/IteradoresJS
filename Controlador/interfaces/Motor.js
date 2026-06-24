@@ -14,6 +14,7 @@
  *
  * @class Motor
  * @since 1.3.7
+ * @version 1.3.8
  */
 class Motor {
     /**
@@ -68,6 +69,20 @@ class Motor {
      */
     static _pausar_urgente(razon = '') {
         throw new Error('Método _pausar_urgente() debe ser implementado.');
+    }
+
+    /**
+     * Añade un comando a la cola de una fase.
+     *
+     * Si la fase no existe, se crea automáticamente.
+     *
+     * @param {string}   fase    Identificador de la fase.
+     * @param {Function} comando Función a ejecutar.
+     * @returns {void}
+     * @since 1.3.8
+     */
+    static encolar_comando_en_fase(fase, comando) {
+        throw new Error('Método encolar_comando_en_fase() debe ser implementado.');
     }
 }
 export {Motor}

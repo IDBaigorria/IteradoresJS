@@ -767,74 +767,6 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return true;
     }
 
-
-    /** @type {boolean} */
-    static inicializo = false;
-
-    /**
-     * Inicializa el sistema registrando las clases principales,
-     * procesando los comandos y comunicadores pendientes desde
-     * {@link RegistroGlobal}, y finalmente se inyecta en dicho registro
-     * para que los comandos puedan acceder a los servicios del Controlador.
-     *
-     * @returns {Promise<void>}
-     * @since 1.3.0
-     * @version 1.3.4
-     */
-    static async inicializar() {
-        if (!this.inicializo) {
-            // ─── Registro del controlador ante Nodo ────────────
-            Nodo.registrar_controlador(Controlador);
-
-            // ─── Implementaciones de persistencia ──────────────
-            Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
-            Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
-            Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
-            Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
-            Controlador.establecer_metodo("EIndexedDB");
-
-            // ─── Procesar comandos pendientes desde RegistroGlobal ────
-            for (const entrada of RegistroGlobal.comandos_pendientes) {
-                if (entrada.clase) {
-                    this.registrar_comando_desde_clase(entrada.clase);
-                } else if (entrada.nombre) {
-                    this.registrar_comando(entrada.nombre, entrada.manejador);
-                }
-            }
-
-            // ─── Procesar comunicadores pendientes ─────────────
-            for (const entrada of RegistroGlobal.comunicadores_pendientes) {
-                this.registrar_comunicador_desde_clase(entrada.clase);
-            }
-
-            // ─── Limpiar pendientes e inyectar Controlador ─────
-            RegistroGlobal.limpiar();
-            RegistroGlobal._controlador(this); // `this` es la clase Controlador
-
-            // ─── Inicializar reloj astronómico con ubicación ───
-            try {
-                const coords = await Entorno.obtener_coordenadas();
-                this._reloj = new RelojAstronomico(coords.latitud, coords.longitud);
-
-                // Escuchar cambios de ubicación (solo en navegador)
-                Entorno.escuchar_cambios((lat, lon) => {
-                    this._actualizar_ubicacion(lat, lon);
-                });
-            } catch (error) {
-                console.warn('No se pudo obtener la ubicación. Usando coordenadas predefinidas.');
-                this._reloj = new RelojAstronomico(
-                    Conf.LATITUD_PREDETERMINADA,
-                    Conf.LONGITUD_PREDETERMINADA
-                );
-            }
-
-            // ─── Registrar comandos genéricos de comunicación ──
-            this._registrar_comandos_comunicacion();
-
-            this.inicializo = true;
-        }
-    }
-
     /**
      * Registra los comandos genéricos de comunicación.
      *
@@ -1000,11 +932,10 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     static _estado_motor = Controlador.MOTOR_DETENIDO;
 
     /**
-     * Índice de la fase que será atendida en el próximo ciclo.
-     * @type {number}
+     * @type {string|null}
      * @private
      */
-    static _indice_fase_actual = 0;
+    static _indice_fase_actual = null;
 
     /**
      * ID del temporizador del motor (setInterval).
@@ -1175,14 +1106,17 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             return;
         }
 
-        const fase = this._indice_fase_actual;
+        let fase = this._indice_fase_actual;
+        if (fase === null) {
+            fase = this._pendulo(null);
+            if (fase === null) return;
+        }
+
         const quantum = Conf.MOTOR_QUANTUM;
 
         for (let i = 0; i < quantum; i++) {
             const comando = this._siguiente_comando_en_fase(fase);
-            if (comando === null) {
-                break;
-            }
+            if (comando === null) break;
             const resultado = comando();
             if (resultado === 'PAUSAR_URGENTE') {
                 this._pausar_urgente('Comando solicitó pausa urgente');
@@ -1193,35 +1127,181 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         this._indice_fase_actual = this._pendulo(fase);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // COLAS DE COMANDOS POR FASE (v1.3.8)
+    // ═══════════════════════════════════════════════════════════
+
     /**
-     * Devuelve la siguiente fase que debe ser atendida (péndulo).
+     * Colas de comandos pendientes, indexadas por identificador de fase.
      *
-     * Round-robin simple: (fase_actual + 1) % total_fases.
-     *
-     * @param {number} fase_actual Fase que acaba de ser atendida.
-     * @returns {number} Siguiente fase.
-     * @since 1.3.7
+     * @type {Object<string, Function[]>}
+     * @since 1.3.8
      * @private
      */
-    static _pendulo(fase_actual) {
-        const total_fases = 3; // TODO: dinámico en el futuro
-        return (fase_actual + 1) % total_fases;
+    static _colas_comandos = {};
+
+    /**
+     * Añade un comando a la cola de una fase.
+     *
+     * Si la fase no existe, se crea automáticamente.
+     *
+     * @param {string}   fase    Identificador de la fase.
+     * @param {Function} comando Función a ejecutar.
+     * @returns {void}
+     * @since 1.3.8
+     */
+    static encolar_comando_en_fase(fase, comando) {
+        if (!this._colas_comandos[fase]) {
+            this._colas_comandos[fase] = [];
+        }
+        this._colas_comandos[fase].push(comando);
     }
 
     /**
-     * Obtiene el siguiente comando pendiente en una fase.
+     * Obtiene el siguiente comando pendiente en una fase (y lo retira).
      *
-     * Placeholder: actualmente no hay colas de comandos por fase.
-     *
-     * @param {number} fase Número de fase.
-     * @returns {Function|null} Comando a ejecutar, o null.
-     * @since 1.3.7
+     * @param {string} fase Identificador de la fase.
+     * @returns {Function|null} El comando, o null si no hay.
+     * @since 1.3.8
      * @private
      */
     static _siguiente_comando_en_fase(fase) {
-        // TODO: implementar colas de comandos por fase
-        return null;
+        const cola = this._colas_comandos[fase];
+        if (!cola || cola.length === 0) {
+            delete this._colas_comandos[fase];
+            return null;
+        }
+        return cola.shift();
     }
+
+    /**
+     * Devuelve la siguiente fase que debe ser atendida (péndulo).
+     *
+     * @param {string|null} fase_actual Fase que acaba de ser atendida.
+     * @returns {string|null} Siguiente fase, o null si no hay.
+     * @since 1.3.7
+     * @version 1.3.8 (adaptado a colas dinámicas)
+     * @private
+     */
+    static _pendulo(fase_actual) {
+        const fases = Object.entries(this._colas_comandos)
+            .filter(([_, cola]) => cola.length > 0)
+            .map(([fase]) => fase);
+
+        if (fases.length === 0) {
+            return null;
+        }
+
+        fases.sort();
+
+        if (fase_actual === null || !fases.includes(fase_actual)) {
+            return fases[0];
+        }
+
+        const indice = fases.indexOf(fase_actual);
+        return fases[(indice + 1) % fases.length];
+    }
+
+        /**
+     * Registra los comandos genéricos de comunicación.
+     *
+     * Se invoca durante {@link inicializar} para que estén disponibles
+     * tanto para programadores como para el futuro sistema de aprendizaje.
+     *
+     * @returns {void}
+     * @since 1.3.3
+     * @version 1.3.4
+     * @private
+     */
+    static _registrar_comandos_dominio() {
+        // ─── dominio:leer_byte ──────────────────────────────
+        this.registrar_comando('dominio:leer_byte', (token, args) => {
+            // TODO: implementar cuando exista la compuerta
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.escribir_salida("[placeholder] dominio:leer_byte ejecutado.");
+            return true;
+        }, null, true);
+
+        // ─── dominio:escribir_byte ───────────────────────────
+        this.registrar_comando('dominio:escribir_byte', (token, args) => {
+            // TODO: implementar cuando exista la compuerta
+            const ctrl = RegistroGlobal.controlador();
+            ctrl?.escribir_salida("[placeholder] dominio:escribir_byte ejecutado.");
+            return true;
+        }, null, true);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // INICIALIZAR
+    // ═══════════════════════════════════════════════════════════ 
+    /** @type {boolean} */
+    static inicializo = false;
+
+    /**
+     * Inicializa el sistema registrando las clases principales,
+     * procesando los comandos y comunicadores pendientes desde
+     * {@link RegistroGlobal}, y finalmente se inyecta en dicho registro
+     * para que los comandos puedan acceder a los servicios del Controlador.
+     *
+     * @returns {Promise<void>}
+     * @since 1.3.0
+     * @version 1.3.4
+     */
+    static async inicializar() {
+        if (!this.inicializo) {
+            // ─── Registro del controlador ante Nodo ────────────
+            Nodo.registrar_controlador(Controlador);
+
+            // ─── Implementaciones de persistencia ──────────────
+            Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
+            Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
+            Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
+            Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
+            Controlador.establecer_metodo("EIndexedDB");
+
+            // ─── Procesar comandos pendientes desde RegistroGlobal ────
+            for (const entrada of RegistroGlobal.comandos_pendientes) {
+                if (entrada.clase) {
+                    this.registrar_comando_desde_clase(entrada.clase);
+                } else if (entrada.nombre) {
+                    this.registrar_comando(entrada.nombre, entrada.manejador);
+                }
+            }
+
+            // ─── Procesar comunicadores pendientes ─────────────
+            for (const entrada of RegistroGlobal.comunicadores_pendientes) {
+                this.registrar_comunicador_desde_clase(entrada.clase);
+            }
+
+            // ─── Limpiar pendientes e inyectar Controlador ─────
+            RegistroGlobal.limpiar();
+            RegistroGlobal._controlador(this); // `this` es la clase Controlador
+
+            // ─── Inicializar reloj astronómico con ubicación ───
+            try {
+                const coords = await Entorno.obtener_coordenadas();
+                this._reloj = new RelojAstronomico(coords.latitud, coords.longitud);
+
+                // Escuchar cambios de ubicación (solo en navegador)
+                Entorno.escuchar_cambios((lat, lon) => {
+                    this._actualizar_ubicacion(lat, lon);
+                });
+            } catch (error) {
+                console.warn('No se pudo obtener la ubicación. Usando coordenadas predefinidas.');
+                this._reloj = new RelojAstronomico(
+                    Conf.LATITUD_PREDETERMINADA,
+                    Conf.LONGITUD_PREDETERMINADA
+                );
+            }
+
+            // ─── Registrar comandos genéricos de comunicación ──
+            this._registrar_comandos_comunicacion();
+            // ─── Registrar comandos genéricos de dominio ──
+            this._registrar_comandos_dominio();
+            this.inicializo = true;
+        }
+    }
+
 }
 
 // Ejecutar inicialización global
