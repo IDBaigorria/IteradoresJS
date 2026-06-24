@@ -4,7 +4,8 @@
  * El motor es el componente encargado de planificar y ejecutar
  * periódicamente los comandos pendientes en cada fase del sistema.
  * Funciona con un ritmo configurable (ciclos por minuto), un
- * planificador round‑robin (péndulo) y soporte para pausas urgentes.
+ * planificador round‑robin (péndulo), soporte para pausas urgentes,
+ * y reversa.
  *
  * ## Propósito de la interfaz
  *
@@ -14,9 +15,9 @@
  *
  * @class Motor
  * @since 1.3.7
- * @version 1.3.8
+ * @version 1.3.9
  */
-class Motor {
+export class Motor {
     /**
      * Inicia el motor de ejecución.
      *
@@ -76,13 +77,25 @@ class Motor {
      *
      * Si la fase no existe, se crea automáticamente.
      *
-     * @param {string}   fase    Identificador de la fase.
-     * @param {Function} comando Función a ejecutar.
+     * @param {string}   fase
+     * @param {string}   nombre_comando
+     * @param {...*}     args
      * @returns {void}
      * @since 1.3.8
+     * @version 1.3.9 (cambiada la firma)
      */
-    static encolar_comando_en_fase(fase, comando) {
+    static encolar_comando_en_fase(fase, nombre_comando, ...args) {
         throw new Error('Método encolar_comando_en_fase() debe ser implementado.');
     }
+
+    /**
+     * Deshace el último comando ejecutado por el motor.
+     *
+     * Solo puede ejecutarse cuando el motor está en estado DETENIDO.
+     * @returns {*}
+     * @since 1.3.9
+     */
+    static _deshacer_motor() {
+        throw new Error('Método _deshacer_motor() debe ser implementado.');
+    }
 }
-export {Motor}

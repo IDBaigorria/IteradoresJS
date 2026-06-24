@@ -10,7 +10,7 @@ import {
     PerdurarSuperestructuraStringXML,
     PerdurarSuperestructuraElectricosStringIndexedDB
 } from './PerdurarSuperestructura/index.js';
-import { Comandos, Comunicadores, VectorGravitacional, Motor } from './interfaces/index.js'; // unificado
+import { Comandos, Comunicadores, VectorGravitacional, Motor, Dominios } from './interfaces/index.js'; // unificado
 import { Comando } from '../Comandos/index.js';
 import { RegistroGlobal } from './RegistroGlobal.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
@@ -27,10 +27,11 @@ import { RelojAstronomico } from '../Tiempo/RelojAstronomico.js';
  * @implements {Controlador.Interfaces.Comandos}
  * @implements {Controlador.Interfaces.Comunicadores}
  * @implements {Controlador.Interfaces.VectorGravitacional}
+ * @implements {Controlador.Interfaces.Dominios}
  * @memberof Controlador
  * @since 1.2.0
  */
-class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor) {
+class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor, Dominios) {
     /** 
      * @type {string} Método de persistencia activo por defecto
      */
@@ -1102,40 +1103,57 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @private
      */
     static _bucle_motor() {
-        if (this._estado_motor !== this.MOTOR_ACTIVO) {
-            return;
-        }
+        if (this._estado_motor !== this.MOTOR_ACTIVO) return;
 
         let fase = this._indice_fase_actual;
         if (fase === null) {
             fase = this._pendulo(null);
-            if (fase === null) return;
+            if (fase === null) {
+                this._estado_motor = this.MOTOR_DETENIDO;
+                return;
+            }
         }
 
         const quantum = Conf.MOTOR_QUANTUM;
 
         for (let i = 0; i < quantum; i++) {
-            const comando = this._siguiente_comando_en_fase(fase);
-            if (comando === null) break;
-            const resultado = comando();
-            if (resultado === 'PAUSAR_URGENTE') {
-                this._pausar_urgente('Comando solicitó pausa urgente');
-                return;
+            const entrada = this._siguiente_comando_en_fase(fase);
+            if (entrada === null) break;
+            const [nombre_comando, args] = entrada;
+            this.ejecutar_comando(nombre_comando, ...args);
+        }
+
+        if (this._siguiente_comando_en_fase(fase) === null) {
+            if (this._dominio_actual !== null) {
+                const siguiente = this._siguiente_dominio(this._dominio_actual);
+                if (siguiente !== null) {
+                    this._activar_dominio(siguiente);
+                    fase = this._pendulo(null);
+                } else {
+                    this._desactivar_dominio();
+                    fase = this._pendulo(null);
+                }
             }
         }
 
-        this._indice_fase_actual = this._pendulo(fase);
+        if (Object.keys(this._colas_comandos).length > 0) {
+            this._indice_fase_actual = this._pendulo(fase);
+        } else {
+            this._indice_fase_actual = null;
+            this._estado_motor = this.MOTOR_DETENIDO;
+        }
     }
 
+
     // ═══════════════════════════════════════════════════════════
-    // COLAS DE COMANDOS POR FASE (v1.3.8)
+    // COLAS DE COMANDOS POR FASE (v1.3.9)
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Colas de comandos pendientes, indexadas por identificador de fase.
-     *
-     * @type {Object<string, Function[]>}
+     * Colas de comandos pendientes.
+     * @type {Object<string, Array<[string, Array]>>}
      * @since 1.3.8
+     * @version 1.3.9
      * @private
      */
     static _colas_comandos = {};
@@ -1150,11 +1168,11 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @returns {void}
      * @since 1.3.8
      */
-    static encolar_comando_en_fase(fase, comando) {
+    static encolar_comando_en_fase(fase, nombre_comando, ...args) {
         if (!this._colas_comandos[fase]) {
             this._colas_comandos[fase] = [];
         }
-        this._colas_comandos[fase].push(comando);
+        this._colas_comandos[fase].push([nombre_comando, args]);
     }
 
     /**
@@ -1180,24 +1198,22 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @param {string|null} fase_actual Fase que acaba de ser atendida.
      * @returns {string|null} Siguiente fase, o null si no hay.
      * @since 1.3.7
-     * @version 1.3.8 (adaptado a colas dinámicas)
+     * @version 1.3.9 
      * @private
      */
     static _pendulo(fase_actual) {
         const fases = Object.entries(this._colas_comandos)
             .filter(([_, cola]) => cola.length > 0)
-            .map(([fase]) => fase);
+            .map(([fase]) => fase)
+            .filter(fase => {
+                if (this._dominio_actual === null) return true;
+                return fase.startsWith(this._dominio_actual + ':');
+            });
 
-        if (fases.length === 0) {
-            return null;
-        }
-
+        if (fases.length === 0) return null;
         fases.sort();
 
-        if (fase_actual === null || !fases.includes(fase_actual)) {
-            return fases[0];
-        }
-
+        if (fase_actual === null || !fases.includes(fase_actual)) return fases[0];
         const indice = fases.indexOf(fase_actual);
         return fases[(indice + 1) % fases.length];
     }
@@ -1231,6 +1247,83 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         }, null, true);
     }
 
+    // ══════════════════════════════════════════════════════
+    // INTERFAZ DOMINIOS
+    // ══════════════════════════════════════════════════════
+
+    /**
+     * Dominio actualmente activo (null = modo global).
+     * @type {string|null}
+     * @private
+     * @since 1.3.9
+     */
+    static _dominio_actual = null;
+    
+    /**
+     * Activa el modo exclusivo para un dominio.
+     *
+     * Mientras un dominio está activo, el péndulo solo itera sobre fases
+     * cuyo nombre comience por el prefijo del dominio (ej. 'html:').
+     *
+     * @param {string} dominio
+     * @returns {void}
+     * @since 1.3.9
+     */
+    static _activar_dominio(dominio) {
+        this._dominio_actual = dominio;
+        this._indice_fase_actual = null;
+    }
+
+    /**
+     * Desactiva el modo exclusivo de dominio.
+     *
+     * El péndulo vuelve a considerar todas las fases activas.
+     *
+     * @returns {void}
+     * @since 1.3.9
+     */
+    static _desactivar_dominio() {
+        this._dominio_actual = null;
+        this._indice_fase_actual = null;
+    } 
+
+    /**
+     * Deshace el último comando ejecutado por el motor.
+     *
+     * Solo puede ejecutarse cuando el motor está en estado DETENIDO.
+     * @returns {*}
+     * @since 1.3.9
+     */
+    static deshacer_motor() {
+        if (this._estado_motor !== this.MOTOR_DETENIDO) {
+            this._alerta('El motor debe estar DETENIDO para deshacer.');
+            return null;
+        }
+        return this.deshacer_ultimo();
+    }
+     /**
+     * Devuelve el siguiente dominio con comandos pendientes (excluyendo el tálamo).
+     *
+     * @param {string|null} dominio_actual Dominio actual.
+     * @return {string|null} Siguiente dominio, o null si no hay.
+     * @since 1.3.9
+     */   
+    static _siguiente_dominio(dominio_actual) {
+        const dominios = [];
+        for (const fase in this._colas_comandos) {
+            if (this._colas_comandos[fase].length === 0) continue;
+            const partes = fase.split(':');
+            const dom = partes.length > 1 ? partes[0] : 'talamo';
+            if (dom !== 'talamo' && !dominios.includes(dom)) {
+                dominios.push(dom);
+            }
+        }
+        if (dominios.length === 0) return null;
+        dominios.sort();
+        if (dominio_actual === null || !dominios.includes(dominio_actual)) return dominios[0];
+        const indice = dominios.indexOf(dominio_actual);
+        return dominios[(indice + 1) % dominios.length];
+    }
     // ═══════════════════════════════════════════════════════════
     // INICIALIZAR
     // ═══════════════════════════════════════════════════════════ 

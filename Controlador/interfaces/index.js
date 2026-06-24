@@ -7,10 +7,11 @@ import { Comunicadores } from './Comunicadores.js';
 import { VectorGravitacional } from './VectorGravitacional.js';
 import { Motor } from './Motor.js';
 import { CompuertaDominio } from './CompuertaDominio.js';
+import { Dominios } from './Dominios.js';
 
 
 /*import { Alertas } from './Alertas.js';
 import { Errores } from './Errores.js';
 import { ErroresYAlertas } from './ErroresYAlertas.js';*/
 
-export { Comandos, Comunicadores, VectorGravitacional, Motor }
+export { Comandos, Comunicadores, VectorGravitacional, Motor, Dominios }
