@@ -102,7 +102,7 @@ class Enlace {
  * V0.1.0.260605	Finalizadas y probadas Interfaces FabricaDeNodosElectricos, Fase, Adyacentes e Incidentes y a punto de comenzar con la interfaz Peso
  * @class
  * @author Ignacio David Baigorria
- * @version 0.1.0
+ * @version 1.2.9
  * @since 1.2.9
  * @extends Nodo
  * @implements {Nodos.Interfaces.IncidentesDobleVia}
