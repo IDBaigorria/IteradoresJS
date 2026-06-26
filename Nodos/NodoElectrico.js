@@ -3,7 +3,7 @@ import { Nodo } from "../Nodos/index.js";
 import { Conf, Entorno } from '../Configuracion/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { generarUUID } from "../miscelaneas/generarUUID.js";
-import { IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso} from "./Interfaces/index.js";
+import { IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso, DatosElectrico} from "./Interfaces/index.js";
 
 console.log("NodoElectrico");
 
@@ -20,7 +20,6 @@ console.log("NodoElectrico");
  *
  * @class
  * @package Nodos
- * @version 0.0.0
  * @since 1.2.9
  */
 class Enlace {
@@ -85,6 +84,18 @@ class Enlace {
  * ## INTERFAZ ADYACENTES ##
  * hay que reescribir cada funcion de la interfaz "adyacentes" para que cumplan con el nuevo estandar
  * 
+ * ## INTERFAZ DATO ##
+ * 
+ * A partir de la versión **1.4.1**, el almacenamiento de datos se vuelve **multifase**
+ * y **multidimensional**.
+ *
+ * - **Multifase**: el mismo nodo puede contener diferentes datos en cada fase de trabajo.
+ * - **Multidimensional**: dentro de cada fase, los datos se organizan en *dimensiones*
+ *   con nombre (por ejemplo `'abajo'`, `'arriba'`), además de una dimensión por defecto (clave vacía).
+ *
+ * La implementación **reutiliza la propiedad `_dato` heredada de `Nodo`**,
+ * cuyo tipo ahora es un `Map` de fases, cada una conteniendo un `Map` de dimensiones.
+ * 
  * ## HISTORIA ##
  * V0.0.1: muchas cosas espejadas pero faltan hacer pruebas y demas.
  * V0.0.3.251122: Voy a ir interfaz por interfaz, tanto del lado de js como de php haciendo las pruebas y 
@@ -102,8 +113,8 @@ class Enlace {
  * V0.1.0.260605	Finalizadas y probadas Interfaces FabricaDeNodosElectricos, Fase, Adyacentes e Incidentes y a punto de comenzar con la interfaz Peso
  * @class
  * @author Ignacio David Baigorria
- * @version 1.2.9
- * @since 1.2.9
+ * @version 1.4.1
+ * @since 1.2
  * @extends Nodo
  * @implements {Nodos.Interfaces.IncidentesDobleVia}
  * @implements {Nodos.Interfaces.Energia}
@@ -111,10 +122,11 @@ class Enlace {
  * @implements {Nodos.Interfaces.Fase}
  * @implements {Nodos.Interfaces.Peso}
  * @implements {Nodos.Interfaces.Adyacentes}
+ * @implements {Nodos.Interfaces.NodosElectrico}
  * @memberof Nodos
  * 
  */
-class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosElectricos, IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso) {
+class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosElectricos, IncidentesDobleVia, FabricaDeNodosElectricos, Energia, Fase, Peso, AdyacenteConPeso, DatosElectrico) {
 
      /**
      * Enlaces hacia nodos adyacentes.
@@ -412,7 +424,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      *
      * console.log("Nodos actuales:", Nodos.NodoElectrico.cantidad_de_nodos());
      * // Esperado: 2
-     * @since V0.0.3
+     * @since 1.2
      */
     static crear(capacidad=Conf.CAPACIDAD_NODO_ELECTRICO, fuga=Conf.FUGA_NODO_ELECTRICO) {
       const nodo = new this();
@@ -467,40 +479,20 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @param {number} [fuga=Conf.FUGA_NODO_ELECTRICO] fuga de energia por cada ciclo
      * ver:{@link Configuracion.Conf#FUGA_NODO_ELECTRICO Conf.FUGA_NODO_ELECTRICO}
      * @returns {NodoElectrico} Una nueva instancia de {@link Nodos.NodoElectrico}
-     * @since V0.0.3
+     * @since 1.2
+     * @version 1.4.1
      */
     static crear_con_dato(dato, todos = false, capacidad=Conf.CAPACIDAD_NODO_ELECTRICO, fuga=Conf.FUGA_NODO_ELECTRICO) {
-      if (!todos) {
         const nodo = new this();
-        nodo._dato=dato;
-        nodo.#fuga=fuga;
-        nodo.#capacidad=capacidad;
-        Nodo._superestructura.set(nodo.id(),nodo);
-        return nodo;
-      }/* else {// esta parte la voy a quitar cuando encuentre donde se usa
-        if (typeof dato !== 'object') {
-          if (Array.isArray(dato)) {
-            let nodo = NodoElectrico.crear_con_dato("ARRAY");
-            let nodoAux = nodo;
-            for (const valor of dato) {
-              const nodoAux2 = NodoElectrico.crear_con_dato(valor, true);
-              nodo._adyacente_en(nodoAux2, "siguiente");
-              nodo = nodoAux2;
-            }
-            return nodoAux;
-          } else {
-            const nodo = NodoElectrico.();
-            nodo._dato(dato);
-            return nodo;
-          }
-        } else {
-          const nodo = NodoElectrico.();
-          for (const prop in dato) {
-            nodo._adyacente_en(NodoElectrico.crear_con_dato(dato[prop], true), prop);
-          }
-          return nodo;
+        Nodo._superestructura.set(nodo.id(), nodo);
+        nodo.#fuga = fuga;
+        nodo.#capacidad = capacidad;
+        const fase = NodoElectrico.fase();
+        if (!nodo._datos.has(fase)) {
+            nodo._datos.set(fase, new Map());
         }
-      }*/
+        nodo._datos.get(fase).set('', dato);
+        return nodo;
     }
 
     /**
@@ -551,19 +543,17 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @since V0.0.3
      */
     static crear_con_id(id,capacidad=Conf.CAPACIDAD_NODO_ELECTRICO, fuga=Conf.FUGA_NODO_ELECTRICO) {
-      const nodo = new this();
-      if (nodo._id(id)) {
-        nodo.#fuga=fuga;
-        nodo.#capacidad=capacidad;
-        Nodo._superestructura.set(nodo.id(),nodo);
-        Nodo._nodos_especiales.set(nodo.id(),nodo);
-       // Nodo.agregar_a_superestructura(nodo);
-       // Nodo.agregar_nodo_especial(nodo);
-        return nodo;
-      } else {
-        NodoElectrico._error(`No se pudo  el nodo con id ${id}`);
-        return null;
-      }
+        const nodo = new this();
+        if (nodo._id(id)) {
+            nodo.#fuga = fuga;
+            nodo.#capacidad = capacidad;
+            Nodo._superestructura.set(nodo.id(), nodo);
+            Nodo._nodos_especiales.set(nodo.id(), nodo);
+            return nodo;
+        } else {
+            NodoElectrico._error(`No se pudo crear el nodo con id ${id}`);
+            return null;
+        }
    }
 
     /**
@@ -617,23 +607,28 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {NodoElectrico|null} Instancia de nodo con dato e identificador *especial* válido si tuvo exito o null en caso contrario.
      * @since V0.0.3
      */
-      static crear_con_dato_e_id(dato, id,capacidad=Conf.CAPACIDAD_NODO_ELECTRICO, fuga=Conf.FUGA_NODO_ELECTRICO) {
-        if (Objeto.es_id_especial(id)){
-          const nodo = new this();
-          if (nodo._id_interno(id)) {
+    static crear_con_dato_e_id(dato, id,capacidad=Conf.CAPACIDAD_NODO_ELECTRICO, fuga=Conf.FUGA_NODO_ELECTRICO) {
+        if (!Objeto.es_id_especial(id)) {
+            NodoElectrico._error("Para asignar un id, este debe ser especial");
+            return null;
+        }
+        const nodo = new this();
+        if (nodo._id_interno(id)) {
             Nodo._superestructura.set(id, nodo);
             Nodo._nodos_especiales.set(id, nodo);
-            nodo._dato=dato;
-            nodo.#fuga=fuga;
-            nodo.#capacidad=capacidad;
+            nodo.#fuga = fuga;
+            nodo.#capacidad = capacidad;
+            // Asignar dato en la fase y dimensión actuales
+            const fase = NodoElectrico.fase();
+            if (!nodo._datos.has(fase)) {
+                nodo._datos.set(fase, new Map());
+            }
+            nodo._datos.get(fase).set('', dato);
             return nodo;
-          }
-          NodoElectrico._error(`No se pudo  el nodo con dato e id ${id}`);
-          return null;  
         }
-        NodoElectrico._error("Para asignar un id, este debe ser especial");
+        NodoElectrico._error(`No se pudo crear el nodo con dato e id ${id}`);
         return null;
-      }
+    }
       
     /**
      * Garantizar que el elemento entregado sea un nodo válido (Interfaz {@link Nodos.Interfaces.FabricaDeNodosElectricos FabricaDeNodosElectricos}).
@@ -744,9 +739,20 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             es_nodo = true;
         } else {
             nodo = new this();
-            nodo._dato=elemento;
-            nodo.#fuga=fuga;
-            nodo.#capacidad=capacidad;
+            nodo.#fuga = fuga;
+            nodo.#capacidad = capacidad;
+
+            // Aseguramos que _datos sea un Map (por si acaso)
+            if (!(nodo._datos instanceof Map)) {
+                nodo._datos = new Map();
+            }
+
+            const fase = NodoElectrico.fase();
+            if (!nodo._datos.has(fase)) {
+                nodo._datos.set(fase, new Map());
+            }
+            nodo._datos.get(fase).set('', elemento);
+
             Nodo._superestructura.set(nodo.id(), nodo);
             es_nodo = false;
         }
@@ -3261,7 +3267,57 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
         }
         return exito;
     }
-    
+
+    /* *********************************************************************
+     * PROPIEDAD `dato` MULTIFASE (reutilizada de Nodo)
+     ***********************************************************************/
+
+
+
+    constructor() {
+        super();
+        delete this._dato;
+        this._datos = new Map();
+    }
+
+
+    /* *********************************************************************
+     * INTERFAZ DATO - dato() Y _dato() MULTIFASE
+     ***********************************************************************/
+    /** @type {Map<string, Map<string, *>>} */
+    _datos;
+
+    /**
+     * Asigna un dato en la **fase actual** y **dimensión** especificada.
+     *
+     * @param {*} valor
+     * @param {string|null} [dimension=null] Dimensión (por defecto '' si es null).
+     * @returns {void}
+     * @since 1.4.1
+     */
+    _dato(valor, dimension = null) {
+        const fase = NodoElectrico.fase();
+        const dim = dimension ?? '';
+        if (!this._datos.has(fase)) {
+            this._datos.set(fase, new Map());
+        }
+        this._datos.get(fase).set(dim, valor);
+    }
+
+    /**
+     * Recupera el dato de la **fase actual** y **dimensión** indicada.
+     *
+     * @param {string|null} [dimension=null]
+     * @returns {*}
+     * @since 1.4.1
+     */
+    dato(dimension = null) {
+        const fase = NodoElectrico.fase();
+        const dim = dimension ?? '';
+        const mapaFase = this._datos.get(fase);
+        return mapaFase ? (mapaFase.get(dim) ?? null) : null;
+    }
+
     /*************************************************************************************************************/
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3340,16 +3396,33 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {void}
      * @private
      * @since 1.3.0
+     * @version 1.4.1 – Soporte para dato multifase
      */
     _imprimir_consola() {
         const estilo = `color: ${Conf.NODOS_COLORES.texto}; background: ${Conf.NODOS_COLORES.fondo};`;
         const fase = NodoElectrico._fase_actual;
 
         console.log(`%c>> NODO ELÉCTRICO ${this.id()}${this.es_especial() ? " (ESP)" : ""}`, estilo);
-        const dato = this.dato();
-        if (typeof dato === "string") console.log(`%cDato: ${dato}`, estilo);
-        else if (dato === null) console.log(`%cDato: null`, estilo);
-        else console.log(`%cDato: este dato no es un string`, estilo);
+
+        // Dato multifase
+        const mapaFase = this._datos.get(fase);
+        if (!mapaFase || mapaFase.size === 0) {
+            console.log(`%cDatos: null`, estilo);
+        } else {
+            console.log(`%cDatos multidimensionales (fase: ${fase}):`, estilo);
+            for (const [dim, valor] of mapaFase) {
+                const etiqueta = dim === '' ? '(defecto)' : dim;
+                if (typeof valor === 'string' || typeof valor === 'number') {
+                    console.log(`%c  [${etiqueta}] => ${valor}`, estilo);
+                } else if (valor === null) {
+                    console.log(`%c  [${etiqueta}] => null`, estilo);
+                } else if (typeof valor === 'object') {
+                    console.log(`%c  [${etiqueta}] => objeto`, estilo);
+                } else {
+                    console.log(`%c  [${etiqueta}] => ${typeof valor}`, estilo);
+                }
+            }
+        }
 
         console.log(`%cReferencias: ${this._referencias}`, estilo);
         console.log(`%cCapacidad: ${this.capacidad()}`, estilo);
@@ -3388,7 +3461,6 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
         console.log(`%cFin Nodo`, estilo);
     }
-
     /**
      * Imprime el nodo eléctrico en formato HTML, insertándolo en #nodos-log..
      *
@@ -3403,26 +3475,39 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {string} Representación HTML del nodo.
      * @private
      * @since 1.3.0
+     * @version 1.4.1 – Soporte para dato multifase
      */
     _imprimir_html() {
         const colores = Conf.NODOS_COLORES;
         const fase = NodoElectrico._fase_actual;
         const id = this.id();
-        const dato = this.dato();
 
-        // Contenedor con los mismos estilos que en PHP
         let html = `<div style="background:${colores.fondo}; color:${colores.texto}; padding:1em; margin:1em 0; border:1px solid ${colores.borde}; font-family:monospace; white-space:pre-wrap;">`;
-        html += `<strong>NODO ELÉCTRICO ${id}${this.es_especial() ? " (ESP)" : ""} - Dato: `;
-        if (typeof dato === "string") html += dato;
-        else if (dato === null) html += "null";
-        else html += "este dato no es un string";
-        html += `</strong><br/>`;
+        html += `<strong>NODO ELÉCTRICO ${id}${this.es_especial() ? " (ESP)" : ""} - Datos (fase ${fase}):</strong><br>`;
 
-        html += `Capacidad: ${this.capacidad()}<br/>`;
-        html += `Fuga: ${this.fuga()}<br/>`;
-        html += `Energía: ${this.energia()}<br/>`;
+        const mapaFase = this._datos.get(fase);
+        if (!mapaFase || mapaFase.size === 0) {
+            html += 'null<br>';
+        } else {
+            for (const [dim, valor] of mapaFase) {
+                const etiqueta = dim === '' ? '(defecto)' : dim;
+                if (typeof valor === 'string') {
+                    html += `[${etiqueta}] => ${valor}<br>`;
+                } else if (valor === null) {
+                    html += `[${etiqueta}] => null<br>`;
+                } else if (typeof valor === 'object') {
+                    html += `[${etiqueta}] => objeto<br>`;
+                } else {
+                    html += `[${etiqueta}] => ${valor}<br>`;
+                }
+            }
+        }
 
-        html += `Adyacentes (fase: ${fase}):<br/>`;
+        html += `Capacidad: ${this.capacidad()}<br>`;
+        html += `Fuga: ${this.fuga()}<br>`;
+        html += `Energía: ${this.energia()}<br>`;
+
+        html += `Adyacentes (fase: ${fase}):<br>`;
         const adyacentes_fase = this._adyacentes?.get(fase);
         if (adyacentes_fase && adyacentes_fase.size > 0) {
             html += "<ul>";
@@ -3430,12 +3515,13 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
                 const nodo = (valor instanceof Enlace) ? valor.nodo : valor;
                 html += `<li>[${enlace}] => <a href="#nodo-${nodo.id()}" style="color:${colores.texto};">${nodo.id()}</a>`;
                 if (valor instanceof Enlace && valor.pesos !== null) {
-                    html += ' <span style="color:' + colores.texto + ';">[Pesos: ';
+                    html += ' <span style="color:#555;">[Pesos: ';
                     if (typeof valor.pesos === 'object') {
-                        html += Object.entries(valor.pesos).map(([dim, p]) => {
-                            const dim_label = dim === '' ? "''" : dim;
-                            return `${dim_label}: ${JSON.stringify(p)}`;
-                        }).join(', ');
+                        const partes = Object.entries(valor.pesos).map(([d, p]) => {
+                            const d_label = d === '' ? "''" : d;
+                            return `${d_label}: ${JSON.stringify(p)}`;
+                        });
+                        html += partes.join(', ');
                     } else {
                         html += `'': ${JSON.stringify(valor.pesos)}`;
                     }
@@ -3445,10 +3531,10 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
             }
             html += "</ul>";
         } else {
-            html += "No tiene<br/>";
+            html += "No tiene<br>";
         }
 
-        html += `Incidentes (fase: ${fase}):<br/>`;
+        html += `Incidentes (fase: ${fase}):<br>`;
         if (this._incidentes && this._incidentes.size > 0) {
             let tiene = false;
             html += '<ul>';
@@ -3464,12 +3550,12 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
                 }
             }
             html += '</ul>';
-            if (!tiene) html += 'No tiene<br/>';
+            if (!tiene) html += 'No tiene<br>';
         } else {
-            html += 'No tiene<br/>';
+            html += 'No tiene<br>';
         }
 
-        html += `Número de referencias a él: ${this._referencias}<br/>`;
+        html += `Número de referencias a él: ${this._referencias}<br>`;
         html += `</div>`;
 
         return html;
