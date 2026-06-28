@@ -16,6 +16,7 @@ import { Fase } from './Fase.js';
 import { Peso } from './Peso.js';
 import { AdyacenteConPeso } from './AdyacenteConPeso.js';
 import { DatosElectrico } from './DatosElectrico.js';
+import { FabricaDeNodosElectricos } from './FabricaDeNodosElectricos.js';
 /*import { Alertas } from './Alertas.js';
 import { Errores } from './Errores.js';
 import { ErroresYAlertas } from './ErroresYAlertas.js';*/

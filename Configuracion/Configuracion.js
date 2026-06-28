@@ -396,6 +396,13 @@ class Conf {
      * @since 1.3.7
      */
     static MOTOR_PAUSA_URGENTE_TIMEOUT_S = 30;
+
+    /**
+     * Matriz que actúa como marca de inicio para conjuntos desordenados.
+     * @type {number[][]}
+     * @since 1.4.2
+     */
+    static MATRIZ_MARCA_CONJUNTO = [[1, 1], [0, 1]];
 }
 
 export {Conf}

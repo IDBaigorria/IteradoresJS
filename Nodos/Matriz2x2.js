@@ -205,6 +205,10 @@ class Matriz2x2 extends Objeto {
         }
         return true;
     }
+
+    static crear_negativa(n) {
+        return new Matriz2x2(n, 0, 1, 1);
+    }
 }
 
 export {Matriz2x2};
