@@ -17,8 +17,13 @@ import { Peso } from './Peso.js';
 import { AdyacenteConPeso } from './AdyacenteConPeso.js';
 import { DatosElectrico } from './DatosElectrico.js';
 import { FabricaDeNodosElectricos } from './FabricaDeNodosElectricos.js';
+import { IdentidadNumerica } from './IdentidadNumerica.js';
 /*import { Alertas } from './Alertas.js';
 import { Errores } from './Errores.js';
 import { ErroresYAlertas } from './ErroresYAlertas.js';*/
 
-export { FabricaDeNodos, Datos, Adyacentes, FabricaDeNodosElectricos, Fase, Incidentes, IncidentesDobleVia, Energia, AccesoASuperestructura ,AccesoAEspeciales, Impresion, Peso, AdyacenteConPeso, DatosElectrico }
+export { FabricaDeNodos, Datos, Adyacentes, FabricaDeNodosElectricos, 
+    Fase, Incidentes, IncidentesDobleVia, Energia, AccesoASuperestructura,
+    AccesoAEspeciales, Impresion, Peso, AdyacenteConPeso, DatosElectrico,
+    IdentidadNumerica
+ }
