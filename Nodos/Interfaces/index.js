@@ -11,7 +11,6 @@ import { AccesoAEspeciales } from './AccesoAEspeciales.js';
 import { AccesoASuperestructura } from './AccesoASuperestructura.js';
 import { Impresion } from './Impresion.js'; 
 import { Energia } from './Energia.js';
-import { FabricaDeNodosElectricos } from './FabricaDeNodosElectricos.js';
 import { Fase } from './Fase.js';
 import { Peso } from './Peso.js';
 import { AdyacenteConPeso } from './AdyacenteConPeso.js';

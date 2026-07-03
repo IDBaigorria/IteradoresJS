@@ -1636,31 +1636,31 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @return {NodoElectrico|null} Nodo adyacente si existe, `null` en caso contrario
      */
     adyacente(enlace) {
-        console.log("s1");
+        //   console.log("s1");
         if (!NodoElectrico.validar_nombre_enlace(enlace)){
-            console.log("s2");
+        //    console.log("s2");
             this.constructor._error("El enlace debe ser un string válido");
             return null;
         }
-        console.log("s3");
+        //   console.log("s3");
         if (this._adyacentes === undefined) {
             return null;
         }
-        console.log("s4");
+        //   console.log("s4");
         if (!this._adyacentes.size) {
             console.log(this._adyacentes);
             return null;
        } 
-        console.log("s5");
+        //   console.log("s5");
         const fase_actual = NodoElectrico._fase_actual;
         if (!this._adyacentes.has(fase_actual)){
             return null;
         }
-        console.log("s6");
+        //   console.log("s6");
         if (!this._adyacentes.get(fase_actual).size){
             return null;
         }
-        console.log("s7");
+        //   console.log("s7");
         const valor = this._adyacentes.get(fase_actual).get(enlace) ?? null;
         if (valor === null) return null;
         return (valor instanceof Enlace) ? valor.nodo : valor;

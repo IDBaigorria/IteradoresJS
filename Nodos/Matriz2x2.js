@@ -1,66 +1,111 @@
 import { Objeto } from '../Nucleo/Objeto.js';
 
 /**
- * Clase Matriz2x2
+ * Matriz2x2 – Valor matricial con canvas de contexto mutable.
  *
- * Valor inmutable que representa una matriz cuadrada de 2×2 con entradas enteras.
+ * Representa una matriz cuadrada de 2×2 con entradas enteras. Es la unidad
+ * fundamental de identidad en el sistema de fases de Iteradores. Junto con
+ * {@link NodoNumerico} y sus subclases, forma la base del mecanismo de
+ * ascenso/descenso y entrelazamiento contextual.
  *
- * Esta clase es la piedra angular del sistema de identidades numéricas no conmutativas.
- * Permite representar números primos y compuestos como matrices, de modo que el producto
- * preserve el orden de los factores. Junto con `NodoNumerico` y `NodoPrimo`,
- * forma la base del mecanismo de ascenso/descenso por fases.
+ * ## Espectro numérico
  *
- * ## Uso como identidad
- * Cada nodo del framework posee una `Matriz2x2` que lo identifica de manera única.
- * Dos nodos con matrices diferentes representan composiciones distintas, incluso si
- * sus determinantes coinciden (por ejemplo, `[[6,0],[4,1]]` vs `[[6,0],[3,1]]`).
+ * El sistema de identidades numéricas se divide en dos espectros complementarios:
  *
- * ## Inmutabilidad
- * Las propiedades son de solo lectura. Una vez construida, la matriz no cambia.
- * Esto permite usarla como clave de índice sin riesgo de efectos colaterales.
+ * | Tipo               | Forma canónica      | Uso                         |
+ * |--------------------|---------------------|-----------------------------|
+ * | **Prima positiva** | `[[p, 1], [1, 1]]`  | NodoPrimo (estructura)      |
+ * | **Negativa prima** | `[[-p, 1], [1, 1]]` | NodoConjunto (significado)  |
+ * | **Inicial**        | `[[1, 1], [1, 2]]`  | Semilla de NodoNumerico     |
  *
- * ## Factoría de primos
- * El método estático `crear_prima()` construye la matriz canónica asociada a un
- * número primo `p`: `[[p, 0], [1, 1]]`. Esta forma garantiza la no conmutatividad
- * del producto:
- * - `M(2) * M(3) = [[6,0],[4,1]]`
- * - `M(3) * M(2) = [[6,0],[3,1]]`
+ * - Las matrices **positivas** identifican estructuras: secuencias, paralelos y
+ *   primos atómicos. Su determinante está vinculado al producto de factores.
+ * - Las matrices **negativas** identifican significados: conceptos o conjuntos
+ *   semánticos. Su entrada `a` es negativa, lo que las diferencia algebraicamente
+ *   de cualquier estructura positiva sin riesgo de colisión.
  *
- * ## Rendimiento
- * El determinante y la representación en cadena se precalculan en el constructor.
+ * ## No conmutatividad y orden
+ *
+ * El producto de matrices no es conmutativo: `M(A) × M(B) ≠ M(B) × M(A)`.
+ * Esta propiedad es explotada por el sistema para **codificar el orden** en
+ * las secuencias (p‑gramas). Dos secuencias con los mismos factores pero en
+ * distinto orden producen matrices diferentes, aunque sus determinantes
+ * coincidan.
+ *
+ * ## Canvas de contexto (entrada `b`)
+ *
+ * La entrada `b` es la **única mutable** de la matriz. Actúa como un canvas
+ * donde se registran las pertenencias a conjuntos mediante **pintura**:
+ *
+ * - {@link pintar} multiplica `b` por un número primo, marcando la pertenencia
+ *   a un contexto.
+ * - {@link despintar} divide `b` por ese primo, eliminando la marca.
+ * - Las entradas `a`, `c` y `d` permanecen inalteradas, preservando la
+ *   identidad nuclear del nodo.
+ * - La verificación de pertenencia es O(1): `b % primoContexto == 0`.
+ *
+ * ## Referencia al nodo portador
+ *
+ * Cada matriz mantiene una referencia al {@link NodoNumerico} que la utiliza
+ * como identidad (propiedad `#nodo`). Esto permite que las operaciones de
+ * pintura/despintura notifiquen directamente al nodo, sin necesidad de
+ * búsquedas en índices externos.
  *
  * @class
  * @extends Objeto
  * @package Iteradores.Nodos
- * @version 1.4.0
+ * @version 1.4.3
  * @since 1.4.0
  * @author Ignacio David Baigorria
  * @see NodoNumerico
  * @see NodoPrimo
+ * @see NodoConjunto
  */
 class Matriz2x2 extends Objeto {
-    /** @type {number} Entrada superior izquierda */
+    /**
+     * Entrada superior izquierda (inmutable).
+     * @type {number}
+     */
     a;
-    /** @type {number} Entrada superior derecha */
-    b;
-    /** @type {number} Entrada inferior izquierda */
-    c;
-    /** @type {number} Entrada inferior derecha */
-    d;
-    /** @type {number} Determinante precalculado */
-    _determinante;
-    /** @type {string} Representación en cadena precalculada */
-    _cadena;
 
     /**
-     * Construye una nueva matriz 2×2 inmutable.
+     * Entrada superior derecha — **canvas de contexto** (mutable).
      *
-     * Precalcula el determinante y la cadena de representación para acceso rápido.
+     * Es la única componente que puede modificarse tras la construcción.
+     * Comienza en 1 para las formas canónicas y se multiplica o divide
+     * para reflejar pertenencias.
      *
-     * @param {number} a - Fila 0, columna 0
-     * @param {number} b - Fila 0, columna 1
-     * @param {number} c - Fila 1, columna 0
-     * @param {number} d - Fila 1, columna 1
+     * @type {number}
+     */
+    b;
+
+    /**
+     * Entrada inferior izquierda (inmutable).
+     * @type {number}
+     */
+    c;
+
+    /**
+     * Entrada inferior derecha (inmutable).
+     * @type {number}
+     */
+    d;
+
+    /**
+     * NodoNumerico que porta esta matriz como identidad.
+     *
+     * @type {NodoNumerico|null}
+     * @private
+     */
+    #nodo = null;
+
+    /**
+     * Construye una nueva matriz 2×2.
+     *
+     * @param {number} a Fila 0, columna 0
+     * @param {number} b Fila 0, columna 1 (canvas de contexto)
+     * @param {number} c Fila 1, columna 0
+     * @param {number} d Fila 1, columna 1
      */
     constructor(a, b, c, d) {
         super();
@@ -68,45 +113,112 @@ class Matriz2x2 extends Objeto {
         this.b = b;
         this.c = c;
         this.d = d;
-        this._determinante = this.a * this.d - this.b * this.c;
-        this._cadena = `[[${this.a},${this.b}],[${this.c},${this.d}]]`;
-        Object.freeze(this);
     }
 
     /**
-     * Devuelve la matriz neutra (neutro multiplicativo).
+     * Setter controlado de la entrada `b` (canvas de contexto).
      *
-     * `[[1, 0], [0, 1]]`
+     * Permite reemplazar por completo el valor del canvas, por ejemplo
+     * para restaurar un estado anterior.
+     *
+     * @param {number} b Nuevo valor del canvas.
+     */
+    _b(b) {
+        this.b = b;
+    }
+
+    /**
+     * Obtiene el NodoNumerico portador de esta matriz.
+     *
+     * @returns {NodoNumerico|null}
+     */
+    get nodo() {
+        return this.#nodo;
+    }
+
+    /**
+     * Asigna el NodoNumerico portador de esta matriz.
+     *
+     * @param {NodoNumerico} nodo Nodo que porta esta identidad.
+     */
+    _nodo(nodo) {
+        this.#nodo = nodo;
+    }
+
+    /**
+     * Matriz inicial (semilla) para un NodoNumerico recién creado.
+     *
+     * Forma: `[[1, 1], [1, 2]]`
+     *
+     * - Determinante = 1 (neutro multiplicativo, no altera productos).
+     * - Canvas `b = 1` listo para recibir pinturas.
+     * - No es una matriz prima; es el punto de partida antes de que el
+     *   nodo reciba una identidad concreta.
      *
      * @returns {Matriz2x2}
      */
-    static neutra() {
-        return new Matriz2x2(1, 0, 0, 1);
+    static inicial() {
+        return new Matriz2x2(1, 1, 1, 2);
     }
 
     /**
-     * Crea la matriz canónica para un número primo.
+     * Crea la matriz canónica de un nodo primo positivo.
      *
-     * Forma: `[[p, 0], [1, 1]]`
+     * Forma: `[[p, 1], [1, 1]]`
      *
-     * @param {number} p - Número primo (no se verifica aquí)
+     * Representa una estructura atómica (un NodoPrimo) con número primo `p`.
+     *
+     * @param {number} p Número primo que identifica al nodo.
      * @returns {Matriz2x2}
      * @see NodoPrimo
      */
     static crear_prima(p) {
-        return new Matriz2x2(p, 0, 1, 1);
+        return new Matriz2x2(p, 1, 1, 1);
+    }
+
+    /**
+     * Crea la matriz canónica negativa para un concepto / conjunto.
+     *
+     * Forma: `[[-p, 1], [1, 1]]`
+     *
+     * La entrada `a = -p` sitúa la matriz en el **espectro negativo**,
+     * reservado para significados (NodoConjunto). El valor `p` es el
+     * **primo de contexto** que se usará para pintar a los miembros.
+     *
+     * @param {number} p Número primo (positivo) que actúa como pintor de contexto.
+     * @returns {Matriz2x2}
+     * @see NodoConjunto
+     */
+    static crear_negativa_prima(p) {
+        return new Matriz2x2(-p, 1, 1, 1);
+    }
+
+    /**
+     * Matriz identidad algebraica clásica.
+     *
+     * Forma: `[[1, 0], [0, 1]]`
+     *
+     * **No se usa en el sistema de identidades** porque `b = 0` anula el
+     * canvas de contexto (cualquier pintura lo mantendría en 0). Se conserva
+     * para posibles cálculos auxiliares (rotaciones, transformaciones
+     * lineales, etc.) ajenos al mecanismo de pertenencia.
+     *
+     * @returns {Matriz2x2}
+     */
+    static identidad_algebraica() {
+        return new Matriz2x2(1, 0, 0, 1);
     }
 
     /**
      * Construye una matriz a partir de un array [a, b, c, d].
      *
-     * @param {number[]} arr - Array de 4 números
-     * @returns {Matriz2x2}
-     * @throws {Error} si el array no tiene 4 elementos
+     * @param {number[]} arr Array de exactamente 4 elementos.
+     * @returns {Matriz2x2|null} Matriz o null si el array no es válido.
      */
     static desde_array(arr) {
         if (!Array.isArray(arr) || arr.length !== 4) {
-            throw new Error('El array debe contener exactamente 4 elementos.');
+            this._error('El array debe contener exactamente 4 elementos.');
+            return null;
         }
         return new Matriz2x2(
             Math.trunc(arr[0]),
@@ -117,12 +229,14 @@ class Matriz2x2 extends Objeto {
     }
 
     /**
-     * Multiplica esta matriz por otra (this * otra).
+     * Multiplica esta matriz por otra (this × otra).
      *
-     * El orden de la multiplicación es fundamental para la no conmutatividad.
+     * El orden es fundamental: `M(A) × M(B)` no es igual a `M(B) × M(A)`.
+     * Esta **no conmutatividad** permite que las secuencias de factores
+     * preserven el orden en su identidad matricial.
      *
-     * @param {Matriz2x2} otra - Matriz a la derecha del producto
-     * @returns {Matriz2x2} Nueva matriz resultado
+     * @param {Matriz2x2} otra Matriz a la derecha del producto.
+     * @returns {Matriz2x2} Nueva matriz resultado.
      */
     multiplicar(otra) {
         return new Matriz2x2(
@@ -134,14 +248,17 @@ class Matriz2x2 extends Objeto {
     }
 
     /**
-     * Devuelve el determinante precalculado de la matriz.
+     * Calcula el determinante de la matriz en tiempo real.
      *
      * `det = a*d - b*c`
+     *
+     * No se cachea porque `b` es mutable y el coste de cálculo es trivial
+     * (dos multiplicaciones y una resta).
      *
      * @returns {number}
      */
     determinante() {
-        return this._determinante;
+        return this.a * this.d - this.b * this.c;
     }
 
     /**
@@ -158,57 +275,57 @@ class Matriz2x2 extends Objeto {
     }
 
     /**
-     * Representación canónica en string, precalculada en el constructor.
+     * Representación canónica en string.
      *
-     * Formato: `"[[a,b],[c,d]]"`
+     * Formato: `"[[a,b],[c,d]]"`. Utilizada como clave en índices y para
+     * ordenación canónica de componentes en {@link NodoParalelo}.
+     *
+     * @returns {string}
+     */
+    a_texto() {
+        return `[[${this.a},${this.b}],[${this.c},${this.d}]]`;
+    }
+
+    /**
+     * Representación en string (delega en {@link a_texto}).
      *
      * @returns {string}
      */
     toString() {
-        return this._cadena;
+        return this.a_texto();
     }
 
     /**
-     * Encuentra el menor número primo estrictamente mayor que n.
+     * "Pinta" el canvas de contexto multiplicando `b` por un factor primo.
      *
-     * Utiliza una prueba de divisibilidad simple (división hasta √candidato).
-     * Es adecuada para los números pequeños (hasta unos pocos miles) que maneja el framework.
+     * Esta operación es el núcleo del **entrelazamiento de conjunto** entre
+     * nodos y conceptos. Codifica la pertenencia sin alterar las entradas
+     * `a`, `c`, `d` de la identidad nuclear.
      *
-     * @param {number} n - Valor de partida
-     * @returns {number} Siguiente número primo después de n
-     * @since 1.4.0
+     * @param {number} primo Factor a multiplicar en `b`.
+     * @see despintar
      */
-    static siguiente_numero_primo(n) {
-        let candidato = n + 1;
-        while (true) {
-            if (Matriz2x2._es_primo(candidato)) {
-                return candidato;
-            }
-            candidato++;
-        }
+    pintar(primo) {
+        this.b *= primo;
     }
 
     /**
-     * Verifica si un número entero positivo es primo.
+     * "Despinta" el canvas de contexto dividiendo `b` por un factor primo.
      *
-     * @param {number} numero
-     * @returns {boolean}
-     * @private
+     * Si el primo no divide exactamente a `b`, emite un error del sistema
+     * y no modifica la matriz. Esto puede ocurrir si se intenta quitar un
+     * miembro que no pertenecía al conjunto.
+     *
+     * @param {number} primo Factor a eliminar de `b`.
+     * @see pintar
      */
-    static _es_primo(numero) {
-        if (numero < 2) return false;
-        if (numero === 2) return true;
-        if (numero % 2 === 0) return false;
-        const limite = Math.sqrt(numero);
-        for (let i = 3; i <= limite; i += 2) {
-            if (numero % i === 0) return false;
+    despintar(primo) {
+        if (this.b % primo !== 0) {
+            this.constructor._error(`El primo ${primo} no está presente en b.`);
+            return;
         }
-        return true;
-    }
-
-    static crear_negativa(n) {
-        return new Matriz2x2(n, 0, 1, 1);
+        this.b /= primo;
     }
 }
 
-export {Matriz2x2};
+export { Matriz2x2 };
