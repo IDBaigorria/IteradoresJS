@@ -1,28 +1,27 @@
 import { Objeto } from '../Nucleo/Objeto.js';
 
 /**
- * Matriz2x2 – Valor matricial con canvas de contexto mutable.
+ * Matriz2x2 – Identidad matricial compacta e inmutable para p-gramas.
  *
  * Representa una matriz cuadrada de 2×2 con entradas enteras. Es la unidad
  * fundamental de identidad en el sistema de fases de Iteradores. Junto con
  * {@link NodoNumerico} y sus subclases, forma la base del mecanismo de
- * ascenso/descenso y entrelazamiento contextual.
+ * ascenso/descenso y de la codificación no conmutativa de secuencias.
  *
  * ## Espectro numérico
  *
- * El sistema de identidades numéricas se divide en dos espectros complementarios:
+ * El signo de la entrada `a` distingue el tipo de comando que representa
+ * la matriz:
  *
  * | Tipo               | Forma canónica      | Uso                         |
  * |--------------------|---------------------|-----------------------------|
- * | **Prima positiva** | `[[p, 1], [1, 1]]`  | NodoPrimo (estructura)      |
- * | **Negativa prima** | `[[-p, 1], [1, 1]]` | NodoConjunto (significado)  |
- * | **Inicial**        | `[[1, 1], [1, 2]]`  | Semilla de NodoNumerico     |
+ * | **Prima positiva** | `[[p, 0], [1, 1]]` | Comando constructivo (hacer)|
+ * | **Prima negativa** | `[[-p, 0], [1, 1]]`| Comando destructivo (deshacer)|
+ * | **Inicial**        | `[[1, 0], [1, 1]]` | Semilla de NodoNumerico     |
  *
- * - Las matrices **positivas** identifican estructuras: secuencias, paralelos y
- *   primos atómicos. Su determinante está vinculado al producto de factores.
- * - Las matrices **negativas** identifican significados: conceptos o conjuntos
- *   semánticos. Su entrada `a` es negativa, lo que las diferencia algebraicamente
- *   de cualquier estructura positiva sin riesgo de colisión.
+ * - Las matrices **positivas** representan acciones constructivas.
+ * - Las matrices **negativas** representan las correspondientes acciones
+ *   destructivas (deshaceres), permitiendo revertir cualquier operación.
  *
  * ## No conmutatividad y orden
  *
@@ -32,48 +31,47 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * distinto orden producen matrices diferentes, aunque sus determinantes
  * coincidan.
  *
- * ## Canvas de contexto (entrada `b`)
+ * ## Inmutabilidad
  *
- * La entrada `b` es la **única mutable** de la matriz. Actúa como un canvas
- * donde se registran las pertenencias a conjuntos mediante **pintura**:
+ * Las cuatro entradas de la matriz son inmutables una vez construida la
+ * instancia. En particular, `b = 0` es fijo para todas las formas canónicas,
+ * lo que garantiza que la matriz solo codifica la identidad estructural de la
+ * acción, sin mezclarla con información contextual.
  *
- * - {@link pintar} multiplica `b` por un número primo, marcando la pertenencia
- *   a un contexto.
- * - {@link despintar} divide `b` por ese primo, eliminando la marca.
- * - Las entradas `a`, `c` y `d` permanecen inalteradas, preservando la
- *   identidad nuclear del nodo.
- * - La verificación de pertenencia es O(1): `b % primoContexto == 0`.
- *
- * ## Referencia al nodo portador
+ * ## Referencia al NodoNumerico portador
  *
  * Cada matriz mantiene una referencia al {@link NodoNumerico} que la utiliza
- * como identidad (propiedad `#nodo`). Esto permite que las operaciones de
- * pintura/despintura notifiquen directamente al nodo, sin necesidad de
- * búsquedas en índices externos.
+ * como identidad. Esto permite la sincronización directa durante el ascenso y
+ * descenso de fase, sin necesidad de búsquedas en índices externos.
  *
  * @class
  * @extends Objeto
  * @package Iteradores.Nodos
- * @version 1.4.3
+ * @version 1.4.4
  * @since 1.4.0
  * @author Ignacio David Baigorria
  * @see NodoNumerico
  * @see NodoPrimo
- * @see NodoConjunto
+ * @see NodoParalelo
  */
 class Matriz2x2 extends Objeto {
     /**
      * Entrada superior izquierda (inmutable).
+     *
+     * Para las formas canónicas primas, su valor es `p` (positivo) o `-p`
+     * (negativo), determinando si la matriz representa un comando
+     * constructivo o destructivo.
+     *
      * @type {number}
      */
     a;
 
     /**
-     * Entrada superior derecha — **canvas de contexto** (mutable).
+     * Entrada superior derecha (inmutable).
      *
-     * Es la única componente que puede modificarse tras la construcción.
-     * Comienza en 1 para las formas canónicas y se multiplica o divide
-     * para reflejar pertenencias.
+     * Fijada a 0 en todas las formas canónicas del sistema. Al no ser
+     * mutable, la matriz solo codifica la identidad estructural de la
+     * acción, sin interferencias externas.
      *
      * @type {number}
      */
@@ -81,12 +79,14 @@ class Matriz2x2 extends Objeto {
 
     /**
      * Entrada inferior izquierda (inmutable).
+     *
      * @type {number}
      */
     c;
 
     /**
      * Entrada inferior derecha (inmutable).
+     *
      * @type {number}
      */
     d;
@@ -100,10 +100,10 @@ class Matriz2x2 extends Objeto {
     #nodo = null;
 
     /**
-     * Construye una nueva matriz 2×2.
+     * Construye una nueva matriz 2×2 inmutable.
      *
      * @param {number} a Fila 0, columna 0
-     * @param {number} b Fila 0, columna 1 (canvas de contexto)
+     * @param {number} b Fila 0, columna 1 (siempre 0 en las formas canónicas)
      * @param {number} c Fila 1, columna 0
      * @param {number} d Fila 1, columna 1
      */
@@ -113,18 +113,6 @@ class Matriz2x2 extends Objeto {
         this.b = b;
         this.c = c;
         this.d = d;
-    }
-
-    /**
-     * Setter controlado de la entrada `b` (canvas de contexto).
-     *
-     * Permite reemplazar por completo el valor del canvas, por ejemplo
-     * para restaurar un estado anterior.
-     *
-     * @param {number} b Nuevo valor del canvas.
-     */
-    _b(b) {
-        this.b = b;
     }
 
     /**
@@ -148,49 +136,49 @@ class Matriz2x2 extends Objeto {
     /**
      * Matriz inicial (semilla) para un NodoNumerico recién creado.
      *
-     * Forma: `[[1, 1], [1, 2]]`
+     * Forma: `[[1, 0], [1, 1]]`
      *
      * - Determinante = 1 (neutro multiplicativo, no altera productos).
-     * - Canvas `b = 1` listo para recibir pinturas.
+     * - `b = 0` fijo, como en el resto de formas canónicas.
      * - No es una matriz prima; es el punto de partida antes de que el
      *   nodo reciba una identidad concreta.
      *
      * @returns {Matriz2x2}
      */
     static inicial() {
-        return new Matriz2x2(1, 1, 1, 2);
+        return new Matriz2x2(1, 0, 1, 1);
     }
 
     /**
-     * Crea la matriz canónica de un nodo primo positivo.
+     * Crea la matriz canónica de un comando constructivo (primo positivo).
      *
-     * Forma: `[[p, 1], [1, 1]]`
+     * Forma: `[[p, 0], [1, 1]]`
      *
-     * Representa una estructura atómica (un NodoPrimo) con número primo `p`.
+     * Representa una acción atómica (un NodoPrimo) con número primo `p`.
      *
-     * @param {number} p Número primo que identifica al nodo.
+     * @param {number} p Número primo que identifica al comando.
      * @returns {Matriz2x2}
      * @see NodoPrimo
      */
     static crear_prima(p) {
-        return new Matriz2x2(p, 1, 1, 1);
+        return new Matriz2x2(p, 0, 1, 1);
     }
 
     /**
-     * Crea la matriz canónica negativa para un concepto / conjunto.
+     * Crea la matriz canónica de un comando destructivo (primo negativo).
      *
-     * Forma: `[[-p, 1], [1, 1]]`
+     * Forma: `[[-p, 0], [1, 1]]`
      *
      * La entrada `a = -p` sitúa la matriz en el **espectro negativo**,
-     * reservado para significados (NodoConjunto). El valor `p` es el
-     * **primo de contexto** que se usará para pintar a los miembros.
+     * reservado para acciones de deshacer. El valor absoluto `p` es el
+     * mismo que el del comando constructivo correspondiente.
      *
-     * @param {number} p Número primo (positivo) que actúa como pintor de contexto.
+     * @param {number} p Número primo (positivo) cuyo negativo representa el deshacer.
      * @returns {Matriz2x2}
-     * @see NodoConjunto
+     * @see NodoPrimo
      */
     static crear_negativa_prima(p) {
-        return new Matriz2x2(-p, 1, 1, 1);
+        return new Matriz2x2(-p, 0, 1, 1);
     }
 
     /**
@@ -198,10 +186,10 @@ class Matriz2x2 extends Objeto {
      *
      * Forma: `[[1, 0], [0, 1]]`
      *
-     * **No se usa en el sistema de identidades** porque `b = 0` anula el
-     * canvas de contexto (cualquier pintura lo mantendría en 0). Se conserva
-     * para posibles cálculos auxiliares (rotaciones, transformaciones
-     * lineales, etc.) ajenos al mecanismo de pertenencia.
+     * **No se usa en el sistema de identidades** porque su entrada `c = 0`
+     * la hace conmutativa con cualquier otra matriz. Se conserva para
+     * posibles cálculos auxiliares (rotaciones, transformaciones lineales,
+     * etc.) ajenos al mecanismo de secuencias.
      *
      * @returns {Matriz2x2}
      */
@@ -248,12 +236,12 @@ class Matriz2x2 extends Objeto {
     }
 
     /**
-     * Calcula el determinante de la matriz en tiempo real.
+     * Calcula el determinante de la matriz.
      *
      * `det = a*d - b*c`
      *
-     * No se cachea porque `b` es mutable y el coste de cálculo es trivial
-     * (dos multiplicaciones y una resta).
+     * Para las formas canónicas del sistema (`b = 0`), el determinante se
+     * reduce a `a*d`, simplificando los cálculos.
      *
      * @returns {number}
      */
@@ -293,38 +281,6 @@ class Matriz2x2 extends Objeto {
      */
     toString() {
         return this.a_texto();
-    }
-
-    /**
-     * "Pinta" el canvas de contexto multiplicando `b` por un factor primo.
-     *
-     * Esta operación es el núcleo del **entrelazamiento de conjunto** entre
-     * nodos y conceptos. Codifica la pertenencia sin alterar las entradas
-     * `a`, `c`, `d` de la identidad nuclear.
-     *
-     * @param {number} primo Factor a multiplicar en `b`.
-     * @see despintar
-     */
-    pintar(primo) {
-        this.b *= primo;
-    }
-
-    /**
-     * "Despinta" el canvas de contexto dividiendo `b` por un factor primo.
-     *
-     * Si el primo no divide exactamente a `b`, emite un error del sistema
-     * y no modifica la matriz. Esto puede ocurrir si se intenta quitar un
-     * miembro que no pertenecía al conjunto.
-     *
-     * @param {number} primo Factor a eliminar de `b`.
-     * @see pintar
-     */
-    despintar(primo) {
-        if (this.b % primo !== 0) {
-            this.constructor._error(`El primo ${primo} no está presente en b.`);
-            return;
-        }
-        this.b /= primo;
     }
 }
 

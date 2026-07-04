@@ -6,87 +6,82 @@ import { Entorno } from '../Configuracion/Entorno.js';
 /**
  * NodoNumerico – Orquestador central de identidades numéricas.
  *
- * Clase base de la que heredan {@link NodoPrimo}, {@link NodoParalelo} y
- * {@link NodoConjunto}. Actúa como **punto de creación y reciclaje** de
- * todos los nodos con identidad matricial dentro del framework.
+ * Clase base de la que heredan {@link NodoPrimo} y {@link NodoParalelo}.
+ * Actúa como **punto de creación y reciclaje** de todos los nodos con
+ * identidad matricial, y gestiona el ascenso y descenso entre fases.
  *
  * ## Responsabilidades principales
  *
  * 1. **Identidad multifase**
  *    Cada instancia mantiene un mapa `_identidad_por_fase` que asocia una
  *    {@link Matriz2x2} distinta a cada fase de trabajo. Esto permite que un
- *    mismo nodo represente una secuencia en la fase `a`, un conjunto en la
- *    fase `b` y un primo en la fase `c`, sin que las mutaciones del canvas
- *    `b` en una fase interfieran en las demás.
+ *    mismo nodo represente una secuencia en la fase `a`, un paralelo en la
+ *    fase `b` y un primo en la fase `c`, sin que las identidades interfieran
+ *    entre sí.
  *
- * 2. **Caché global de primos**
+ * 2. **P‑grama multifase**
+ *    El mapa `_pgrama_por_fase` almacena la lista exacta de factores que
+ *    componen el nodo en cada fase. Es la **única fuente de verdad** sobre la
+ *    identidad compuesta. La matriz identidad se deriva completamente de este
+ *    p‑grama. Las marcas especiales al inicio del array indican el tipo:
+ *    - `1`: paralelo (sincronización de componentes simultáneos).
+ *    - `-1`: secuencia de deshacer (todos los factores son comandos destructivos).
+ *    - Sin marca: secuencia de hacer (comandos constructivos).
+ *
+ * 3. **Caché global de primos**
  *    La lista estática `_primos_conocidos` crece con cada nuevo primo
  *    descubierto, compartida por todas las fases. Métodos como
  *    {@link es_numero_primo} y {@link siguiente_numero_primo} la consultan
  *    y expanden, evitando recalcular primalidad para números ya conocidos.
  *
- * 3. **Contadores multifase de primos**
- *    Dos mapas `_ultimo_primo_positivo_por_fase` y
- *    `_ultimo_primo_negativo_por_fase` guardan el último primo asignado en
- *    cada fase para los espectros positivo (nodos primos) y negativo
- *    (conjuntos). Así cada fase posee su propio espacio de identidades
- *    independiente, esencial para el ascenso/descenso jerárquico.
+ * 4. **Contador multifase de primos**
+ *    El mapa `_ultimo_primo_positivo_por_fase` guarda el último primo asignado
+ *    en cada fase para los comandos constructivos (positivos) y destructivos
+ *    (negativos). Así cada fase posee su propio espacio de identidades
+ *    independiente.
  *
- * 4. **Pool de nodos libres**
+ * 5. **Pool de nodos libres**
  *    Para evitar la creación innecesaria de instancias, la clase mantiene
  *    un conjunto de nodos reutilizables por fase (`_nodos_libres_por_fase`).
- *    Las fábricas obtienen nodos mediante `_tomar_nodo_libre()` y los
- *    devuelven con `_devolver_nodo_libre()` una vez que dejan de usarse
+ *    Las fábricas obtienen nodos mediante {@link _tomar_nodo_libre} y los
+ *    devuelven con {@link _devolver_nodo_libre} una vez que dejan de usarse
  *    (por ejemplo, tras ascender a otra fase).
  *
- * 5. **Registro de subclases**
+ * 6. **Registro de subclases**
  *    Para evitar dependencias circulares entre módulos, las subclases se
  *    registran en el objeto estático `_subclases`. Las fábricas invocan
  *    a las subclases a través de este registro en lugar de importarlas
  *    directamente.
  *
- * ## Entrelazamiento de conjunto (pintura)
+ * 7. **Ascenso y descenso entre fases**
+ *    El método {@link ascender} promociona un nodo compuesto a la fase superior,
+ *    guardando su p‑grama y el nombre de la fase actual en un {@link NodoPrimo}
+ *    libre. No libera el nodo actual. El método estático {@link descender}
+ *    reconstruye el nodo compuesto en la fase original a partir del p‑grama
+ *    guardado. Las marcas `1` y `-1` determinan el tipo de composición.
  *
- * La entrada `b` de la {@link Matriz2x2} actúa como **canvas de
- * pertenencia**. Cuando un {@link NodoConjunto} agrega un miembro, ambos
- * se «pintan» mutuamente: el miembro multiplica su `b` por el primo de
- * contexto del conjunto, y el conjunto multiplica su `b` por el número
- * primo del miembro. La verificación de pertenencia es O(1) mediante el
- * operador módulo, sin necesidad de índices externos.
+ * ## Identidad matricial inmutable
+ *
+ * A partir de la versión 1.4.4, la {@link Matriz2x2} es completamente inmutable
+ * (`b = 0` fijo). La matriz actúa como un **identificador compacto y no
+ * conmutativo** de la secuencia de factores, sin almacenar información contextual.
  *
  * @class
  * @extends NodoElectrico
- * @version 1.4.3
+ * @version 1.4.4
  * @since 1.4.2
  * @author Ignacio David Baigorria
  * @see Matriz2x2
  * @see NodoPrimo
  * @see NodoParalelo
- * @see NodoConjunto
  */
 class NodoNumerico extends NodoElectrico {
     /**
-     * Indica si el nodo representa una secuencia ordenada.
-     *
-     * - `true`  → secuencia (producto no conmutativo de factores).
-     * - `false` → conjunto o paralelo (producto conmutativo con marca).
-     *
-     * @type {boolean}
-     * @protected
-     */
-    _ordenado;
-
-    /**
      * Identidad matricial del nodo, indexada por fase.
      *
-     * Estructura:
-     * ```
-     * Map {
-     *   'fase_a' => Matriz2x2,
-     *   'fase_b' => Matriz2x2,
-     *   ...
-     * }
-     * ```
+     * Cada entrada asocia un nombre de fase (string) con la {@link Matriz2x2}
+     * que identifica al nodo en esa fase. Si no hay identidad para una fase,
+     * se devuelve {@link Matriz2x2.inicial}.
      *
      * @type {Map<string, Matriz2x2>}
      * @protected
@@ -95,11 +90,27 @@ class NodoNumerico extends NodoElectrico {
     _identidad_por_fase = new Map();
 
     /**
+     * P‑grama de factores, indexado por fase.
+     *
+     * Almacena la lista exacta de identificadores primos que componen el nodo
+     * en cada fase. La presencia de un `1` al inicio indica un paralelo;
+     * en caso contrario, se trata de una secuencia ordenada.
+     *
+     * - **Secuencia:** `[p₁, p₂, …, pₚ]`
+     * - **Paralelo:** `[1, p₁, p₂, …, pₚ]` (primos en orden canónico)
+     *
+     * @type {Map<string, number[]>}
+     * @protected
+     */
+    _pgrama_por_fase = new Map();
+
+    /**
      * Registro de subclases para evitar dependencias circulares.
      *
      * Cada subclase se registra a sí misma al final de su archivo:
      * ```
      * NodoNumerico._subclases.NodoPrimo = NodoPrimo;
+     * NodoNumerico._subclases.NodoParalelo = NodoParalelo;
      * ```
      *
      * @type {Object}
@@ -114,7 +125,8 @@ class NodoNumerico extends NodoElectrico {
      * Caché global de números primos conocidos.
      *
      * Se inicializa con `[2, 3]` y crece bajo demanda. Compartida por
-     * todas las fases.
+     * todas las fases. Los métodos {@link es_numero_primo} y
+     * {@link siguiente_numero_primo} la consultan y expanden.
      *
      * @type {number[]}
      * @protected
@@ -122,27 +134,15 @@ class NodoNumerico extends NodoElectrico {
     static _primos_conocidos = [2, 3];
 
     /**
-     * Último número primo positivo asignado en cada fase.
+     * Último número primo asignado en cada fase.
      *
-     * Usado por {@link siguiente_primo_positivo} para generar primos
-     * únicos en el espectro positivo (nodos primos).
+     * Usado por {@link siguiente_primo_positivo} para generar primos únicos,
+     * tanto para comandos constructivos (positivos) como destructivos (negativos).
      *
      * @type {Map<string, number>}
      * @protected
      */
     static _ultimo_primo_positivo_por_fase = new Map();
-
-    /**
-     * Último número primo (positivo) usado para crear identidades
-     * negativas de conjuntos en cada fase.
-     *
-     * Usado por {@link siguiente_primo_negativo} para generar primos
-     * únicos en el espectro negativo (conjuntos).
-     *
-     * @type {Map<string, number>}
-     * @protected
-     */
-    static _ultimo_primo_negativo_por_fase = new Map();
 
     // ═══════════════════════════════════════════
     // POOL DE NODOS LIBRES
@@ -152,7 +152,9 @@ class NodoNumerico extends NodoElectrico {
      * Nodos libres disponibles para reutilización, agrupados por fase.
      *
      * Cada entrada contiene un array de instancias de {@link NodoNumerico}
-     * (o subclases) que pueden ser reasignadas en esa fase.
+     * (o subclases) que pueden ser reasignadas en esa fase. Las fábricas
+     * obtienen nodos mediante {@link _tomar_nodo_libre} y los devuelven
+     * con {@link _devolver_nodo_libre}.
      *
      * @type {Map<string, NodoNumerico[]>}
      * @protected
@@ -162,9 +164,8 @@ class NodoNumerico extends NodoElectrico {
     /**
      * Constructor protegido.
      *
-     * Inicializa la identidad de la fase actual con
-     * {@link Matriz2x2.inicial} y enlaza la matriz al nodo para
-     * sincronización directa.
+     * Inicializa la identidad de la fase actual con {@link Matriz2x2.inicial}
+     * y enlaza la matriz al nodo para sincronización directa.
      */
     constructor() {
         super();
@@ -172,21 +173,15 @@ class NodoNumerico extends NodoElectrico {
         this._identidad_por_fase.get(this.constructor.fase())._nodo(this);
     }
 
-    /**
-     * Indica si el nodo representa una secuencia ordenada.
-     *
-     * @returns {boolean}
-     */
-    get ordenado() { return this._ordenado; }
-
-    // _ordenado(val) eliminado – la asignación directa a la propiedad
-    // es válida y se usa en las subclases.
+    // ═══════════════════════════════════════════
+    // IDENTIDAD MULTIFASE
+    // ═══════════════════════════════════════════
 
     /**
      * Obtiene la identidad matricial del nodo en la fase indicada.
      *
      * Si no existe una matriz para la fase solicitada, devuelve
-     * {@link Matriz2x2.inicial} (matriz semilla `[[1,1],[1,2]]`).
+     * {@link Matriz2x2.inicial} (matriz semilla `[[1,0],[1,1]]`).
      *
      * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
      * @returns {Matriz2x2}
@@ -199,10 +194,9 @@ class NodoNumerico extends NodoElectrico {
     /**
      * Asigna la identidad matricial del nodo en la fase indicada.
      *
-     * Solo se permite en entorno de pruebas (ver
-     * {@link Entorno.permite_pruebas}). Además de almacenar la matriz,
-     * establece la referencia inversa con {@link Matriz2x2._nodo} para
-     * sincronización directa.
+     * Solo se permite en entorno de pruebas (ver {@link Entorno.permite_pruebas}).
+     * Además de almacenar la matriz, establece la referencia inversa con
+     * {@link Matriz2x2._nodo} para sincronización directa.
      *
      * @param {Matriz2x2} matriz
      * @param {string|null} [fase=null]
@@ -217,11 +211,37 @@ class NodoNumerico extends NodoElectrico {
         matriz._nodo(this);
     }
 
+    // ═══════════════════════════════════════════
+    // P-GRAMA MULTIFASE
+    // ═══════════════════════════════════════════
+
+    /**
+     * Obtiene el p‑grama de factores del nodo en la fase indicada.
+     *
+     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
+     * @returns {number[]} Lista de identificadores, o array vacío si no hay p‑grama.
+     */
+    pgrama(fase = null) {
+        fase = fase ?? this.constructor.fase();
+        return this._pgrama_por_fase.get(fase) ?? [];
+    }
+
+    /**
+     * Asigna el p‑grama de factores en la fase indicada.
+     *
+     * @param {number[]} pgrama Lista de identificadores.
+     * @param {string|null} [fase=null]
+     */
+    _pgrama(pgrama, fase = null) {
+        fase = fase ?? this.constructor.fase();
+        this._pgrama_por_fase.set(fase, pgrama);
+    }
+
     /**
      * Indica si el nodo es un {@link NodoPrimo} (identidad atómica).
      *
-     * Por defecto retorna `false`. La subclase {@link NodoPrimo}
-     * sobrescribe este método para devolver `true`.
+     * Por defecto retorna `false`. La subclase {@link NodoPrimo} sobrescribe
+     * este método para devolver `true`.
      *
      * @returns {boolean}
      */
@@ -234,9 +254,9 @@ class NodoNumerico extends NodoElectrico {
     /**
      * Verifica si un número entero es primo.
      *
-     * Utiliza la caché global {@link _primos_conocidos}. Si el número
-     * no está en la caché, se expande generando primos consecutivos
-     * hasta alcanzarlo o descartarlo.
+     * Utiliza la caché global {@link _primos_conocidos}. Si el número no está
+     * en la caché, se expande generando primos consecutivos hasta alcanzarlo
+     * o descartarlo.
      *
      * @param {number} numero Número a evaluar.
      * @returns {boolean} `true` si es primo, `false` en caso contrario.
@@ -313,9 +333,12 @@ class NodoNumerico extends NodoElectrico {
 
     /**
      * Devuelve el siguiente número primo disponible para **nodos primos**
-     * (espectro positivo) en la fase indicada.
+     * en la fase indicada.
      *
-     * Avanza el contador correspondiente y actualiza la caché.
+     * Avanza el contador correspondiente y actualiza la caché. El mismo
+     * contador se usa para comandos constructivos (positivos) y destructivos
+     * (negativos), ya que ambos comparten el mismo espacio de identidades
+     * primas; el signo lo determina el llamante al crear la matriz.
      *
      * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
      * @returns {number} Nuevo número primo.
@@ -329,22 +352,6 @@ class NodoNumerico extends NodoElectrico {
         return nuevo;
     }
 
-    /**
-     * Devuelve el siguiente número primo (positivo) para crear identidades
-     * negativas de **conjuntos** en la fase indicada.
-     *
-     * @param {string|null} [fase=null]
-     * @returns {number} Nuevo número primo (positivo) para un conjunto negativo.
-     * @see NodoConjunto
-     */
-    static siguiente_primo_negativo(fase = null) {
-        fase = fase ?? this.fase();
-        const ultimo = this._ultimo_primo_negativo_por_fase.get(fase) ?? 2;
-        const nuevo = this.siguiente_numero_primo(ultimo);
-        this._ultimo_primo_negativo_por_fase.set(fase, nuevo);
-        return nuevo;
-    }
-
     // ═══════════════════════════════════════════
     // POOL DE NODOS LIBRES
     // ═══════════════════════════════════════════
@@ -353,8 +360,8 @@ class NodoNumerico extends NodoElectrico {
      * Toma un nodo libre del pool para la fase indicada.
      *
      * Si el pool está vacío, crea una nueva instancia llamando a
-     * {@link NodoElectrico.crear}. Al tomar un nodo del pool, se
-     * limpia su identidad anterior en esa fase por seguridad.
+     * {@link NodoElectrico.crear}. Al tomar un nodo del pool, se limpian
+     * su identidad y p‑grama anteriores en esa fase por seguridad.
      *
      * @param {string|null} [fase=null]
      * @returns {NodoNumerico} Nodo reutilizado o recién creado.
@@ -367,7 +374,8 @@ class NodoNumerico extends NodoElectrico {
         const pool = this._nodos_libres_por_fase.get(fase);
         if (pool.length > 0) {
             const nodo = pool.shift();
-            nodo._identidad_por_fase.delete(fase); // limpiar identidad anterior
+            nodo._identidad_por_fase.delete(fase);
+            nodo._pgrama_por_fase.delete(fase);
             return nodo;
         }
         return super.crear();
@@ -389,18 +397,128 @@ class NodoNumerico extends NodoElectrico {
     }
 
     // ═══════════════════════════════════════════
-    // FÁBRICAS (usan registro _subclases)
+    // ASCENSO Y DESCENSO
+    // ═══════════════════════════════════════════
+
+    /**
+     * Asciende el nodo compuesto a la fase superior.
+     *
+     * El proceso de ascenso:
+     * 1. Recopila el p‑grama de la fase actual.
+     * 2. Obtiene un {@link NodoPrimo} libre en la fase de destino usando
+     *    {@link NodoPrimo.siguiente_primo_libre}.
+     * 3. Guarda en el dato multidimensional del primo (dimensión `'abajo'`)
+     *    un paquete con el p‑grama de factores y el nombre de la fase actual.
+     * 4. No libera el nodo actual; esa responsabilidad es del iterador de aprendizaje.
+     *
+     * @param {string} fase_destino Nombre de la fase superior a la que ascender.
+     * @returns {NodoPrimo} El NodoPrimo que representa al nodo compuesto en la fase superior.
+     * @throws {Error} Si el nodo no tiene p‑grama en la fase actual.
+     */
+    ascender(fase_destino) {
+        const fase_actual = this.constructor.fase();
+        const factores = this.pgrama(fase_actual);
+        if (factores.length === 0) {
+            this.constructor._error('El nodo no tiene p‑grama en la fase actual para ascender.');
+            throw new Error('El nodo no tiene p‑grama en la fase actual para ascender.');
+        }
+
+        // Usar la propiedad estática _fase_actual (protegida en NodoElectrico)
+        this.constructor._fase_actual = fase_destino;
+        const primo_superior = this.constructor._subclases.NodoPrimo.siguiente_primo_libre(fase_destino);
+        this.constructor._fase_actual = fase_actual;
+
+        if (primo_superior === null) {
+            this.constructor._error('No hay NodoPrimo libre en la fase destino.');
+            throw new Error('No hay NodoPrimo libre en la fase destino.');
+        }
+
+        // Guardar el p‑grama y el nombre de la fase actual en el primo superior.
+        primo_superior._dato({
+            factores: factores,
+            fase_origen: fase_actual
+        }, 'abajo');
+
+        // El nodo actual NO se devuelve al pool; permanece activo para el iterador.
+
+        return primo_superior;
+    }
+
+    /**
+     * Desciende un nodo compuesto desde un NodoPrimo superior a la fase original.
+     *
+     * El proceso de descenso:
+     * 1. Lee el dato `'abajo'` del {@link NodoPrimo} superior, que contiene
+     *    el p‑grama de factores y el nombre de la fase origen (guardados por
+     *    {@link ascender}).
+     * 2. Determina el tipo de composición observando el primer elemento del
+     *    p‑grama:
+     *    - `1`: paralelo.
+     *    - `-1`: secuencia de deshacer.
+     *    - otro: secuencia de hacer.
+     * 3. Crea los {@link NodoPrimo} correspondientes a cada factor y construye
+     *    el nodo compuesto en la fase origen con la fábrica adecuada
+     *    ({@link crear_numerico} o {@link crear_paralelo}).
+     *
+     * @param {NodoPrimo} primo_superior El NodoPrimo en la fase superior que
+     *                                   contiene el p‑grama y la fase origen.
+     * @returns {NodoNumerico} El nodo compuesto reconstruido en la fase origen.
+     * @throws {Error} Si el dato 'abajo' no existe, no contiene factores
+     *                 o no contiene el nombre de la fase origen.
+     */
+    static descender(primo_superior) {
+        const paquete = primo_superior.dato('abajo');
+        if (!paquete || !Array.isArray(paquete.factores) || !paquete.fase_origen) {
+            this._error('El NodoPrimo no contiene un paquete de descenso válido (factores y fase_origen).');
+            throw new Error('El NodoPrimo no contiene un paquete de descenso válido.');
+        }
+
+        const factores = paquete.factores;
+        const fase_origen = paquete.fase_origen;
+
+        // Determinar el tipo de composición según la marca inicial.
+        const es_paralelo = factores[0] === 1;
+        const es_deshacer = factores[0] === -1;
+        if (es_paralelo || es_deshacer) {
+            factores.shift(); // quitar la marca (1 o -1)
+        }
+
+        const componentes = [];
+        for (const primo of factores) {
+            componentes.push(this.crear_primo(primo));
+        }
+
+        const fase_actual = this.fase();
+        this._fase_actual = fase_origen; // cambiar a fase origen
+
+        let nodo;
+        if (es_paralelo) {
+            nodo = this.crear_paralelo(componentes);
+        } else {
+            nodo = this.crear_numerico(componentes);
+        }
+
+        this._fase_actual = fase_actual; // restaurar fase original
+        return nodo;
+    }
+
+    // ═══════════════════════════════════════════
+    // FÁBRICAS
     // ═══════════════════════════════════════════
 
     /**
      * Crea un nodo numérico compuesto (secuencia ordenada de p‑grama).
      *
      * La cantidad de componentes debe ser un número primo. La identidad
-     * resultante es el **producto matricial no conmutativo** de las
-     * identidades de los componentes en el orden proporcionado.
+     * resultante es el **producto matricial no conmutativo** de las identidades
+     * de los componentes en el orden proporcionado.
      *
-     * Se toma un nodo del pool (o se crea uno nuevo) y se le enlazan los
-     * componentes mediante adyacentes `factor_1`, `factor_2`, etc.
+     * Si todos los componentes son deshaceres (primos negativos), se antepone
+     * la marca `-1` al p‑grama.
+     *
+     * Se toma un nodo del pool (o se crea uno nuevo) y se le asignan la
+     * matriz, el p‑grama y la capacidad/fuga en la fase actual.
+     * **No se crean enlaces internos**; esa es responsabilidad del iterador.
      *
      * @param {NodoNumerico[]} componentes Componentes de la secuencia (cantidad prima).
      * @param {number} [capacidad=Conf.CAPACIDAD_NODO_ELECTRICO] Capacidad máxima de energía.
@@ -416,35 +534,46 @@ class NodoNumerico extends NodoElectrico {
         }
 
         let matriz = componentes[0].identidad();
+        const factores = [];
+        let es_deshacer = true;
+        for (const comp of componentes) {
+            if (comp.es_primo()) {
+                factores.push(comp.numero_primo);
+                if (comp.numero_primo > 0) {
+                    es_deshacer = false;
+                }
+            }
+        }
         for (let i = 1; i < cantidad; i++) {
             matriz = matriz.multiplicar(componentes[i].identidad());
         }
 
-        const nodo = this._tomar_nodo_libre();
-        nodo._identidad(matriz);
-        nodo._ordenado=true;
-        nodo.capacidad = capacidad;
-        nodo.fuga = fuga;
-
-        for (let i = 0; i < cantidad; i++) {
-            nodo._adyacente_en(componentes[i], 'factor_' + (i + 1), true);
+        // Si todos los componentes son deshaceres, anteponer marca -1.
+        if (es_deshacer && factores.length > 0) {
+            factores.unshift(-1);
         }
 
+        const nodo = this._tomar_nodo_libre();
+        nodo._identidad(matriz);
+        nodo._pgrama(factores);
+        nodo.capacidad = capacidad;
+        nodo.fuga = fuga;
         return nodo;
     }
 
     /**
      * Crea un nodo primo con el número primo indicado.
      *
-     * @param {number} primo Número primo.
+     * @param {number} primo Número primo (positivo para comando constructivo,
+     *                       negativo para destructivo).
      * @param {number} [capacidad=Conf.CAPACIDAD_NODO_ELECTRICO] Capacidad máxima de energía.
      * @param {number} [fuga=Conf.FUGA_NODO_ELECTRICO] Fuga de energía por ciclo.
-     * @returns {NodoPrimo|null} El NodoPrimo creado, o `null` si el número no es primo.
+     * @returns {NodoPrimo|null} El NodoPrimo creado, o `null` si el valor absoluto no es primo.
      * @see NodoPrimo
      */
     static crear_primo(primo, capacidad = Conf.CAPACIDAD_NODO_ELECTRICO, fuga = Conf.FUGA_NODO_ELECTRICO) {
-        if (!this.es_numero_primo(primo)) {
-            this._error(`El número ${primo} no es primo.`);
+        if (!this.es_numero_primo(Math.abs(primo))) {
+            this._error(`El valor absoluto de ${primo} no es primo.`);
             return null;
         }
         return this._subclases.NodoPrimo._crear_interno(primo, capacidad, fuga);
@@ -453,9 +582,11 @@ class NodoNumerico extends NodoElectrico {
     /**
      * Crea un nodo de sincronización (paralelo) con los componentes dados.
      *
-     * La cantidad de componentes debe ser un número primo. La identidad
-     * es el producto conmutativo (orden canónico) antecedido por la
-     * marca de sincronización {@link Conf.MATRIZ_MARCA_CONJUNTO}.
+     * La cantidad de componentes debe ser un número primo. La identidad es
+     * el producto conmutativo (orden canónico) con la marca `1` antepuesta
+     * en el p‑grama.
+     *
+     * Delega completamente en {@link NodoParalelo._crear_interno}.
      *
      * @param {NodoNumerico[]} componentes Componentes (cantidad prima).
      * @param {number} [capacidad=Conf.CAPACIDAD_NODO_ELECTRICO]
@@ -465,21 +596,6 @@ class NodoNumerico extends NodoElectrico {
      */
     static crear_paralelo(componentes, capacidad = Conf.CAPACIDAD_NODO_ELECTRICO, fuga = Conf.FUGA_NODO_ELECTRICO) {
         return this._subclases.NodoParalelo._crear_interno(componentes, capacidad, fuga);
-    }
-
-    /**
-     * Crea un nuevo concepto semántico (conjunto) vacío.
-     *
-     * El conjunto nace sin miembros; se irá poblando mediante pintura
-     * a través de {@link NodoConjunto#agregar_miembro}.
-     *
-     * @param {number} [capacidad=Conf.CAPACIDAD_NODO_ELECTRICO] Capacidad máxima de energía.
-     * @param {number} [fuga=Conf.FUGA_NODO_ELECTRICO] Fuga de energía por ciclo.
-     * @returns {NodoConjunto}
-     * @see NodoConjunto
-     */
-    static crear_conjunto(capacidad = Conf.CAPACIDAD_NODO_ELECTRICO, fuga = Conf.FUGA_NODO_ELECTRICO) {
-        return this._subclases.NodoConjunto._crear_interno(capacidad, fuga);
     }
 }
 
