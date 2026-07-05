@@ -17,18 +17,14 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  *
  * ## Responsabilidades principales
  *
- * 1. **Identidad multifase**
- *    Cada instancia mantiene un mapa `_identidad_por_fase` que asocia una
- *    {@link Matriz2x2} distinta a cada fase de trabajo. Esto permite que un
- *    mismo nodo represente una secuencia en la fase `a`, un paralelo en la
- *    fase `b` y un primo en la fase `c`, sin que las identidades interfieran
- *    entre sí.
+ * 1. **Identidad única e inmutable**
+ *    Cada instancia posee una {@link Matriz2x2} que la identifica de forma
+ *    unívoca. Esta matriz se asigna en la creación y **no depende de la fase**.
  *
- * 2. **P‑grama multifase**
- *    El mapa `_pgrama_por_fase` almacena la lista exacta de factores que
- *    componen el nodo en cada fase. Es la **única fuente de verdad** sobre la
- *    identidad compuesta. La matriz identidad se deriva completamente de este
- *    p‑grama. Las marcas especiales al inicio del array indican el tipo:
+ * 2. **P‑grama único**
+ *    El array `__pgrama` almacena la lista exacta de factores que componen
+ *    el nodo. Es la **única fuente de verdad** sobre la identidad compuesta.
+ *    Las marcas especiales al inicio del array indican el tipo:
  *    - `1`: paralelo (sincronización de componentes simultáneos).
  *    - `-1`: secuencia de deshacer (todos los factores son comandos destructivos).
  *    - Sin marca: secuencia de hacer (comandos constructivos).
@@ -67,15 +63,15 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  *
  * ## Identidad matricial inmutable
  *
- * A partir de la versión 1.4.4, la {@link Matriz2x2} es completamente inmutable
- * (`b = 0` fijo). La matriz actúa como un **identificador compacto y no
- * conmutativo** de la secuencia de factores, sin almacenar información contextual.
+ * A partir de la versión 1.4.5, la {@link Matriz2x2} es completamente inmutable
+ * (`b = 0` fijo) y **única por nodo**. Ya no se mantienen identidades distintas
+ * por fase.
  *
  * @class
  * @extends NodoElectrico
  * @implements {Nodos.Interfaces.IdentidadNumerica}
  * @implements {Nodos.Interfaces.FabricaDeNodosNumericos}
- * @version 1.4.4
+ * @version 1.4.5
  * @since 1.4.2
  * @author Ignacio David Baigorria
  * @see Matriz2x2
@@ -84,32 +80,28 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  */
 class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, IdentidadNumerica, FabricaDeNodosNumericos ) {
     /**
-     * Identidad matricial del nodo, indexada por fase.
+     * Identidad matricial del nodo (única).
      *
-     * Cada entrada asocia un nombre de fase (string) con la {@link Matriz2x2}
-     * que identifica al nodo en esa fase. Si no hay identidad para una fase,
-     * se devuelve {@link Matriz2x2.inicial}.
-     *
-     * @type {Map<string, Matriz2x2>}
+     * @type {Matriz2x2}
      * @protected
      * @see Matriz2x2
      */
-    _identidad_por_fase = new Map();
+    _identidad_matricial;
 
     /**
-     * P‑grama de factores, indexado por fase.
+     * P‑grama de factores (único).
      *
-     * Almacena la lista exacta de identificadores primos que componen el nodo
-     * en cada fase. La presencia de un `1` al inicio indica un paralelo;
+     * Almacena la lista exacta de identificadores primos que componen el nodo.
+     * La presencia de un `1` al inicio indica un paralelo;
      * en caso contrario, se trata de una secuencia ordenada.
      *
      * - **Secuencia:** `[p₁, p₂, …, pₚ]`
      * - **Paralelo:** `[1, p₁, p₂, …, pₚ]` (primos en orden canónico)
      *
-     * @type {Map<string, number[]>}
+     * @type {number[]}
      * @protected
      */
-    _pgrama_por_fase = new Map();
+    __pgrama;
 
     /**
      * Registro de subclases para evitar dependencias circulares.
@@ -171,77 +163,67 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
     /**
      * Constructor protegido.
      *
-     * Inicializa la identidad de la fase actual con {@link Matriz2x2.inicial}
-     * y enlaza la matriz al nodo para sincronización directa.
+     * Inicializa la identidad con {@link Matriz2x2.inicial} y el p‑grama
+     * como array vacío. Enlaza la matriz al nodo para sincronización directa.
      */
     constructor() {
         super();
-        this._identidad_por_fase.set(this.constructor.fase(), Matriz2x2.inicial());
-        this._identidad_por_fase.get(this.constructor.fase())._nodo(this);
+        this._identidad_matricial = Matriz2x2.inicial();
+        this._identidad_matricial._nodo(this);
+        this.__pgrama = [];
     }
 
     // ═══════════════════════════════════════════
-    // IDENTIDAD MULTIFASE
+    // IDENTIDAD ÚNICA
     // ═══════════════════════════════════════════
 
     /**
-     * Obtiene la identidad matricial del nodo en la fase indicada.
+     * Obtiene la identidad matricial del nodo.
      *
-     * Si no existe una matriz para la fase solicitada, devuelve
-     * {@link Matriz2x2.inicial} (matriz semilla `[[1,0],[1,1]]`).
-     *
-     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
      * @returns {Matriz2x2}
      */
-    identidad(fase = null) {
-        fase = fase ?? this.constructor.fase();
-        return this._identidad_por_fase.get(fase) ?? Matriz2x2.inicial();
+    identidad() {
+        return this._identidad_matricial;
     }
 
     /**
-     * Asigna la identidad matricial del nodo en la fase indicada.
+     * Asigna la identidad matricial del nodo.
      *
      * Solo se permite en entorno de pruebas (ver {@link Entorno.permite_pruebas}).
      * Además de almacenar la matriz, establece la referencia inversa con
      * {@link Matriz2x2._nodo} para sincronización directa.
      *
      * @param {Matriz2x2} matriz
-     * @param {string|null} [fase=null]
      */
-    _identidad(matriz, fase = null) {
+    _identidad(matriz) {
         if (!Entorno.permite_pruebas()) {
             this.constructor._alerta('_identidad() solo disponible en entorno de pruebas.');
             return;
         }
-        fase = fase ?? this.constructor.fase();
-        this._identidad_por_fase.set(fase, matriz);
+        this._identidad_matricial = matriz;
         matriz._nodo(this);
     }
 
     // ═══════════════════════════════════════════
-    // P-GRAMA MULTIFASE
+    // P-GRAMA ÚNICO
     // ═══════════════════════════════════════════
 
     /**
-     * Obtiene el p‑grama de factores del nodo en la fase indicada.
+     * Obtiene el p‑grama de factores del nodo.
      *
-     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
-     * @returns {number[]} Lista de identificadores, o array vacío si no hay p‑grama.
+     * @returns {number[]} Lista de identificadores, o array vacío si no tiene.
      */
-    pgrama(fase = null) {
-        fase = fase ?? this.constructor.fase();
-        return this._pgrama_por_fase.get(fase) ?? [];
+    pgrama() {
+        return this._;
     }
 
     /**
-     * Asigna el p‑grama de factores en la fase indicada.
+     * Asigna el p‑grama de factores.
      *
      * @param {number[]} pgrama Lista de identificadores.
-     * @param {string|null} [fase=null]
      */
-    _pgrama(pgrama, fase = null) {
-        fase = fase ?? this.constructor.fase();
-        this._pgrama_por_fase.set(fase, pgrama);
+    _pgrama(pgrama) {
+        this.__pgrama = pgrama;
     }
 
     /**
@@ -368,7 +350,7 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      *
      * Si el pool está vacío, crea una nueva instancia llamando a
      * {@link NodoElectrico.crear}. Al tomar un nodo del pool, se limpian
-     * su identidad y p‑grama anteriores en esa fase por seguridad.
+     * su identidad y p‑grama anteriores por seguridad.
      *
      * @param {string|null} [fase=null]
      * @returns {NodoNumerico} Nodo reutilizado o recién creado.
@@ -381,8 +363,9 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
         const pool = this._nodos_libres_por_fase.get(fase);
         if (pool.length > 0) {
             const nodo = pool.shift();
-            nodo._identidad_por_fase.delete(fase);
-            nodo._pgrama_por_fase.delete(fase);
+            // Limpiar identidad y p‑grama anteriores (por seguridad).
+            nodo._identidad_matricial = Matriz2x2.inicial();
+            nodo.__pgrama = [];
             return nodo;
         }
         return super.crear();
@@ -411,7 +394,7 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * Asciende el nodo compuesto a la fase superior.
      *
      * El proceso de ascenso:
-     * 1. Recopila el p‑grama de la fase actual.
+     * 1. Recopila el p‑grama del nodo.
      * 2. Obtiene un {@link NodoPrimo} libre en la fase de destino usando
      *    {@link NodoPrimo.siguiente_primo_libre}.
      * 3. Guarda en el dato multidimensional del primo (dimensión `'abajo'`)
@@ -420,14 +403,14 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      *
      * @param {string} fase_destino Nombre de la fase superior a la que ascender.
      * @returns {NodoPrimo} El NodoPrimo que representa al nodo compuesto en la fase superior.
-     * @throws {Error} Si el nodo no tiene p‑grama en la fase actual.
+     * @throws {Error} Si el nodo no tiene p‑grama.
      */
     ascender(fase_destino) {
         const fase_actual = this.constructor.fase();
-        const factores = this.pgrama(fase_actual);
+        const factores = this.pgrama();
         if (factores.length === 0) {
-            this.constructor._error('El nodo no tiene p‑grama en la fase actual para ascender.');
-            throw new Error('El nodo no tiene p‑grama en la fase actual para ascender.');
+            this.constructor._error('El nodo no tiene p‑grama para ascender.');
+            throw new Error('El nodo no tiene p‑grama para ascender.');
         }
 
         // Usar la propiedad estática _fase_actual (protegida en NodoElectrico)
@@ -603,6 +586,35 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      */
     static crear_paralelo(componentes, capacidad = Conf.CAPACIDAD_NODO_ELECTRICO, fuga = Conf.FUGA_NODO_ELECTRICO) {
         return this._subclases.NodoParalelo._crear_interno(componentes, capacidad, fuga);
+    }
+
+    // ═══════════════════════════════════════════
+    // V 1.4.5
+    // ═══════════════════════════════════════════
+
+    /**
+     * Devuelve la secuencia de matrices de identidad correspondientes a los
+     * factores primos del p‑grama en el orden canónico, omitiendo las marcas
+     * de sincronización (1, -1).
+     *
+     * @returns {Matriz2x2[]} Secuencia de matrices del nodo.
+     * @since 1.4.5
+     */
+    secuencia_de_matrices() {
+        const matrices = [];
+
+        for (const p of this.__pgrama) {
+            if (p === 1 || p === -1) {
+                continue;
+            }
+            if (p > 0) {
+                matrices.push(Matriz2x2.crear_prima(p));
+            } else {
+                matrices.push(Matriz2x2.crear_negativa_prima(-p));
+            }
+        }
+
+        return matrices;
     }
 }
 

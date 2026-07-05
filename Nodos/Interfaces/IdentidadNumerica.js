@@ -9,37 +9,35 @@ import { Matriz2x2 } from '../Matriz2x2.js';
  *
  * ## Responsabilidades
  *
- * - Proveer una **matriz identidad** 2×2 asociada a cada fase.
- * - Proveer el **p‑grama** (lista de factores primos) asociado a cada fase.
+ * - Proveer una **matriz identidad** 2×2 única e inmutable.
+ * - Proveer el **p‑grama** (lista de factores primos) único del nodo.
  * - Permitir consultar si el nodo es atómico.
  *
  * @interface
  * @package Iteradores.Nodos.Interfaces
- * @version 1.4.4
+ * @version 1.4.5
  * @since 1.4.2
  * @see Matriz2x2
  * @see NodoNumerico
  */
 class IdentidadNumerica {
     /**
-     * Obtiene la matriz identidad del nodo en la fase indicada.
+     * Obtiene la matriz identidad única del nodo.
      *
-     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
      * @returns {Matriz2x2}
      * @abstract
      */
-    identidad(fase = null) {
+    identidad() {
         throw new Error('Método identidad() debe ser implementado.');
     }
 
     /**
-     * Obtiene el p‑grama del nodo en la fase indicada.
+     * Obtiene el p‑grama único del nodo.
      *
-     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
      * @returns {number[]} Lista de identificadores, o array vacío.
      * @abstract
      */
-    pgrama(fase = null) {
+    pgrama() {
         throw new Error('Método pgrama() debe ser implementado.');
     }
 
