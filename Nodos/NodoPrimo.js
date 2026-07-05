@@ -2,6 +2,9 @@ import { NodoNumerico } from './NodoNumerico.js';
 import { Matriz2x2 } from './Matriz2x2.js';
 import { Conf } from '../Configuracion/Configuracion.js';
 
+import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
+import { GestorPrimosLibres }  from "./Interfaces/index.js";
+
 /**
  * NodoPrimo – Identidad prima canónica e indivisible.
  *
@@ -57,12 +60,13 @@ import { Conf } from '../Configuracion/Configuracion.js';
  *
  * @class
  * @extends NodoNumerico
+ * @implements {Nodos.Interfaces.GestorPrimosLibres}
  * @version 1.4.4
  * @since 1.4.2
  * @author Ignacio David Baigorria
  * @see Matriz2x2
  */
-class NodoPrimo extends NodoNumerico {
+class NodoPrimo extends mezclar_clase_con_interfaces(NodoNumerico,GestorPrimosLibres) {
     /**
      * Número primo representado por este nodo.
      *

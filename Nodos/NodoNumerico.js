@@ -3,6 +3,11 @@ import { Matriz2x2 } from './Matriz2x2.js';
 import { Conf } from '../Configuracion/Configuracion.js';
 import { Entorno } from '../Configuracion/Entorno.js';
 
+import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
+
+import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js";
+
+
 /**
  * NodoNumerico – Orquestador central de identidades numéricas.
  *
@@ -68,6 +73,8 @@ import { Entorno } from '../Configuracion/Entorno.js';
  *
  * @class
  * @extends NodoElectrico
+ * @implements {Nodos.Interfaces.IdentidadNumerica}
+ * @implements {Nodos.Interfaces.FabricaDeNodosNumericos}
  * @version 1.4.4
  * @since 1.4.2
  * @author Ignacio David Baigorria
@@ -75,7 +82,7 @@ import { Entorno } from '../Configuracion/Entorno.js';
  * @see NodoPrimo
  * @see NodoParalelo
  */
-class NodoNumerico extends NodoElectrico {
+class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, IdentidadNumerica, FabricaDeNodosNumericos ) {
     /**
      * Identidad matricial del nodo, indexada por fase.
      *

@@ -1,97 +1,56 @@
 import { Matriz2x2 } from '../Matriz2x2.js';
 
 /**
- * Interfaz IdentidadNumerica.
+ * Interfaz IdentidadNumerica – Contrato para nodos con identidad matricial y p‑grama.
  *
- * Define el contrato para cualquier nodo que posea una identidad
- * matricial 2×2 y pueda indicar si representa una secuencia ordenada
- * o una estructura no ordenada.
+ * Define los métodos que debe implementar cualquier clase que actúe como
+ * un nodo con identidad numérica. En la práctica, la implementan
+ * {@link NodoNumerico} y todas sus subclases.
  *
- * Las clases que implementan esta interfaz deben sobreescribir los
- * métodos `identidad()` y `ordenado()`.
+ * ## Responsabilidades
  *
- * ## Uso típico
- * ```javascript
- * if (nodo instanceof IdentidadNumerica) {
- *     const matriz = nodo.identidad();
- *     if (nodo.ordenado()) {
- *         // procesar como secuencia
- *     }
- * }
- * ```
- * ## ¿Por qué una matriz 2×2 y no un identificador plano?
- *
- * Un identificador plano —como un entero o un string hash— **no puede
- * capturar el orden de composición** de los factores que forman un nodo
- * compuesto. En nuestro sistema, la secuencia "A seguido de B" **no es
- * lo mismo** que "B seguido de A". Un entero que represente el producto
- * de los primos A y B pierde esa distinción porque la multiplicación de
- * enteros es conmutativa: `2×3 = 3×2 = 6`.
- *
- * Para preservar el orden necesitamos una estructura **no conmutativa**.
- * Una matriz 2×2 con la forma canónica `[[p, 0], [1, 1]]` resuelve
- * exactamente este problema:
- *
- * ```
- * M(2) × M(3) = [[2,0],[1,1]] × [[3,0],[1,1]] = [[6,0],[4,1]]
- * M(3) × M(2) = [[3,0],[1,1]] × [[2,0],[1,1]] = [[6,0],[3,1]]
- * ```
- *
- * Ambas matrices tienen el mismo determinante (6), pero **son matrices
- * diferentes**. La entrada `c` (inferior izquierda) codifica el orden de
- * los factores.
- *
- * ## El espectro numérico: positivos y negativos
- *
- * Para mantener la coherencia algebraica y evitar colisiones semánticas,
- * el framework divide el espectro de identidades en dos:
- *
- * | Rango                                      | Uso                                                   | Ejemplo                               |
- * |------------------------------------------- |-------------------------------------------------------|---------------------------------------|
- * | **Positivos** (p ≥ 2, primo o compuesto)   | Estructura: secuencias ordenadas, sincronizaciones    | `[[6,0],[4,1]]` (cadena "ma")         |
- * | **Negativos** (n ≤ -1)                     | Significado: conceptos semánticos, marca de color     | `[[-1,0],[1,1]]` (letras vocales)     |
- *
- * Un NodoConjunto que representa el concepto "vocales" no usa una
- * matriz positiva derivada de sus miembros (porque los miembros pueden
- * cambiar), sino una **matriz negativa inmutable** generada por un contador
- * global. Esto garantiza que el concepto conserve su identidad aunque se
- * agreguen o quiten miembros.
- *
- * ## Ventajas de las identidades matriciales
- *
- * | Ventaja                                | Descripción                                                                                                               |
- * |----------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
- * | **No conmutatividad**                  | Distingue secuencias "A→B" de "B→A".                                                                                      |
- * | **Determinante acotado**               | Al ascender de fase, el determinante se reinicia como un nuevo primo, evitando la explosión numérica.                     |
- * | **Unicidad**                           | Cada composición tiene una matriz única, permitiendo un índice global O(1).                                               |
- * | **Álgebra unificada**                  | La misma operación (multiplicación de matrices) sirve para secuencias, paralelos y conceptos (con marcas adicionales).    |
- * | **Ascenso / descenso**                 | La matriz completa puede guardarse como dato en una fase superior, preservando toda la información de orden.              |
- * | **Separación estructura/significado**  | Los positivos representan cómo se combinan las cosas; los negativos representan qué son.                                  |
- *
- * ## Jerarquía de implementación
+ * - Proveer una **matriz identidad** 2×2 asociada a cada fase.
+ * - Proveer el **p‑grama** (lista de factores primos) asociado a cada fase.
+ * - Permitir consultar si el nodo es atómico.
  *
  * @interface
+ * @package Iteradores.Nodos.Interfaces
+ * @version 1.4.4
  * @since 1.4.2
+ * @see Matriz2x2
+ * @see NodoNumerico
  */
 class IdentidadNumerica {
     /**
-     * Obtiene la matriz identidad del nodo.
+     * Obtiene la matriz identidad del nodo en la fase indicada.
      *
+     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
      * @returns {Matriz2x2}
      * @abstract
      */
-    identidad() {
+    identidad(fase = null) {
         throw new Error('Método identidad() debe ser implementado.');
     }
 
     /**
-     * Indica si el nodo representa una secuencia ordenada.
+     * Obtiene el p‑grama del nodo en la fase indicada.
      *
-     * @returns {boolean}
+     * @param {string|null} [fase=null] Fase de trabajo (null = fase actual).
+     * @returns {number[]} Lista de identificadores, o array vacío.
      * @abstract
      */
-    ordenado() {
-        throw new Error('Método ordenado() debe ser implementado.');
+    pgrama(fase = null) {
+        throw new Error('Método pgrama() debe ser implementado.');
+    }
+
+    /**
+     * Indica si el nodo es un NodoPrimo (identidad atómica).
+     *
+     * @returns {boolean} `true` si el nodo es atómico, `false` si es compuesto.
+     * @abstract
+     */
+    es_primo() {
+        throw new Error('Método es_primo() debe ser implementado.');
     }
 }
 
