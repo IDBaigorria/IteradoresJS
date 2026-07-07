@@ -1,5 +1,7 @@
 import { Objeto } from '../Nucleo/Objeto.js';
 import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
+import { MapeoBytesMatrices } from '../Controlador/MapeoBytesMatrices.js';   
+import { AplanadorSenal } from './AplanadorSenal.js';                       
 // NodoNumerico se importa donde se necesite, aquí solo para JSDoc
 
 /**
@@ -16,7 +18,7 @@ import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
  * @class Senal
  * @extends Objeto
  * @since 1.4.5
- * @version 1.4.5
+ * @version 1.4.6
  */
 export class Senal extends Objeto {
     /**
@@ -156,9 +158,10 @@ export class Senal extends Objeto {
      * @param {number} fase Fase en la que se obtienen las matrices de identidad de los patrones.
      * @returns {Senal}
      * @since 1.4.5
+     * @version 1.4.6
      * @todo Implementar una vez que el enrutamiento entre dominios esté activo.
      */
-    generar_senal_de_salida(fase) {
+    senal_de_salida(fase) {
         const matrices_salida = [];
         for (const item of this._elementos_procesados) {
             if (item.constructor && item.constructor.name === 'NodoNumerico') {
@@ -169,5 +172,63 @@ export class Senal extends Objeto {
             }
         }
         return new Senal(matrices_salida);
+    }
+
+    // ═══════════════════════════════════════════
+    // V 1.4.6 – CONVERSIÓN BYTES ↔ SEÑAL
+    // ═══════════════════════════════════════════
+
+    /**
+     * Construye una señal a partir de una cadena de bytes.
+     *
+     * Cada byte (0‑255) se traduce a su {@link Matriz2x2} prima canónica
+     * utilizando {@link MapeoBytesMatrices.byte_a_matriz}.
+     *
+     * @param {string} bytes Cadena de bytes (p. ej. leída de un archivo).
+     * @returns {Senal} Nueva señal con las matrices primas correspondientes.
+     * @since 1.4.6
+     * @see MapeoBytesMatrices
+     */
+    static desde_bytes(bytes) {
+        // Si es un string, convertirlo a array de bytes usando charCodeAt
+        if (typeof bytes === 'string') {
+            const arr = [];
+            for (let i = 0; i < bytes.length; i++) {
+                arr.push(bytes.charCodeAt(i));
+            }
+            bytes = arr;
+        }
+
+        // Ahora bytes es siempre un array de enteros
+        const matrices = [];
+        for (const byte of bytes) {
+            const matriz = MapeoBytesMatrices.byte_a_matriz(byte);
+            if (matriz) {
+                matrices.push(matriz);
+            }
+        }
+        return new Senal(matrices);
+    }
+
+    /**
+     * Convierte una señal procesada de vuelta a una cadena de bytes.
+     *
+     * Aplana la señal con {@link AplanadorSenal.aplanar} para obtener
+     * las matrices originales del tálamo y luego traduce cada una a su byte
+     * con {@link MapeoBytesMatrices.matriz_a_byte}.
+     *
+     * @param {Senal} senal Señal ya procesada por un dominio.
+     * @returns {string} Cadena de bytes lista para ser escrita o enviada.
+     * @since 1.4.6
+     * @see AplanadorSenal
+     * @see MapeoBytesMatrices
+     */
+    static a_bytes(senal) {
+        const matrices = AplanadorSenal.aplanar(senal);
+        return matrices
+            .map(m => MapeoBytesMatrices.matriz_a_byte(m))
+            .filter(b => b !== null && b !== undefined)
+            .map(b => String.fromCharCode(b))
+            .join('');
     }
 }

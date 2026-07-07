@@ -5,9 +5,15 @@
  * opcionalmente convertirlos en nodos (a futuro), y gestionar su
  * propia autenticación si es necesario.
  *
+ * A partir de la versión 1.4.6, cada comunicador incorpora dos
+ * compuertas talámicas –entrada y salida– que traducen entre
+ * el formato nativo del medio y el lenguaje común de las señales
+ * compuestas de matrices 2×2.
+ *
  * @interface
  * @memberof Comunicadores
  * @since 1.3.3
+ * @version 1.4.6
  */
 class Comunicador {
     /**
@@ -102,6 +108,34 @@ class Comunicador {
      */
     establecer_credenciales(credenciales) {
         // Implementación opcional.
+    }
+
+    // ═══════════════════════════════════════════
+    // V 1.4.6 – COMPUERTAS TALÁMICAS
+    // ═══════════════════════════════════════════
+
+    /**
+     * Compuerta de entrada del comunicador.
+     *
+     * Traduce el formato nativo del medio a una señal.
+     *
+     * @returns {CompuertaDominio}
+     * @since 1.4.6
+     */
+    compuerta_entrada() {
+        throw new Error("Método compuerta_entrada() debe ser implementado.");
+    }
+
+    /**
+     * Compuerta de salida del comunicador.
+     *
+     * Traduce una señal procesada en comandos atómicos del sistema.
+     *
+     * @returns {CompuertaDominio}
+     * @since 1.4.6
+     */
+    compuerta_salida() {
+        throw new Error("Método compuerta_salida() debe ser implementado.");
     }
 }
 

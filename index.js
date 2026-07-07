@@ -48,6 +48,12 @@ import './Comandos/index.js';         // puebla comandos_pendientes
 import './Comunicadores/index.js';    // puebla comunicadores_pendientes
 
 // ═══════════════════════════════════════════════════════
+// 1.5 Forzar registro de subclases de NodoNumerico
+// ═══════════════════════════════════════════════════════
+import './Nodos/NodoPrimo.js';       // ejecuta NodoNumerico._subclases.NodoPrimo = NodoPrimo
+import './Nodos/NodoParalelo.js';   // ejecuta NodoNumerico._subclases.NodoParalelo = NodoParalelo
+
+// ═══════════════════════════════════════════════════════
 // 2. Exports públicos del framework
 // ═══════════════════════════════════════════════════════
 export { Objeto } from './Nucleo/index.js';

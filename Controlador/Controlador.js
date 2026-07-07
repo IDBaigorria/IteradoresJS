@@ -15,6 +15,10 @@ import { Comando } from '../Comandos/index.js';
 import { RegistroGlobal } from './RegistroGlobal.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { RelojAstronomico } from '../Tiempo/RelojAstronomico.js';
+import { NodoNumerico } from '../Nodos/NodoNumerico.js';
+import { ProcesadorDeDominio } from './ProcesadorDeDominio.js';
+import { Senal } from './Senal.js';
+import { MapeoBytesMatrices } from '../Controlador/MapeoBytesMatrices.js';
 // console.log("Controlador");  
 
 /**
@@ -54,6 +58,34 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @type {string} Token de seguridad recibido de la clase Nodo.
      */
     static token = "";
+
+    // ═══════════════════════════════════════════
+    // V 1.4.6 – PROCESADORES DE DOMINIO
+    // ═══════════════════════════════════════════
+
+    /**
+     * Procesadores de dominio (entrada/salida), indexados por prefijo.
+     * @type {Object.<string, ProcesadorDeDominio>}
+     * @since 1.4.6
+     */
+    static _procesadores = {};
+
+    /**
+     * Obtiene (o crea) el procesador para un medio y dirección.
+     *
+     * @param {string} medio     Nombre del medio (ej. 'Archivo', 'Talamo').
+     * @param {string} direccion 'entrada' o 'salida'.
+     * @returns {ProcesadorDeDominio}
+     * @since 1.4.6
+     */
+    static procesador(medio, direccion) {
+        const clave = `${medio}:${direccion}`;
+        if (!this._procesadores[clave]) {
+            this._procesadores[clave] = new ProcesadorDeDominio(medio, direccion);
+            this._procesadores[clave].constructor.recibir_token(this.token);
+        }
+        return this._procesadores[clave];
+    }
 
     /**
      * Registra una clase de persistencia disponible para el sistema.
@@ -776,7 +808,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      *
      * @returns {void}
      * @since 1.3.3
-     * @version 1.3.4
+     * @version 1.4.6 (integrados Senal y ProcesadorDeDominio)
      * @private
      */
     static _registrar_comandos_comunicacion() {
@@ -790,13 +822,25 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return null;
-            return comunicador.solicitar(destino);
+
+            // 1. Leer bytes del medio.
+            const bytes = comunicador.solicitar(destino, null, { accion: 'leer' });
+            if (bytes === null || bytes === undefined) return null;
+
+            // 2. Convertir bytes → Senal.
+            const senal = Senal.desde_bytes(bytes);
+
+            // 3. Procesar con el tálamo (entrada).
+            const proc = Controlador.procesador('Talamo', 'entrada');
+            proc.procesar(senal);
+
+            return senal;
         }, null, false);
 
         // ─── comunicación:escribir ────────────────────────────
         this.registrar_comando('comunicacion:escribir', (token, args) => {
             const medio   = args[0] ?? null;
-            const mensaje = args[1] ?? '';
+            const mensaje = args[1] ?? '';      // Puede ser string (bytes) o Senal procesada
             const destino = args[2] ?? '';
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escribir'.");
@@ -804,7 +848,11 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return false;
-            comunicador.enviar(destino, mensaje);
+
+            // Si ya es una Senal, aplanarla a bytes; si es string, usarlo directamente.
+            const bytes = (mensaje instanceof Senal) ? Senal.a_bytes(mensaje) : String(mensaje);
+
+            comunicador.enviar(destino, bytes);
             return true;
         }, null, false);
 
@@ -1218,31 +1266,54 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return fases[(indice + 1) % fases.length];
     }
 
-        /**
-     * Registra los comandos genéricos de comunicación.
+    /**
+     * Registra los comandos genéricos de dominio.
      *
      * Se invoca durante {@link inicializar} para que estén disponibles
      * tanto para programadores como para el futuro sistema de aprendizaje.
      *
      * @returns {void}
      * @since 1.3.3
-     * @version 1.3.4
+     * @version 1.4.6 (implementados con Senal y ProcesadorDeDominio)
      * @private
      */
     static _registrar_comandos_dominio() {
         // ─── dominio:leer_byte ──────────────────────────────
         this.registrar_comando('dominio:leer_byte', (token, args) => {
-            // TODO: implementar cuando exista la compuerta
-            const ctrl = RegistroGlobal.controlador();
-            ctrl?.escribir_salida("[placeholder] dominio:leer_byte ejecutado.");
-            return true;
+            const medio   = args[0] ?? null;
+            const destino = args[1] ?? '';
+            if (!medio) {
+                Controlador._error("Falta el parámetro 'medio' para 'dominio:leer_byte'.");
+                return null;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return null;
+
+            const bytes = comunicador.solicitar(destino, null, { accion: 'leer' });
+            if (bytes === null || bytes === '') return null;
+
+            // Convertir a Senal y procesar con el tálamo.
+            const senal = Senal.desde_bytes(bytes);
+            const proc = Controlador.procesador('Talamo', 'entrada');
+            proc.procesar(senal);
+
+            // Aplanar y devolver los bytes originales.
+            return Senal.a_bytes(senal);
         }, null, true);
 
         // ─── dominio:escribir_byte ───────────────────────────
         this.registrar_comando('dominio:escribir_byte', (token, args) => {
-            // TODO: implementar cuando exista la compuerta
-            const ctrl = RegistroGlobal.controlador();
-            ctrl?.escribir_salida("[placeholder] dominio:escribir_byte ejecutado.");
+            const medio   = args[0] ?? null;
+            const byte    = args[1] ?? null;
+            const destino = args[2] ?? '';
+            if (!medio || byte === null) {
+                Controlador._error("Faltan parámetros 'medio' o 'byte' para 'dominio:escribir_byte'.");
+                return false;
+            }
+            const comunicador = Controlador.comunicador(medio);
+            if (!comunicador) return false;
+
+            comunicador.enviar(destino, String.fromCharCode(byte));
             return true;
         }, null, true);
     }
@@ -1338,7 +1409,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      *
      * @returns {Promise<void>}
      * @since 1.3.0
-     * @version 1.3.4
+     * @version 1.4.6 (inicialización del tálamo y procesadores)
      */
     static async inicializar() {
         if (!this.inicializo) {
@@ -1351,6 +1422,22 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
             Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);
             Controlador.establecer_metodo("EIndexedDB");
+
+            // ─── Inicializar cache de primos ─────────────────────
+            NodoNumerico.inicializar_cache_primos();
+
+            // ─── Inicializar mapeo byte ↔ matriz ─────────────────
+            MapeoBytesMatrices.inicializar();
+
+            // ─── Inicializar tálamo (fase 0 con 256 primos) ───
+            const proc_talamo_entrada = Controlador.procesador('Talamo', 'entrada');
+            for (let byte = 0; byte < 256; byte++) {
+                const matriz = MapeoBytesMatrices.byte_a_matriz(byte);
+                if (matriz) {
+                    const nodo = NodoNumerico.crear_primo(NodoNumerico.primos_conocidos[byte]);
+                    proc_talamo_entrada._patron(nodo, 0);
+                }
+            }
 
             // ─── Procesar comandos pendientes desde RegistroGlobal ────
             for (const entrada of RegistroGlobal.comandos_pendientes) {

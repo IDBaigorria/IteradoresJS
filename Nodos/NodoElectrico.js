@@ -184,8 +184,11 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @static
      */
     static _fase(token, fase) {
-       // console.log("!FFFFFFFFFFF");
-        if (typeof fase !== 'string' || !fase.trim()) {
+        // Si recibe un número, lo convertimos a string (igual que PHP hace implícitamente)
+        if (typeof fase === 'number') {
+            fase = String(fase);
+        }
+        if (typeof fase !== 'string' || !fase.trim() || fase === '') {
             NodoElectrico._error("Nombre de fase inválido: debe ser un string no vacío");
             return;
         }

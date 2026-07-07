@@ -30,7 +30,7 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  *    - Sin marca: secuencia de hacer (comandos constructivos).
  *
  * 3. **Caché global de primos**
- *    La lista estática `_primos_conocidos` crece con cada nuevo primo
+ *    La lista estática `primos_conocidos` crece con cada nuevo primo
  *    descubierto, compartida por todas las fases. Métodos como
  *    {@link es_numero_primo} y {@link siguiente_numero_primo} la consultan
  *    y expanden, evitando recalcular primalidad para números ya conocidos.
@@ -44,8 +44,8 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  * 5. **Pool de nodos libres**
  *    Para evitar la creación innecesaria de instancias, la clase mantiene
  *    un conjunto de nodos reutilizables por fase (`_nodos_libres_por_fase`).
- *    Las fábricas obtienen nodos mediante {@link _tomar_nodo_libre} y los
- *    devuelven con {@link _devolver_nodo_libre} una vez que dejan de usarse
+ *    Las fábricas obtienen nodos mediante {@link tomar_nodo_libre} y los
+ *    devuelven con {@link devolver_nodo_libre} una vez que dejan de usarse
  *    (por ejemplo, tras ascender a otra fase).
  *
  * 6. **Registro de subclases**
@@ -71,7 +71,7 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  * @extends NodoElectrico
  * @implements {Nodos.Interfaces.IdentidadNumerica}
  * @implements {Nodos.Interfaces.FabricaDeNodosNumericos}
- * @version 1.4.5
+ * @version 1.4.6
  * @since 1.4.2
  * @author Ignacio David Baigorria
  * @see Matriz2x2
@@ -127,10 +127,15 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * todas las fases. Los métodos {@link es_numero_primo} y
      * {@link siguiente_numero_primo} la consultan y expanden.
      *
+     * A partir de la versión 1.4.6 es pública para
+     * que las compuertas puedan acceder directamente al mapeo byte↔primo.
+     * 
      * @type {number[]}
-     * @protected
+     * @public
+     * @since 1.4.2
+     * @version 1.4.6
      */
-    static _primos_conocidos = [2, 3];
+    static primos_conocidos = [2, 3];
 
     /**
      * Último número primo asignado en cada fase.
@@ -144,6 +149,31 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
     static _ultimo_primo_positivo_por_fase = new Map();
 
     // ═══════════════════════════════════════════
+    // INICIALIZACIÓN DE CACHÉ
+    // ═══════════════════════════════════════════
+
+    /**
+     * Expande la caché global de primos hasta contener al menos los
+     * primeros 256 números primos.
+     *
+     * Este método está pensado para ser invocado durante la
+     * inicialización del sistema (por ejemplo, desde
+     * {@link Controlador.inicializar}), garantizando que las
+     * compuertas dispongan de todos los primos necesarios para el
+     * mapeo byte↔primo sin tener que generarlos bajo demanda.
+     *
+     * @returns {void}
+     * @since 1.4.6
+     * @see CompuertaBase
+     */
+    static inicializar_cache_primos() {
+        while (this.primos_conocidos.length < 256) {
+            const ultimo = this.primos_conocidos[this.primos_conocidos.length - 1];
+            this.primos_conocidos.push(this._calcular_siguiente_primo(ultimo));
+        }
+    }
+
+    // ═══════════════════════════════════════════
     // POOL DE NODOS LIBRES
     // ═══════════════════════════════════════════
 
@@ -152,8 +182,8 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      *
      * Cada entrada contiene un array de instancias de {@link NodoNumerico}
      * (o subclases) que pueden ser reasignadas en esa fase. Las fábricas
-     * obtienen nodos mediante {@link _tomar_nodo_libre} y los devuelven
-     * con {@link _devolver_nodo_libre}.
+     * obtienen nodos mediante {@link tomar_nodo_libre} y los devuelven
+     * con {@link devolver_nodo_libre}.
      *
      * @type {Map<string, NodoNumerico[]>}
      * @protected
@@ -214,7 +244,7 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * @returns {number[]} Lista de identificadores, o array vacío si no tiene.
      */
     pgrama() {
-        return this._;
+        return this.__pgrama;
     }
 
     /**
@@ -243,7 +273,7 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
     /**
      * Verifica si un número entero es primo.
      *
-     * Utiliza la caché global {@link _primos_conocidos}. Si el número no está
+     * Utiliza la caché global {@link primos_conocidos}. Si el número no está
      * en la caché, se expande generando primos consecutivos hasta alcanzarlo
      * o descartarlo.
      *
@@ -253,11 +283,11 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      */
     static es_numero_primo(numero) {
         if (numero < 2) return false;
-        if (this._primos_conocidos.includes(numero)) return true;
-        let max = this._primos_conocidos[this._primos_conocidos.length - 1];
+        if (this.primos_conocidos.includes(numero)) return true;
+        let max = this.primos_conocidos[this.primos_conocidos.length - 1];
         while (max < numero) {
             max = this._calcular_siguiente_primo(max);
-            this._primos_conocidos.push(max);
+            this.primos_conocidos.push(max);
             if (max === numero) return true;
         }
         return false;
@@ -272,13 +302,13 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * @returns {number} Siguiente número primo.
      */
     static siguiente_numero_primo(n) {
-        for (const p of this._primos_conocidos) {
+        for (const p of this.primos_conocidos) {
             if (p > n) return p;
         }
-        let candidato = this._primos_conocidos[this._primos_conocidos.length - 1];
+        let candidato = this.primos_conocidos[this.primos_conocidos.length - 1];
         while (candidato <= n) {
             candidato = this._calcular_siguiente_primo(candidato);
-            this._primos_conocidos.push(candidato);
+            this.primos_conocidos.push(candidato);
         }
         return candidato;
     }
@@ -355,7 +385,7 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * @param {string|null} [fase=null]
      * @returns {NodoNumerico} Nodo reutilizado o recién creado.
      */
-    static _tomar_nodo_libre(fase = null) {
+    static tomar_nodo_libre(fase = null) {
         fase = fase ?? this.fase();
         if (!this._nodos_libres_por_fase.has(fase)) {
             this._nodos_libres_por_fase.set(fase, []);
@@ -378,7 +408,7 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * @param {NodoNumerico} nodo
      * @param {string|null} [fase=null]
      */
-    static _devolver_nodo_libre(nodo, fase = null) {
+    static devolver_nodo_libre(nodo, fase = null) {
         fase = fase ?? this.fase();
         if (!this._nodos_libres_por_fase.has(fase)) {
             this._nodos_libres_por_fase.set(fase, []);
@@ -543,13 +573,16 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
             factores.unshift(-1);
         }
 
-        const nodo = this._tomar_nodo_libre();
+        const nodo = this.tomar_nodo_libre();
         nodo._identidad(matriz);
         nodo._pgrama(factores);
         nodo.capacidad = capacidad;
         nodo.fuga = fuga;
         return nodo;
     }
+
+    // Caché global de instancias de NodoPrimo por número primo
+    static _primos_cache = {};
 
     /**
      * Crea un nodo primo con el número primo indicado.
@@ -566,7 +599,16 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
             this._error(`El valor absoluto de ${primo} no es primo.`);
             return null;
         }
-        return this._subclases.NodoPrimo._crear_interno(primo, capacidad, fuga);
+        if (!this._subclases || !this._subclases.NodoPrimo) {
+            this._error('NodoPrimo no está registrado en _subclases.');
+            return null;
+        }
+        if (this._primos_cache[primo]) {
+            return this._primos_cache[primo];
+        }
+        const nodo = this._subclases.NodoPrimo._crear_interno(primo, capacidad, fuga);
+        this._primos_cache[primo] = nodo;
+        return nodo;
     }
 
     /**
@@ -615,6 +657,26 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
         }
 
         return matrices;
+    }
+
+    /**
+     * Indica si ya existe un contador de primos para la fase dada.
+     * @param {string} fase
+     * @returns {boolean}
+     * @since 1.4.6
+     */
+    static contador_fase_existe(fase) {
+        return this._ultimo_primo_positivo_por_fase.has(fase);
+    }
+
+    /**
+     * Inicializa el contador de primos de una fase en un valor arbitrario.
+     * @param {string} fase
+     * @param {number} [valor=256]
+     * @since 1.4.6
+     */
+    static _inicializar_contador_fase(fase, valor = 256) {
+        this._ultimo_primo_positivo_por_fase.set(fase, valor);
     }
 }
 

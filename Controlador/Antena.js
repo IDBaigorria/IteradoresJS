@@ -1,8 +1,8 @@
 import { Objeto } from '../Nucleo/Objeto.js';
 import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
 import { Senal } from './Senal.js';
-// NodoNumerico y Senal se importan en el futuro cuando se necesiten referencias circulares,
-// pero aquí las documentamos con JSDoc.
+// NodoNumerico se importa en el futuro cuando se necesiten referencias circulares,
+// pero aquí lo documentamos con JSDoc.
 
 /**
  * Antena: gestor del vocabulario (patrones) de una fase dentro de un dominio.
@@ -17,12 +17,12 @@ import { Senal } from './Senal.js';
  * @class Antena
  * @extends Objeto
  * @since 1.4.5
- * @version 1.4.5
+ * @version 1.4.6
  */
 export class Antena extends Objeto {
     /**
-     * Fase a la que pertenece esta antena.
-     * @type {number}
+     * Fase a la que pertenece esta antena (ahora puede ser un string con prefijo de dominio).
+     * @type {string}
      * @private
      */
     _fase;
@@ -44,7 +44,7 @@ export class Antena extends Objeto {
 
     /**
      * Constructor.
-     * @param {number} fase Fase a la que pertenece la antena.
+     * @param {string} fase Fase a la que pertenece la antena (puede ser un número o un string prefijado).
      */
     constructor(fase) {
         super();
@@ -63,7 +63,7 @@ export class Antena extends Objeto {
      * @param {NodoNumerico} nodo Nodo a registrar como patrón.
      * @returns {void}
      */
-    registrar_patron(nodo) {
+    _patron(nodo) {
         // Validar que el nodo tenga identidad real.
         const identidad = nodo.identidad();
         if (identidad.es_igual(Matriz2x2.inicial())) {
