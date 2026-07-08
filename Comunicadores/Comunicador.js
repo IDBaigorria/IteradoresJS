@@ -1,24 +1,21 @@
 /**
  * Define el contrato mínimo que debe cumplir un comunicador.
  *
- * Un comunicador es un componente capaz de enviar y recibir datos,
- * opcionalmente convertirlos en nodos (a futuro), y gestionar su
- * propia autenticación si es necesario.
- *
- * A partir de la versión 1.4.6, cada comunicador incorpora dos
- * compuertas talámicas –entrada y salida– que traducen entre
- * el formato nativo del medio y el lenguaje común de las señales
- * compuestas de matrices 2×2.
+ * A partir de la versión 1.4.7, los métodos de entrada/salida trabajan
+ * directamente con {@link Senal}, eliminando parámetros genéricos.
+ * Cada implementación es responsable de la conversión entre el medio
+ * nativo y la representación canónica de señales.
  *
  * @interface
  * @memberof Comunicadores
  * @since 1.3.3
- * @version 1.4.6
+ * @version 1.4.7
  */
 class Comunicador {
     /**
-     * Nombre único del comunicador (ej. 'http', 'salida_estandar').
+     * Nombre único del comunicador (ej. 'http', 'archivo').
      * @returns {string}
+     * @since 1.3.3
      */
     static nombre() {
         throw new Error("Método nombre() debe ser implementado.");
@@ -27,6 +24,7 @@ class Comunicador {
     /**
      * Indica si el comunicador solo debe estar disponible en desarrollo.
      * @returns {boolean}
+     * @since 1.3.3
      */
     static solo_desarrollo() {
         throw new Error("Método solo_desarrollo() debe ser implementado.");
@@ -35,32 +33,38 @@ class Comunicador {
     /**
      * Breve descripción del comunicador.
      * @returns {string}
+     * @since 1.3.3
      */
     static descripcion() {
         throw new Error("Método descripcion() debe ser implementado.");
     }
 
     /**
-     * Envía datos al destino especificado.
+     * Envía una señal a un destino.
      *
-     * @param {string} destino   Destino del mensaje.
-     * @param {*}      mensaje   Datos a enviar.
-     * @param {Object} [opciones={}] Opciones adicionales.
-     * @returns {void}
+     * @param {string} destino Identificador del destino (ruta, URL…).
+     * @param {Senal}  senal   Señal a transmitir.
+     * @returns {void|Promise<void>}
+     * @since 1.3.3
+     * @version 1.4.7
      */
-    enviar(destino, mensaje = null, opciones = {}) {
+    enviar(destino, senal) {
         throw new Error("Método enviar() debe ser implementado.");
     }
 
     /**
-     * Envía datos y espera una respuesta.
+     * Solicita datos desde una fuente y los devuelve como señal.
      *
-     * @param {string} destino   Destino del mensaje.
-     * @param {*}      mensaje   Datos a enviar.
-     * @param {Object} [opciones={}] Opciones adicionales.
-     * @returns {*} Respuesta recibida.
+     * Las implementaciones en entornos asíncronos (navegador, Node.js)
+     * devolverán una `Promise` que resuelve a la `Senal`. En entornos
+     * síncronos (PHP) la devolución es directa.
+     *
+     * @param {string} fuente Identificador de la fuente (ruta, URL…).
+     * @returns {Senal|Promise<Senal>}
+     * @since 1.3.3
+     * @version 1.4.7
      */
-    solicitar(destino, mensaje = null, opciones = {}) {
+    solicitar(fuente) {
         throw new Error("Método solicitar() debe ser implementado.");
     }
 
@@ -69,6 +73,7 @@ class Comunicador {
      *
      * @param {Function} callback Función que se ejecutará al recibir un mensaje.
      * @returns {void}
+     * @since 1.3.3
      */
     escuchar(callback) {
         throw new Error("Método escuchar() debe ser implementado.");
@@ -77,6 +82,7 @@ class Comunicador {
     /**
      * Cierra los recursos del comunicador.
      * @returns {void}
+     * @since 1.3.3
      */
     cerrar() {
         throw new Error("Método cerrar() debe ser implementado.");
@@ -85,6 +91,7 @@ class Comunicador {
     /**
      * Devuelve el estado actual del comunicador.
      * @returns {string}
+     * @since 1.3.3
      */
     estado() {
         throw new Error("Método estado() debe ser implementado.");
@@ -95,9 +102,10 @@ class Comunicador {
      *
      * @param {Object} opciones Opciones que se pasarán a enviar/solicitar.
      * @returns {void}
+     * @since 1.3.3
      */
     autenticar(opciones) {
-        // Implementación opcional: por defecto no hace nada.
+        // Implementación opcional.
     }
 
     /**
@@ -105,37 +113,10 @@ class Comunicador {
      *
      * @param {Object} credenciales Datos necesarios para autenticarse.
      * @returns {void}
+     * @since 1.3.3
      */
     establecer_credenciales(credenciales) {
         // Implementación opcional.
-    }
-
-    // ═══════════════════════════════════════════
-    // V 1.4.6 – COMPUERTAS TALÁMICAS
-    // ═══════════════════════════════════════════
-
-    /**
-     * Compuerta de entrada del comunicador.
-     *
-     * Traduce el formato nativo del medio a una señal.
-     *
-     * @returns {CompuertaDominio}
-     * @since 1.4.6
-     */
-    compuerta_entrada() {
-        throw new Error("Método compuerta_entrada() debe ser implementado.");
-    }
-
-    /**
-     * Compuerta de salida del comunicador.
-     *
-     * Traduce una señal procesada en comandos atómicos del sistema.
-     *
-     * @returns {CompuertaDominio}
-     * @since 1.4.6
-     */
-    compuerta_salida() {
-        throw new Error("Método compuerta_salida() debe ser implementado.");
     }
 }
 

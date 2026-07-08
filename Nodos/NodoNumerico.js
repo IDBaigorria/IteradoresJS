@@ -164,12 +164,17 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      *
      * @returns {void}
      * @since 1.4.6
+     * @version 1.4.7 (usa _es_primo_simple y reinicia el array)
      * @see CompuertaBase
      */
     static inicializar_cache_primos() {
+        this.primos_conocidos = [];            // partir siempre de cero
+        let candidato = 2;
         while (this.primos_conocidos.length < 256) {
-            const ultimo = this.primos_conocidos[this.primos_conocidos.length - 1];
-            this.primos_conocidos.push(this._calcular_siguiente_primo(ultimo));
+            if (this._es_primo_simple(candidato)) {
+                this.primos_conocidos.push(candidato);
+            }
+            candidato++;
         }
     }
 

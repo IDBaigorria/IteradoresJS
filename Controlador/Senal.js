@@ -1,177 +1,61 @@
 import { Objeto } from '../Nucleo/Objeto.js';
 import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
-import { MapeoBytesMatrices } from '../Controlador/MapeoBytesMatrices.js';   
-import { AplanadorSenal } from './AplanadorSenal.js';                       
-// NodoNumerico se importa donde se necesite, aquí solo para JSDoc
+import { MapeoBytesMatrices } from '../Controlador/MapeoBytesMatrices.js';
 
 /**
- * Señal: estructura ligera de comunicación entre dominios.
+ * Señal: portadora mínima de matrices de identidad.
  *
- * Encapsula una sucesión de matrices de identidad (Matriz2x2) y mantiene
- * un índice de consumo que indica cuántas matrices crudas ya han sido
- * procesadas por las antenas.
- *
- * La señal es mutable; las capturas realizadas por Antena modifican la
- * misma instancia, avanzando el índice y registrando los patrones o
- * matrices consumidas.
+ * A partir de v1.4.7, su responsabilidad se reduce a encapsular una
+ * lista de {@link Matriz2x2} y permitir su conversión a/desde bytes.
+ * La lógica de consumo, índice de avance y registro de patrones
+ * procesados se ha trasladado a {@link Antena} y será gestionada
+ * por el futuro Iterador.
  *
  * @class Senal
  * @extends Objeto
  * @since 1.4.5
- * @version 1.4.6
+ * @version 1.4.7
  */
 export class Senal extends Objeto {
     /**
-     * Lista original de matrices que componen la señal.
+     * Lista de matrices que componen la señal.
      * @type {Matriz2x2[]}
      * @private
      */
-    _matrices_crudas;
-
-    /**
-     * Cantidad de matrices crudas que ya han sido consumidas.
-     * @type {number}
-     * @private
-     */
-    _indice_comido;
-
-    /**
-     * Ítems ya procesados. Cada elemento puede ser:
-     *   - Matriz2x2: cuando no fue capturada por ningún patrón.
-     *   - NodoNumerico: cuando un patrón capturó una subsecuencia.
-     * @type {Array<Matriz2x2|NodoNumerico>}
-     * @private
-     */
-    _elementos_procesados;
+    _matrices;
 
     /**
      * Constructor.
-     * @param {Matriz2x2[]} [matrices=[]] Matrices crudas iniciales.
+     * @param {Matriz2x2[]} [matrices=[]] Matrices iniciales.
      */
     constructor(matrices = []) {
         super();
-        this._matrices_crudas = matrices.slice(); // copia defensiva
-        this._indice_comido = 0;
-        this._elementos_procesados = [];
+        this._matrices = matrices.slice(); // copia defensiva
     }
 
     /**
-     * Añade una matriz al final de la señal cruda.
+     * Añade una matriz al final de la señal.
      * @param {Matriz2x2} matriz
      * @returns {void}
      */
     _matriz(matriz) {
-        this._matrices_crudas.push(matriz);
+        this._matrices.push(matriz);
     }
 
     /**
-     * Devuelve el total de matrices crudas (sin importar cuántas se han consumido).
+     * Devuelve la cantidad de matrices contenidas.
      * @returns {number}
      */
-    longitud_cruda() {
-        return this._matrices_crudas.length;
+    longitud() {
+        return this._matrices.length;
     }
 
     /**
-     * Devuelve la cantidad de matrices crudas que aún no han sido consumidas.
-     * @returns {number}
-     */
-    longitud_no_consumida() {
-        return this._matrices_crudas.length - this._indice_comido;
-    }
-
-    /**
-     * Obtiene la porción no consumida de las matrices crudas.
+     * Devuelve todas las matrices de la señal.
      * @returns {Matriz2x2[]}
      */
-    no_consumidas() {
-        return this._matrices_crudas.slice(this._indice_comido);
-    }
-
-    /**
-     * Consume una cantidad de matrices crudas, registrando el patrón que las capturó.
-     *
-     * Si se proporciona un patrón (NodoNumerico), se añade ese nodo como un único
-     * elemento procesado. En caso contrario, se añaden individualmente las matrices
-     * consumidas como elementos procesados.
-     *
-     * @param {number} longitud Cantidad de matrices a consumir.
-     * @param {NodoNumerico|null} [patron=null] Patrón que capturó la subsecuencia.
-     * @returns {void}
-     */
-    consumir(longitud, patron = null) {
-        const disponibles = this.longitud_no_consumida();
-        if (longitud > disponibles) {
-            // Uso de _error heredado de Objeto (estático)
-            this.constructor._error(
-                `No se pueden consumir ${longitud} matrices. Solo hay ${disponibles} disponibles.`
-            );
-            return;
-        }
-
-        if (patron !== null) {
-            // Captura realizada por un patrón
-            this._elementos_procesados.push(patron);
-        } else {
-            // Sin patrón, se agregan las matrices crudas una a una
-            const porcion = this._matrices_crudas.slice(
-                this._indice_comido,
-                this._indice_comido + longitud
-            );
-            this._elementos_procesados.push(...porcion);
-        }
-
-        this._indice_comido += longitud;
-    }
-
-    /**
-     * Devuelve el índice actual de consumo.
-     * @returns {number}
-     */
-    indice_consumido() {
-        return this._indice_comido;
-    }
-
-    /**
-     * Devuelve todos los elementos procesados hasta el momento.
-     * @returns {Array<Matriz2x2|NodoNumerico>}
-     */
-    elementos_procesados() {
-        return this._elementos_procesados.slice(); // copia para evitar mutación externa
-    }
-
-    /**
-     * Devuelve las matrices crudas completas (incluye las ya consumidas).
-     * @returns {Matriz2x2[]}
-     */
-    crudas() {
-        return this._matrices_crudas.slice();
-    }
-
-    /**
-     * Construye una nueva señal a partir de los elementos procesados.
-     *
-     * Las matrices crudas de la nueva señal serán las matrices de identidad
-     * de cada elemento: para un patrón, su identidad_por_fase en la fase actual;
-     * para una matriz suelta, ella misma.
-     *
-     * @param {number} fase Fase en la que se obtienen las matrices de identidad de los patrones.
-     * @returns {Senal}
-     * @since 1.4.5
-     * @version 1.4.6
-     * @todo Implementar una vez que el enrutamiento entre dominios esté activo.
-     */
-    senal_de_salida(fase) {
-        const matrices_salida = [];
-        for (const item of this._elementos_procesados) {
-            if (item.constructor && item.constructor.name === 'NodoNumerico') {
-                // TODO: validar que el nodo tenga identidad en la fase dada
-                matrices_salida.push(item.identidad(fase));
-            } else {
-                matrices_salida.push(item);
-            }
-        }
-        return new Senal(matrices_salida);
+    matrices() {
+        return this._matrices.slice();
     }
 
     // ═══════════════════════════════════════════
@@ -179,29 +63,28 @@ export class Senal extends Objeto {
     // ═══════════════════════════════════════════
 
     /**
-     * Construye una señal a partir de una cadena de bytes.
+     * Construye una señal a partir de una cadena de bytes, un ArrayBuffer
+     * o un Uint8Array.
      *
-     * Cada byte (0‑255) se traduce a su {@link Matriz2x2} prima canónica
-     * utilizando {@link MapeoBytesMatrices.byte_a_matriz}.
-     *
-     * @param {string} bytes Cadena de bytes (p. ej. leída de un archivo).
+     * @param {string|ArrayBuffer|Uint8Array|number[]} bytes Datos de entrada.
      * @returns {Senal} Nueva señal con las matrices primas correspondientes.
      * @since 1.4.6
-     * @see MapeoBytesMatrices
+     * @version 1.4.7
      */
     static desde_bytes(bytes) {
-        // Si es un string, convertirlo a array de bytes usando charCodeAt
-        if (typeof bytes === 'string') {
-            const arr = [];
+        let arr = [];
+        if (bytes instanceof ArrayBuffer || bytes instanceof Uint8Array) {
+            arr = Array.from(new Uint8Array(bytes));
+        } else if (typeof bytes === 'string') {
             for (let i = 0; i < bytes.length; i++) {
                 arr.push(bytes.charCodeAt(i));
             }
-            bytes = arr;
+        } else if (Array.isArray(bytes)) {
+            arr = bytes;
         }
 
-        // Ahora bytes es siempre un array de enteros
         const matrices = [];
-        for (const byte of bytes) {
+        for (const byte of arr) {
             const matriz = MapeoBytesMatrices.byte_a_matriz(byte);
             if (matriz) {
                 matrices.push(matriz);
@@ -211,21 +94,15 @@ export class Senal extends Objeto {
     }
 
     /**
-     * Convierte una señal procesada de vuelta a una cadena de bytes.
+     * Convierte una señal en una cadena de bytes.
      *
-     * Aplana la señal con {@link AplanadorSenal.aplanar} para obtener
-     * las matrices originales del tálamo y luego traduce cada una a su byte
-     * con {@link MapeoBytesMatrices.matriz_a_byte}.
-     *
-     * @param {Senal} senal Señal ya procesada por un dominio.
+     * @param {Senal} senal Señal a convertir.
      * @returns {string} Cadena de bytes lista para ser escrita o enviada.
      * @since 1.4.6
-     * @see AplanadorSenal
-     * @see MapeoBytesMatrices
+     * @version 1.4.7
      */
     static a_bytes(senal) {
-        const matrices = AplanadorSenal.aplanar(senal);
-        return matrices
+        return senal.matrices()
             .map(m => MapeoBytesMatrices.matriz_a_byte(m))
             .filter(b => b !== null && b !== undefined)
             .map(b => String.fromCharCode(b))

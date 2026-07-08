@@ -17,8 +17,8 @@
  */
 
 // ─── Comunicadores de salida ────────────────────────────
-import './SalidaDepuracionConsola.js';
-import './SalidaDepuracionHTML.js';
+import './Consola.js';
+import './HTML.js';
 
 // ─── Comunicador de archivo ─────────────────────────────
 import './Archivo.js';
@@ -26,5 +26,5 @@ import './Archivo.js';
 // ─── Reexportaciones públicas ───────────────────────────
 export { Comunicador } from "./Comunicador.js";
 export { Archivo } from "./Archivo.js";
-export { SalidaDepuracionHTML } from "./SalidaDepuracionHTML.js";
-export { SalidaDepuracionConsola } from "./SalidaDepuracionConsola.js";
+export { SalidaDepuracionHTML } from "./HTML.js";
+export { SalidaDepuracionConsola } from "./Consola.js";

@@ -18,7 +18,7 @@ import { RelojAstronomico } from '../Tiempo/RelojAstronomico.js';
 import { NodoNumerico } from '../Nodos/NodoNumerico.js';
 import { ProcesadorDeDominio } from './ProcesadorDeDominio.js';
 import { Senal } from './Senal.js';
-import { MapeoBytesMatrices } from '../Controlador/MapeoBytesMatrices.js';
+import { Talamo } from '../Controlador/Talamo.js';
 // console.log("Controlador");  
 
 /**
@@ -707,41 +707,17 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * Si se invoca sin argumentos (o con el valor especial `'predeterminado'`),
      * devuelve automáticamente el comunicador de salida estándar correspondiente
      * al entorno actual:
-     * - En **consola** → {@link SalidaDepuracionConsola} (`salida_depuracion_consola`).
-     * - En **navegador** → {@link SalidaDepuracionHTML} (`salida_depuracion_html`).
+     * - En **consola** → `consola`
+     * - En **navegador** → `html`
      *
-     * En cualquier otro caso, busca el comunicador en el mapa interno y verifica
-     * que el usuario actual tenga permiso para utilizarlo mediante
-     * {@link Controlador.tiene_permiso_comunicador}.
-     *
-     * Si el comunicador no existe o el usuario no tiene permiso, retorna `null`
-     * y registra un error.
-     *
-     * @param {string} [nombre='predeterminado'] Nombre del comunicador
-     *     (ej. `'archivo'`, `'http'`). Si se omite o es `'predeterminado'`,
-     *     se usa la salida estándar según el entorno.
-     *
-     * @returns {Comunicador|null} La instancia del comunicador,
-     *                             o `null` si no está disponible.
-     *
-     * @example
-     * // Obtener la salida estándar (consola o HTML según Entorno)
-     * const salida = Controlador.comunicador();
-     * salida.enviar('', 'Hola mundo');
-     *
-     * // Obtener un comunicador específico
-     * const http = Controlador.comunicador('http');
-     * if (http) {
-     *     http.enviar('https://api.example.com', datos);
-     * }
-     *
-     * @see SalidaDepuracionHTML
-     * @see SalidaDepuracionConsola
+     * @param {string} [nombre='predeterminado'] Nombre del comunicador.
+     * @returns {Comunicador|null} La instancia del comunicador, o `null` si no está disponible.
      * @since 1.3.3
+     * @version 1.4.7 (nombres actualizados a 'consola' y 'html')
      */
     static comunicador(nombre = 'predeterminado') {
         if (nombre === 'predeterminado') {
-            nombre = Entorno.es_consola() ? 'salida_depuracion_consola' : 'salida_depuracion_html';
+            nombre = Entorno.es_consola() ? 'consola' : 'html';
         }
 
         if (!this.comunicadores[nombre]) {
@@ -760,25 +736,19 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     /**
      * Escribe un mensaje en la salida estándar configurada según el entorno.
      *
-     * Obtiene el comunicador predeterminado ({@link SalidaDepuracionHTML}
-     * o {@link SalidaDepuracionConsola}) y envía el mensaje a través de él.
-     *
-     * Es el equivalente a `console.log`, pero adaptado al tipo de salida
-     * definido en {@link Configuracion.Entorno}.
+     * Convierte el texto a {@link Senal} mediante el {@link Talamo} y lo envía
+     * a través del comunicador predeterminado.
      *
      * @param {string} mensaje Texto a escribir en la salida estándar.
-     *
      * @returns {void}
-     *
-     * @example
-     * Controlador.escribir_salida("Operación completada.");
-     *
      * @since 1.3.3
+     * @version 1.4.7 (usa Talamo para convertir el string)
      */
     static escribir_salida(mensaje) {
-        const salida = Controlador.comunicador();   // predeterminado
+        const salida = Controlador.comunicador();
         if (salida) {
-            salida.enviar('', mensaje);
+            const senal = Talamo.obtener().traducir_entrada(mensaje);
+            salida.enviar('', senal);
         }
     }
 
@@ -808,51 +778,41 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      *
      * @returns {void}
      * @since 1.3.3
-     * @version 1.4.6 (integrados Senal y ProcesadorDeDominio)
+     * @version 1.4.7 (traducción delegada al Tálamo, eliminación usa método propio)
      * @private
      */
     static _registrar_comandos_comunicacion() {
         // ─── comunicación:leer ───────────────────────────────
         this.registrar_comando('comunicacion:leer', (token, args) => {
-            const medio   = args[0] ?? null;
-            const destino = args[1] ?? '';
+            const medio  = args[0] ?? null;
+            const fuente = args[1] ?? '';
             if (!medio) {
-                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:leer'.");
+                Controlador._error("Falta el medio para 'comunicacion:leer'.");
                 return null;
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return null;
 
-            // 1. Leer bytes del medio.
-            const bytes = comunicador.solicitar(destino, null, { accion: 'leer' });
-            if (bytes === null || bytes === undefined) return null;
-
-            // 2. Convertir bytes → Senal.
-            const senal = Senal.desde_bytes(bytes);
-
-            // 3. Procesar con el tálamo (entrada).
-            const proc = Controlador.procesador('Talamo', 'entrada');
-            proc.procesar(senal);
-
-            return senal;
+            return comunicador.solicitar(fuente);
         }, null, false);
 
         // ─── comunicación:escribir ────────────────────────────
         this.registrar_comando('comunicacion:escribir', (token, args) => {
             const medio   = args[0] ?? null;
-            const mensaje = args[1] ?? '';      // Puede ser string (bytes) o Senal procesada
+            const senal   = args[1] ?? null;
             const destino = args[2] ?? '';
-            if (!medio) {
-                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escribir'.");
+            if (!medio || !senal) {
+                Controlador._error("Faltan medio o señal para 'comunicacion:escribir'.");
+                return false;
+            }
+            if (!(senal instanceof Senal)) {
+                Controlador._error("El parámetro debe ser una Senal.");
                 return false;
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return false;
 
-            // Si ya es una Senal, aplanarla a bytes; si es string, usarlo directamente.
-            const bytes = (mensaje instanceof Senal) ? Senal.a_bytes(mensaje) : String(mensaje);
-
-            comunicador.enviar(destino, bytes);
+            comunicador.enviar(destino, senal);
             return true;
         }, null, false);
 
@@ -863,9 +823,11 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return null;
             if (medio === 'salida_depuracion_consola') {
-                return prompt(mensaje);
+                const respuesta = prompt(mensaje);
+                const texto = respuesta !== null ? respuesta : '';
+                return Talamo.obtener().traducir_entrada(texto);
             }
-            return comunicador.solicitar('', mensaje);
+            return comunicador.solicitar(mensaje);
         }, null, false);
 
         // ─── comunicación:eliminar ────────────────────────────
@@ -873,40 +835,54 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             const medio   = args[0] ?? null;
             const destino = args[1] ?? '';
             if (!medio) {
-                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:eliminar'.");
+                Controlador._error("Falta el medio para 'comunicacion:eliminar'.");
                 return false;
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return false;
-            comunicador.enviar(destino, null, { accion: 'eliminar' });
-            return true;
+
+            if (typeof comunicador.eliminar === 'function') {
+                comunicador.eliminar(destino);
+                return true;
+            }
+
+            Controlador._error(`El comunicador '${medio}' no soporta eliminación.`);
+            return false;
         }, null, false);
 
         // ─── comunicación:listar ──────────────────────────────
         this.registrar_comando('comunicacion:listar', (token, args) => {
-            const medio   = args[0] ?? null;
-            const destino = args[1] ?? '.';
+            const medio      = args[0] ?? null;
+            const directorio = args[1] ?? '.';
             if (!medio) {
-                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:listar'.");
+                Controlador._error("Falta el medio para 'comunicacion:listar'.");
                 return null;
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return null;
-            return comunicador.solicitar(destino, null, { accion: 'listar' });
+
+            if (typeof comunicador.listar === 'function') {
+                return comunicador.listar(directorio);
+            }
+
+            Controlador._error(`El comunicador '${medio}' no soporta listado.`);
+            return null;
         }, null, false);
 
         // ─── comunicación:escuchar ─────────────────────────────
         this.registrar_comando('comunicacion:escuchar', (token, args) => {
             const medio = args[0] ?? null;
             if (!medio) {
-                Controlador._error("Falta el parámetro 'medio' para 'comunicacion:escuchar'.");
+                Controlador._error("Falta el medio para 'comunicacion:escuchar'.");
                 return false;
             }
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return false;
-            comunicador.escuchar((mensaje) => {
+            comunicador.escuchar((senal) => {
                 const salida = Controlador.comunicador();
-                salida?.enviar('', `[${medio}] Recibido: ${JSON.stringify(mensaje)}`);
+                if (salida) {
+                    salida.enviar('', senal);
+                }
             });
             return true;
         }, null, false);
@@ -1269,19 +1245,16 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     /**
      * Registra los comandos genéricos de dominio.
      *
-     * Se invoca durante {@link inicializar} para que estén disponibles
-     * tanto para programadores como para el futuro sistema de aprendizaje.
-     *
      * @returns {void}
      * @since 1.3.3
-     * @version 1.4.6 (implementados con Senal y ProcesadorDeDominio)
+     * @version 1.4.7 (adaptados a Senal y Talamo)
      * @private
      */
     static _registrar_comandos_dominio() {
         // ─── dominio:leer_byte ──────────────────────────────
         this.registrar_comando('dominio:leer_byte', (token, args) => {
-            const medio   = args[0] ?? null;
-            const destino = args[1] ?? '';
+            const medio  = args[0] ?? null;
+            const fuente = args[1] ?? '';
             if (!medio) {
                 Controlador._error("Falta el parámetro 'medio' para 'dominio:leer_byte'.");
                 return null;
@@ -1289,16 +1262,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return null;
 
-            const bytes = comunicador.solicitar(destino, null, { accion: 'leer' });
-            if (bytes === null || bytes === '') return null;
-
-            // Convertir a Senal y procesar con el tálamo.
-            const senal = Senal.desde_bytes(bytes);
-            const proc = Controlador.procesador('Talamo', 'entrada');
-            proc.procesar(senal);
-
-            // Aplanar y devolver los bytes originales.
-            return Senal.a_bytes(senal);
+            return comunicador.solicitar(fuente);
         }, null, true);
 
         // ─── dominio:escribir_byte ───────────────────────────
@@ -1313,7 +1277,9 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             const comunicador = Controlador.comunicador(medio);
             if (!comunicador) return false;
 
-            comunicador.enviar(destino, String.fromCharCode(byte));
+            // Convertir el byte en una Senal de una sola matriz
+            const senal = Talamo.obtener().traducir_entrada(String.fromCharCode(byte));
+            comunicador.enviar(destino, senal);
             return true;
         }, null, true);
     }

@@ -2,64 +2,54 @@ import { Objeto } from '../Nucleo/Objeto.js';
 import { Antena } from './Antena.js';
 import { NodoElectrico } from '../Nodos/NodoElectrico.js';
 import { NodoNumerico } from '../Nodos/NodoNumerico.js';
+
 /**
  * Procesador de Dominio: coordina las antenas de un dominio y ejecuta
  * el bucle de captura jerárquico para reducir una señal.
  *
- * Gestiona múltiples antenas (una por fase) y aplica un algoritmo voraz
- * que comienza por las fases más altas. Cuando una antena captura una
- * porción de la señal, se reinicia el recorrido desde la fase máxima,
- * garantizando así que los bocados sean siempre lo más grandes posible.
- *
- * A partir de la versión 1.4.6, el procesador se asocia a un medio
- * y una dirección (entrada/salida). Las fases se prefijan con esta
- * información para evitar colisiones entre dominios y subdominios.
+ * A partir de la versión 1.4.7, el procesador mantiene internamente
+ * el índice de consumo y la lista de p‑gramas capturados. La señal ya
+ * no es modificada; en su lugar, el procesador registra los elementos
+ * procesados y permite emitir una nueva señal con {@link emitir_senal}.
  *
  * @class ProcesadorDeDominio
  * @extends Objeto
  * @since 1.4.5
- * @version 1.4.6
+ * @version 1.4.7
  */
 export class ProcesadorDeDominio extends Objeto {
-    /**
-     * Nombre del medio (ej. 'Archivo', 'Talamo').
-     * @type {string}
-     * @private
-     */
+    /** @type {string} */
     _medio;
 
-    /**
-     * Dirección del subdominio: 'entrada' o 'salida'.
-     * @type {string}
-     * @private
-     */
+    /** @type {string} */
     _direccion;
 
-    /**
-     * Antenas del procesador, indexadas por fase (solo el número).
-     * @type {Object.<number, Antena>}
-     * @private
-     */
+    /** @type {Object.<number, Antena>} */
     _antenas;
 
     /**
-     * Token de seguridad para operaciones restringidas.
-     * @type {string}
-     * @since 1.4.6
+     * Fase máxima permitida para el ascenso (null = sin límite).
+     * @type {number|null}
+     * @since 1.4.7
      */
+    _maxima_fase = null;
+
+    /**
+     * Lista de p‑gramas capturados durante el último procesamiento.
+     * @type {number[][]}
+     * @since 1.4.7
+     */
+    _elementos_procesados = [];
+
+    /** @type {string} */
     static _token = '';
+
+    /** @inheritdoc */
+    static recibir_token(token) { this._token = token; }
+
     /**
-     * Recibe el token de seguridad desde el Controlador.
-     * @param {string} token
-     * @since 1.4.6
-     */
-    static recibir_token(token) {
-        this._token = token;
-    }
-    /**
-     * Constructor.
-     * @param {string} medio     Nombre del medio (ej. 'Archivo', 'Talamo').
-     * @param {string} direccion 'entrada' o 'salida'.
+     * @param {string} medio
+     * @param {string} direccion
      */
     constructor(medio, direccion) {
         super();
@@ -69,9 +59,8 @@ export class ProcesadorDeDominio extends Objeto {
     }
 
     /**
-     * Construye la clave de fase completa a partir del número de fase.
-     * @param {number} fase Número de fase.
-     * @returns {string} Clave de fase (ej. 'Archivo:entrada:0').
+     * @param {number} fase
+     * @returns {string}
      * @private
      */
     _prefijar_fase(fase) {
@@ -79,101 +68,109 @@ export class ProcesadorDeDominio extends Objeto {
     }
 
     /**
-     * Obtiene la antena para una fase específica, creándola si no existe.
-     * @param {number} fase Número de fase (sin prefijo).
+     * @param {number} fase
      * @returns {Antena}
      */
     antena(fase) {
         if (!this._antenas.hasOwnProperty(fase)) {
-            const fase_completa = this._prefijar_fase(fase);
-            this._antenas[fase] = new Antena(fase_completa);
+            this._antenas[fase] = new Antena(this._prefijar_fase(fase));
         }
         return this._antenas[fase];
     }
 
     /**
-     * Registra un nodo como patrón en la antena de la fase indicada.
-     * Método de conveniencia que delega en Antena._patron().
-     * @param {NodoNumerico} nodo Nodo a registrar como patrón.
-     * @param {number}       fase Número de fase.
-     * @returns {void}
+     * @param {NodoNumerico} nodo
+     * @param {number} fase
      */
     _patron(nodo, fase) {
-        const antena = this.antena(fase);
-        antena._patron(nodo);
+        this.antena(fase)._patron(nodo);
     }
 
     /**
-     * Procesa una señal aplicando el bucle de captura voraz con reinicio.
-     * @param {Senal} senal Señal a procesar (se modifica in-place).
-     * @returns {void}
+     * @param {number|null} fase
+     * @since 1.4.7
+     */
+    establecer_maxima_fase(fase) {
+        this._maxima_fase = fase;
+    }
+
+    /**
+     * Procesa una señal con bucle voraz y aprendizaje trivial.
+     * @param {Senal} senal
+     * @version 1.4.7
      */
     procesar(senal) {
-        // Bucle voraz sobre las fases existentes
-        const fases = Object.keys(this._antenas).map(Number);
-        if (fases.length > 0) {
+        this._elementos_procesados = [];
+        const matrices = senal.matrices();
+        const total = matrices.length;
+        let i = 0;
+
+        while (i < total) {
+            const fases = Object.keys(this._antenas).map(Number);
             fases.sort((a, b) => b - a);
 
-            let huboCaptura = true;
-            while (huboCaptura) {
-                huboCaptura = false;
-                for (const numFase of fases) {
-                    const antena = this._antenas[numFase];
-                    if (antena.intentar_capturar(senal)) {
-                        huboCaptura = true;
-                        break;
-                    }
+            let capturado = false;
+
+            for (const numFase of fases) {
+                if (this._maxima_fase !== null && numFase > this._maxima_fase) continue;
+
+                const antena = this._antenas[numFase];
+                const [longitud, patron] = antena.intentar_capturar(senal, i);
+
+                if (longitud > 0 && patron !== null) {
+                    this._elementos_procesados.push(patron.pgrama());
+                    i += longitud;
+                    capturado = true;
+                    break;
                 }
             }
+
+            if (!capturado) {
+                // Aprendizaje trivial
+                const faseAnterior = NodoElectrico.fase();
+                const faseDominioCero = this._prefijar_fase(0);
+                NodoElectrico._fase(this.constructor._token, faseDominioCero);
+
+                if (!NodoNumerico.contador_fase_existe(faseDominioCero)) {
+                    NodoNumerico._inicializar_contador_fase(faseDominioCero, 256);
+                }
+
+                const numero = NodoNumerico.siguiente_primo_positivo(faseDominioCero);
+                const primo = NodoNumerico.crear_primo(numero);
+                if (primo) {
+                    primo._dato({ matriz_original: matrices[i] }, 'abajo');
+                    this.antena(0)._patron(primo);
+                    this._elementos_procesados.push(primo.pgrama());
+                }
+
+                NodoElectrico._fase(this.constructor._token, faseAnterior);
+                i++;
+            }
         }
-
-        const restantes = senal.no_consumidas();
-        if (restantes.length === 0) return;
-
-        const faseAnterior = NodoElectrico.fase();
-        const faseDominioCero = this._prefijar_fase(0);
-        NodoElectrico._fase(NodoElectrico._token, faseDominioCero);
-
-        // Inicializar contador de esta fase en 256 si es la primera vez
-        if (!NodoNumerico.contador_fase_existe(faseDominioCero)) {
-            NodoNumerico._inicializar_contador_fase(faseDominioCero, 256);
-        }
-
-        for (const matriz of restantes) {
-            const numero = NodoNumerico.siguiente_primo_positivo(faseDominioCero);
-            const primo = NodoNumerico.crear_primo(numero);
-            if (!primo) continue;
-
-            primo._dato({ matriz_original: matriz }, 'abajo');
-            this.antena(0)._patron(primo);
-            senal.consumir(1, primo);
-        }
-
-        NodoElectrico._fase(this.constructor._token, faseAnterior);
-    }
-
-
-    /**
-     * Devuelve el nombre del medio.
-     * @returns {string}
-     */
-    medio() {
-        return this._medio;
     }
 
     /**
-     * Devuelve la dirección del subdominio ('entrada' o 'salida').
-     * @returns {string}
+     * @returns {number[][]}
+     * @since 1.4.7
      */
-    direccion() {
-        return this._direccion;
+    elementos_procesados() {
+        return this._elementos_procesados.slice();
     }
 
     /**
-     * Devuelve todas las antenas del procesador.
-     * @returns {Object.<number, Antena>}
+     * @returns {Senal|null}
+     * @since 1.4.7
      */
-    antenas() {
-        return Object.assign({}, this._antenas);
+    emitir_senal() {
+        return this.antena(0).emitir(this._elementos_procesados);
     }
+
+    /** @returns {string} */
+    medio() { return this._medio; }
+
+    /** @returns {string} */
+    direccion() { return this._direccion; }
+
+    /** @returns {Object.<number, Antena>} */
+    antenas() { return Object.assign({}, this._antenas); }
 }
