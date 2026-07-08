@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// PLANTILLA DE COMUNICADOR ESTÁTICO — v1.3.4
+// PLANTILLA DE COMUNICADOR — v1.4.7
 // ═══════════════════════════════════════════════════════════
 // Úsela como base para crear un nuevo comunicador que residirá
 // en su propio archivo dentro de la carpeta Comunicadores.
@@ -7,6 +7,7 @@
 // autoencolación en RegistroGlobal.
 
 import { Comunicador } from './Comunicador.js';
+import { Senal } from '../Controlador/Senal.js';
 import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
 
 /**
@@ -15,17 +16,23 @@ import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
  * [Explicación detallada de su propósito, protocolo que utiliza,
  * si necesita credenciales, etc.]
  *
+ * A partir de la versión 1.4.7, los métodos de entrada/salida trabajan
+ * directamente con {@link Senal}. La traducción entre bytes y señales
+ * se realiza externamente, normalmente por el {@link Talamo} a través
+ * de los comandos de comunicación del {@link Controlador}.
+ *
  * **Entorno:** disponible en todos los entornos (o indicar solo desarrollo).
  *
- * @class Comunicador[Nombre]
+ * @class [Nombre]
  * @extends Comunicador
  * @since [versión]
- * @version [Versión]
+ * @version 1.4.7
  */
-export class Comunicador[Nombre] extends Comunicador {
+export class [Nombre] extends Comunicador {
     /**
-     * Nombre único del comunicador (ej. 'http', 'archivo', 'salida_estandar').
+     * Nombre único del comunicador (ej. 'http', 'archivo', 'consola').
      * @returns {string}
+     * @since [versión]
      */
     static nombre() {
         return 'nombre_unico';
@@ -34,6 +41,7 @@ export class Comunicador[Nombre] extends Comunicador {
     /**
      * Indica si el comunicador solo debe estar disponible en desarrollo.
      * @returns {boolean}
+     * @since [versión]
      */
     static solo_desarrollo() {
         return false;
@@ -42,34 +50,45 @@ export class Comunicador[Nombre] extends Comunicador {
     /**
      * Breve descripción del comunicador.
      * @returns {string}
+     * @since [versión]
      */
     static descripcion() {
         return 'Descripción corta del comunicador.';
     }
 
     /**
-     * Envía datos al destino especificado.
+     * Envía una señal al destino especificado.
      *
-     * @param {string} destino   Destino del mensaje (URL, ruta, canal…).
-     * @param {*}      mensaje   Datos a enviar.
-     * @param {Object} [opciones={}] Opciones adicionales.
-     * @returns {void}
+     * @param {string} destino Identificador del destino (ruta, URL…).
+     * @param {Senal}  senal   Señal a transmitir.
+     * @returns {void|Promise<void>}
+     * @since [versión]
+     * @version 1.4.7
      */
-    enviar(destino, mensaje = null, opciones = {}) {
-        // TODO: Implementar el envío
+    enviar(destino, senal) {
+        // TODO: Implementar el envío.
+        // Si necesita convertir la señal a bytes, importe Talamo y use:
+        // const { Talamo } = await import('../Controlador/Talamo.js');
+        // const bytes = Talamo.obtener().traducir_salida(senal);
+        // Luego envíe `bytes` por el medio nativo.
     }
 
     /**
-     * Envía datos y espera una respuesta.
+     * Solicita datos desde una fuente y los devuelve como señal.
      *
-     * @param {string} destino   Destino del mensaje.
-     * @param {*}      mensaje   Datos a enviar.
-     * @param {Object} [opciones={}] Opciones adicionales.
-     * @returns {*} Respuesta recibida.
+     * Las implementaciones asíncronas deben devolver una `Promise<Senal>`.
+     *
+     * @param {string} fuente Identificador de la fuente (ruta, URL…).
+     * @returns {Senal|Promise<Senal>}
+     * @since [versión]
+     * @version 1.4.7
      */
-    solicitar(destino, mensaje = null, opciones = {}) {
-        // TODO: Implementar la solicitud y devolver la respuesta
-        return null;
+    solicitar(fuente) {
+        // TODO: Obtener los datos crudos (bytes) del medio nativo.
+        // Luego convertirlos a Senal usando el Tálamo:
+        // const { Talamo } = await import('../Controlador/Talamo.js');
+        // return Talamo.obtener().traducir_entrada(bytes);
+        return new Senal([]); // Placeholder
     }
 
     /**
@@ -77,25 +96,27 @@ export class Comunicador[Nombre] extends Comunicador {
      *
      * @param {Function} callback Función que se ejecutará al recibir un mensaje.
      * @returns {void}
+     * @since [versión]
      */
     escuchar(callback) {
-        // Si no aplica, dejar vacío
+        // Si no aplica, dejar vacío.
     }
 
     /**
      * Cierra los recursos del comunicador.
      * @returns {void}
+     * @since [versión]
      */
     cerrar() {
-        // Liberar recursos si es necesario
+        // Liberar recursos si es necesario.
     }
 
     /**
      * Devuelve el estado actual del comunicador.
      * @returns {string} (ej. 'conectado', 'cerrado', 'activo')
+     * @since [versión]
      */
     estado() {
-        // TODO: Devolver el estado real
         return 'activo';
     }
 
@@ -104,9 +125,10 @@ export class Comunicador[Nombre] extends Comunicador {
      *
      * @param {Object} opciones Opciones que se pasarán a enviar/solicitar.
      * @returns {void}
+     * @since [versión]
      */
     autenticar(opciones) {
-        // Si no requiere autenticación, dejar vacío
+        // Si no requiere autenticación, dejar vacío.
     }
 
     /**
@@ -114,14 +136,15 @@ export class Comunicador[Nombre] extends Comunicador {
      *
      * @param {Object} credenciales Datos necesarios para autenticarse.
      * @returns {void}
+     * @since [versión]
      */
     establecer_credenciales(credenciales) {
-        // Almacenar credenciales para usar en autenticar()
+        // Almacenar credenciales para usar en autenticar().
     }
 }
 
 // ═══════════════════════════════════════════════════════════
-// OBSERVACIONES FINALES
+// AUTOENCOLACIÓN
 // ═══════════════════════════════════════════════════════════
 // 1. Registre este archivo en el índice de comunicadores para
 //    que la autoencolación se ejecute. En Comunicadores/index.js
@@ -134,4 +157,4 @@ export class Comunicador[Nombre] extends Comunicador {
 //    esté disponible incluso si el Controlador se inicializa
 //    después.
 // ═══════════════════════════════════════════════════════════
-RegistroGlobal.encolar_comunicador(Comunicador[Nombre]);
+RegistroGlobal.encolar_comunicador([Nombre]);
