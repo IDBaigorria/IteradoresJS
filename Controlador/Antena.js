@@ -1,23 +1,25 @@
 import { Objeto } from '../Nucleo/Objeto.js';
 import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
-import { Senal } from './Senal.js';
+import { Senal } from '../Iteradores/Senal.js';
 
 /**
- * Antena: gestor del vocabulario (patrones) de una fase dentro de un dominio.
+ * Antena: gestor del vocabulario de una fase dentro de un dominio.
  *
- * Almacena un conjunto de patrones (NodoNumerico) y, ante una señal entrante,
- * intenta capturar la subsecuencia de matrices más larga que coincida exactamente
- * con la secuencia de alguno de sus patrones.
+ * Mantiene un diccionario de **dipolos**: asociaciones directas entre un
+ * fragmento de señal externa (array de {@link Matriz2x2}) y el
+ * {@link NodoNumerico} que lo representa internamente en esta fase.
  *
- * A partir de la versión 1.4.7, la antena **no modifica la señal**. En su lugar
- * devuelve la longitud capturada y el patrón correspondiente. El avance del
- * índice de consumo y el registro de elementos procesados se trasladan al
- * {@link ProcesadorDeDominio} y al futuro Iterador.
+ * La antena no modifica la señal. Ante una señal entrante, intenta capturar
+ * la mayor subsecuencia de matrices que coincida exactamente con la de alguno
+ * de sus dipolos, devolviendo la longitud capturada y el nodo correspondiente.
+ * Para la emisión, proporciona métodos que construyen una nueva {@link Senal}
+ * a partir de las matrices de identidad de los nodos, asignando como fase de
+ * origen la fase completa de la antena.
  *
  * @class Antena
  * @extends Objeto
  * @since 1.4.5
- * @version 1.4.7
+ * @version 1.4.8
  */
 export class Antena extends Objeto {
     /**
@@ -28,86 +30,109 @@ export class Antena extends Objeto {
     _fase;
 
     /**
-     * Lista de patrones registrados en esta antena.
-     * @type {NodoNumerico[]}
+     * Lista de dipolos registrados, ordenada de mayor a menor longitud de
+     * la secuencia de matrices.
+     *
+     * Cada elemento es un objeto con:
+     *   - matrices: Matriz2x2[]   (fragmento de señal original)
+     *   - nodo:     NodoNumerico  (símbolo interno en esta fase)
+     *
+     * @type {Array<{matrices: Matriz2x2[], nodo: NodoNumerico}>}
      * @private
      */
-    _patrones;
-
-    /**
-     * Caché de las secuencias de matrices de cada patrón,
-     * en el mismo orden que _patrones.
-     * @type {Matriz2x2[][]}
-     * @private
-     */
-    _secuencias;
+    _dipolos;
 
     /**
      * Constructor.
-     * @param {string} fase Fase a la que pertenece la antena.
+     * @param {string} fase Identificador de la fase (ej. '0', 'texto:entrada:1').
      */
     constructor(fase) {
         super();
         this._fase = fase;
-        this._patrones = [];
-        this._secuencias = [];
+        this._dipolos = [];
     }
 
     /**
-     * Registra un nodo numérico como patrón en esta antena.
+     * Registra un nuevo dipolo en esta antena.
      *
-     * @param {NodoNumerico} nodo Nodo a registrar como patrón.
+     * Asocia un fragmento de señal (array de matrices) con el nodo numérico
+     * que lo representa. La inserción mantiene la lista ordenada de mayor a
+     * menor longitud de secuencia, lo que garantiza capturas voraces eficientes.
+     *
+     * @param {Matriz2x2[]}  matrices Secuencia de matrices que forman el dipolo.
+     * @param {NodoNumerico} nodo     Nodo numérico que nombra el fragmento.
      * @returns {void}
      * @since 1.4.5
+     * @version 1.4.8
      */
-    _patron(nodo) {
+    _dipolo(matrices, nodo) {
+        if (!matrices || matrices.length === 0) {
+            this.constructor._error('Intento de registrar dipolo con secuencia vacía.');
+            return;
+        }
+
+        // Verificar que el nodo tenga una identidad real
         const identidad = nodo.identidad();
         if (identidad.es_igual(Matriz2x2.inicial())) {
-            this.constructor._error(
-                `El nodo no tiene identidad real. No se registra.`
-            );
+            this.constructor._error('El nodo no posee una identidad real. Dipolo no registrado.');
             return;
         }
 
-        const secuencia = nodo.secuencia_de_matrices();
-        if (!secuencia || secuencia.length === 0) {
-            this.constructor._error(
-                "La secuencia de matrices del patrón está vacía. No se registra."
-            );
-            return;
+        const nueva_longitud = matrices.length;
+        let insertado = false;
+
+        for (let i = 0; i < this._dipolos.length; i++) {
+            if (nueva_longitud > this._dipolos[i].matrices.length) {
+                this._dipolos.splice(i, 0, { matrices: matrices.slice(), nodo: nodo });
+                insertado = true;
+                break;
+            }
         }
 
-        this._patrones.push(nodo);
-        this._secuencias.push(secuencia);
+        if (!insertado) {
+            this._dipolos.push({ matrices: matrices.slice(), nodo: nodo });
+        }
     }
 
     /**
-     * Intenta capturar una porción de la señal a partir de un índice dado.
+     * Intenta capturar una porción de la señal desde un índice dado.
      *
-     * @param {Senal} senal         Señal sobre la que se intenta la captura.
-     * @param {number} indice_actual Índice desde donde comenzar a buscar.
-     * @returns {Array<number, NodoNumerico|null>} [longitud, patron] o [0, null].
+     * Recorre los dipolos (ya ordenados de mayor a menor longitud) y devuelve
+     * la primera coincidencia exacta con el prefijo de la señal.
+     * Ignora siempre el último dipolo registrado para evitar auto‑capturas
+     * durante el aprendizaje.
+     *
+     * @param {Senal}  senal         Señal sobre la que se intenta la captura.
+     * @param {number} indice_actual Índice de inicio en la señal.
+     * @returns {Array<number, NodoNumerico|null>} [longitud capturada, nodo capturado]
+     *         o [0, null] si no hubo coincidencia.
      * @since 1.4.5
-     * @version 1.4.7
+     * @version 1.4.8
      */
     intentar_capturar(senal, indice_actual) {
         const matrices = senal.matrices();
-        const porcion = matrices.slice(indice_actual);
-        const total = porcion.length;
+        const porcion  = matrices.slice(indice_actual);
+        const total    = porcion.length;
 
-        if (total === 0) return [0, null];
+        if (total === 0) {
+            return [0, null];
+        }
 
-        const indices = this._patrones.map((_, i) => i);
-        indices.sort((a, b) => this._secuencias[b].length - this._secuencias[a].length);
+        const ultimo_indice = this._dipolos.length - 1;
 
-        const ultimoIndice = this._patrones.length - 1;
+        for (let idx = 0; idx < this._dipolos.length; idx++) {
+            // Ignorar el último dipolo (auto‑captura)
+            if (idx === ultimo_indice) {
+                continue;
+            }
 
-        for (const idx of indices) {
-            if (idx === ultimoIndice) continue;
+            const dipolo    = this._dipolos[idx];
+            const secuencia = dipolo.matrices;
+            const longitud  = secuencia.length;
 
-            const secuencia = this._secuencias[idx];
-            const longitud = secuencia.length;
-            if (longitud > total) continue;
+            if (longitud > total) {
+                continue;
+            }
 
             let coincide = true;
             for (let i = 0; i < longitud; i++) {
@@ -118,7 +143,7 @@ export class Antena extends Objeto {
             }
 
             if (coincide) {
-                return [longitud, this._patrones[idx]];
+                return [longitud, dipolo.nodo];
             }
         }
 
@@ -126,63 +151,44 @@ export class Antena extends Objeto {
     }
 
     /**
-     * Emite una señal a partir de una lista de p‑gramas registrados en esta antena.
+     * Emite una señal que contiene únicamente la matriz de identidad del nodo dado.
      *
-     * Busca cada p‑grama en el vocabulario, concatena las secuencias de matrices
-     * de todos los patrones encontrados y devuelve una nueva señal con el resultado.
-     * Si algún p‑grama no está registrado, la emisión falla y retorna null.
+     * Construye un nuevo objeto {@link Senal} con una sola matriz (la identidad
+     * del nodo) y le asigna como fase de origen la fase completa de esta antena.
+     * No realiza ninguna comprobación sobre dipolos.
      *
-     * El aprendizaje trivial asegura que todo byte de entrada tenga su patrón
-     * elemental en fase 0, por lo que cualquier p‑grama bien formado podrá
-     * ser traducido sin intervención adicional.
-     *
-     * @param {number[][]} pgramas Lista de p‑gramas a emitir (cada uno es un array de números).
-     * @returns {Senal|null} Señal emitida o null si algún p‑grama no está registrado.
-     * @since 1.4.7
+     * @param {NodoNumerico} nodo Nodo cuya identidad se desea emitir.
+     * @returns {Senal} Señal recién creada con fase de origen establecida.
+     * @since 1.4.8
      */
-    emitir(pgramas) {
+    emitir(nodo) {
+        const matriz_identidad = nodo.identidad();
+        return new Senal([matriz_identidad], this._fase);
+    }
+
+    /**
+     * Emite una señal que contiene las matrices de identidad de todos los nodos
+     * proporcionados en el array.
+     *
+     * Construye un nuevo objeto {@link Senal} concatenando las matrices de
+     * identidad de cada nodo en el orden dado y le asigna como fase de origen
+     * la fase completa de esta antena. No realiza ninguna comprobación sobre
+     * dipolos.
+     *
+     * @param {NodoNumerico[]} nodos Lista de nodos cuyas identidades se emitirán.
+     * @returns {Senal} Señal recién creada con fase de origen establecida.
+     * @since 1.4.8
+     */
+    emitir_varios(nodos) {
         const matrices = [];
-
-        for (const pgrama of pgramas) {
-            let encontrado = false;
-            for (const patron of this._patrones) {
-                if (this._comparar_pgramas(patron.pgrama(), pgrama)) {
-                    // Leer la matriz original guardada en 'abajo'
-                    const paqueteAbajo = patron.dato('abajo');
-                    if (paqueteAbajo && paqueteAbajo.matriz_original) {
-                        matrices.push(paqueteAbajo.matriz_original);
-                    } else {
-                        // Fallback
-                        matrices.push(...patron.secuencia_de_matrices());
-                    }
-                    encontrado = true;
-                    break;
-                }
-            }
-            if (!encontrado) return null;
+        for (const nodo of nodos) {
+            matrices.push(nodo.identidad());
         }
-
-        return new Senal(matrices);
+        return new Senal(matrices, this._fase);
     }
 
     /**
-     * Compara dos p‑gramas elemento a elemento.
-     *
-     * @param {number[]} a
-     * @param {number[]} b
-     * @returns {boolean}
-     * @private
-     */
-    _comparar_pgramas(a, b) {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-            if (a[i] !== b[i]) return false;
-        }
-        return true;
-    }
-
-    /**
-     * Devuelve la fase de la antena.
+     * Devuelve la fase a la que pertenece la antena.
      * @returns {string}
      * @since 1.4.5
      */
@@ -191,11 +197,12 @@ export class Antena extends Objeto {
     }
 
     /**
-     * Devuelve la lista de patrones registrados.
+     * Devuelve la lista de nodos (símbolos internos) conocidos por esta antena.
      * @returns {NodoNumerico[]}
      * @since 1.4.5
+     * @version 1.4.8
      */
-    patrones() {
-        return this._patrones.slice();
+    dipolos() {
+        return this._dipolos.map(d => d.nodo);
     }
 }

@@ -1,6 +1,6 @@
 import { Comunicador } from './Comunicador.js';
 import { Talamo } from '../Controlador/Talamo.js';
-import { Senal } from '../Controlador/Senal.js';
+import { Senal } from '../Iteradores/Senal.js';
 import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
 
 /**

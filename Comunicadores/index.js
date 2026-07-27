@@ -26,5 +26,5 @@ import './Archivo.js';
 // ─── Reexportaciones públicas ───────────────────────────
 export { Comunicador } from "./Comunicador.js";
 export { Archivo } from "./Archivo.js";
-export { SalidaDepuracionHTML } from "./HTML.js";
-export { SalidaDepuracionConsola } from "./Consola.js";
+export { HTML } from "./HTML.js";
+export { Consola } from "./Consola.js";

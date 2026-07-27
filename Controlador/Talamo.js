@@ -1,5 +1,5 @@
 import { ProcesadorDeDominio } from './ProcesadorDeDominio.js';
-import { Senal } from './Senal.js';
+import { Senal } from '../Iteradores/Senal.js';
 import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
 import { NodoNumerico } from '../Nodos/NodoNumerico.js';
 

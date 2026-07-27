@@ -18,10 +18,13 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * | **Prima positiva** | `[[p, 0], [1, 1]]` | Comando constructivo (hacer)|
  * | **Prima negativa** | `[[-p, 0], [1, 1]]`| Comando destructivo (deshacer)|
  * | **Inicial**        | `[[1, 0], [1, 1]]` | Semilla de NodoNumerico     |
+ * | **Cero**           | `[[0, 0], [1, 1]]` | Delimitador de fin de secuencia (det = 0) |
  *
  * - Las matrices **positivas** representan acciones constructivas.
  * - Las matrices **negativas** representan las correspondientes acciones
  *   destructivas (deshaceres), permitiendo revertir cualquier operación.
+ * - La **Matriz Cero** se utiliza como marcador de fin de transmisión
+ *   en las comunicaciones nodo a nodo.
  *
  * ## No conmutatividad y orden
  *
@@ -47,7 +50,7 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * @class
  * @extends Objeto
  * @package Iteradores.Nodos
- * @version 1.4.4
+ * @version 1.4.8
  * @since 1.4.0
  * @author Ignacio David Baigorria
  * @see NodoNumerico
@@ -214,6 +217,18 @@ class Matriz2x2 extends Objeto {
             Math.trunc(arr[2]),
             Math.trunc(arr[3])
         );
+    }
+    
+    /**
+     * Matriz Cero utilizada como delimitador de fin de secuencia.
+     *
+     * Forma: `[[0, 0], [1, 1]]` – determinante 0.
+     *
+     * @returns {Matriz2x2}
+     * @since 1.4.8
+     */
+    static cero() {
+        return new Matriz2x2(0, 0, 1, 1);
     }
 
     /**

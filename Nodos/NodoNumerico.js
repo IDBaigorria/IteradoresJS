@@ -71,7 +71,7 @@ import { FabricaDeNodosNumericos, IdentidadNumerica} from "./Interfaces/index.js
  * @extends NodoElectrico
  * @implements {Nodos.Interfaces.IdentidadNumerica}
  * @implements {Nodos.Interfaces.FabricaDeNodosNumericos}
- * @version 1.4.6
+ * @version 1.4.8
  * @since 1.4.2
  * @author Ignacio David Baigorria
  * @see Matriz2x2
@@ -156,27 +156,49 @@ class NodoNumerico extends  mezclar_clase_con_interfaces(NodoElectrico, Identida
      * Expande la caché global de primos hasta contener al menos los
      * primeros 256 números primos.
      *
-     * Este método está pensado para ser invocado durante la
-     * inicialización del sistema (por ejemplo, desde
-     * {@link Controlador.inicializar}), garantizando que las
-     * compuertas dispongan de todos los primos necesarios para el
-     * mapeo byte↔primo sin tener que generarlos bajo demanda.
+     * Primero recorre {@link Conf#PRIMOS_PRECARGADOS} comprobando que
+     * cada entrada sea realmente un número primo.
+     * Si todos son válidos, los copia en {@link primos_conocidos}.
+     * Si hay algún valor no primo (o el array está vacío), emite una alerta
+     * y genera manualmente los primeros 256 primos como fallback.
      *
      * @returns {void}
      * @since 1.4.6
-     * @version 1.4.7 (usa _es_primo_simple y reinicia el array)
-     * @see CompuertaBase
+     * @version 1.4.8 (recorrido completo de PRIMOS_PRECARGADOS con alerta)
      */
     static inicializar_cache_primos() {
-        this.primos_conocidos = [];            // partir siempre de cero
-        let candidato = 2;
-        while (this.primos_conocidos.length < 256) {
-            if (this._es_primo_simple(candidato)) {
-                this.primos_conocidos.push(candidato);
+        const precargados = Conf.PRIMOS_PRECARGADOS;
+        let valido = true;
+
+        if (!precargados || precargados.length === 0) {
+            valido = false;
+        } else {
+            for (let i = 0; i < precargados.length; i++) {
+                if (!this._es_primo_simple(precargados[i])) {
+                    this._alerta(
+                        `PRIMOS_PRECARGADOS: el valor en la posición ${i} (${precargados[i]}) no es primo. Se usarán 256 primos generados manualmente.`
+                    );
+                    valido = false;
+                    break;
+                }
             }
-            candidato++;
         }
-    }
+
+        if (valido) {
+            // Copiar todos los primos precargados (pueden ser más de 256)
+            this.primos_conocidos = precargados.slice();
+        } else {
+            // Fallback: generar los primeros 256 primos manualmente
+            this.primos_conocidos = [];
+            let candidato = 2;
+            while (this.primos_conocidos.length < 256) {
+                if (this._es_primo_simple(candidato)) {
+                    this.primos_conocidos.push(candidato);
+                }
+                candidato++;
+            }
+        }
+}
 
     // ═══════════════════════════════════════════
     // POOL DE NODOS LIBRES

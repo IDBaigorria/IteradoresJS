@@ -17,7 +17,7 @@ import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 import { RelojAstronomico } from '../Tiempo/RelojAstronomico.js';
 import { NodoNumerico } from '../Nodos/NodoNumerico.js';
 import { ProcesadorDeDominio } from './ProcesadorDeDominio.js';
-import { Senal } from './Senal.js';
+import { Senal } from '../Iteradores/Senal.js';
 import { Talamo } from '../Controlador/Talamo.js';
 // console.log("Controlador");  
 
@@ -1393,17 +1393,17 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             NodoNumerico.inicializar_cache_primos();
 
             // ─── Inicializar mapeo byte ↔ matriz ─────────────────
-            MapeoBytesMatrices.inicializar();
+            //MapeoBytesMatrices.inicializar();
 
             // ─── Inicializar tálamo (fase 0 con 256 primos) ───
-            const proc_talamo_entrada = Controlador.procesador('Talamo', 'entrada');
+          /*  const proc_talamo_entrada = Controlador.procesador('Talamo', 'entrada');
             for (let byte = 0; byte < 256; byte++) {
                 const matriz = MapeoBytesMatrices.byte_a_matriz(byte);
                 if (matriz) {
                     const nodo = NodoNumerico.crear_primo(NodoNumerico.primos_conocidos[byte]);
                     proc_talamo_entrada._patron(nodo, 0);
                 }
-            }
+            }*/
 
             // ─── Procesar comandos pendientes desde RegistroGlobal ────
             for (const entrada of RegistroGlobal.comandos_pendientes) {

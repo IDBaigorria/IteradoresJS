@@ -14,7 +14,7 @@ import { NodoElectrico } from '../Nodos/NodoElectrico.js';
 import { NodoNumerico } from '../Nodos/NodoNumerico.js';
 import { NodoPrimo } from '../Nodos/NodoPrimo.js';
 import { NodoParalelo } from '../Nodos/NodoParalelo.js';
-import { Senal } from '../Controlador/Senal.js';
+import { Senal } from '../Iteradores/Senal.js';
 import { Antena } from '../Controlador/Antena.js';
 import { ProcesadorDeDominio } from '../Controlador/ProcesadorDeDominio.js';
 import { MapeoBytesMatrices } from '../Controlador/MapeoBytesMatrices.js';   

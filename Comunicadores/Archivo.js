@@ -1,7 +1,7 @@
 import { Comunicador } from './Comunicador.js';
 import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
 import { Talamo } from '../Controlador/Talamo.js';
-import { Senal } from '../Controlador/Senal.js';
+import { Senal } from '../Iteradores/Senal.js';
 
 /**
  * Comunicador para lectura/escritura de archivos en el navegador.
