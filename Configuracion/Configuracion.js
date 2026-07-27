@@ -445,7 +445,7 @@ class Conf {
         1453, 1459, 1471, 1481, 1483, 1487, 1489, 1493, 1499, 1511, 1523, 1531,
         1543, 1549, 1553, 1559, 1567, 1571, 1579, 1583, 1597, 1601, 1607, 1609,
         1613, 1619,
-        
+
         // 256..511: mas primos
         1621, 1627, 1637, 1657, 1663, 1667, 1669, 1693, 1697, 
         1699, 1709, 1721, 1723, 1733, 1741, 1747, 1753, 1759, 1777, 1783, 1787,
@@ -470,6 +470,68 @@ class Conf {
         3533, 3539, 3541, 3547, 3557, 3559, 3571, 3581, 3583, 3593, 3607, 3613,
         3617, 3623, 3631, 3637, 3643, 3659, 3671,
     ];
+
+        // ═══════════════════════════════════════════════════════════
+    // VERBOS DE ACCIÓN (v1.4.9)
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Verbo de cierre: indica el fin de una comunicación entre Iteradores.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_CIERRE = 0;
+
+    /**
+     * Verbo: aprender un nuevo patrón o secuencia.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_APRENDER = 1;
+
+    /**
+     * Verbo: ejecutar una acción ya aprendida.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_EJECUTAR = 2;
+
+    /**
+     * Verbo: tomar el control de un recurso o iterador.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_CONTROLAR = 3;
+
+    /**
+     * Verbo: corregir un patrón o secuencia previamente aprendida.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_CORREGIR = 4;
+
+    /**
+     * Verbo: solicitar una predicción basada en patrones conocidos.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_PREDECIR = 5;
+
+    /**
+     * Verbo: generar contenido nuevo a partir de lo aprendido.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_IMAGINAR = 6;
+
+    /**
+     * Verbo: supervisar el funcionamiento de otro Iterador.
+     * @type {number}
+     * @since 1.4.9
+     */
+    static VERBO_SUPERVISAR = 7;
+
+    // Se pueden añadir más verbos según sea necesario, idealmente de forma secuencial.
 }
 
 export {Conf}

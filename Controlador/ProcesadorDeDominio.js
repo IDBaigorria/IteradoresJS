@@ -1,5 +1,4 @@
 import { Objeto } from '../Nucleo/Objeto.js';
-import { Antena } from './Antena.js';
 import { NodoElectrico } from '../Nodos/NodoElectrico.js';
 import { NodoNumerico } from '../Nodos/NodoNumerico.js';
 import { Senal } from '../Iteradores/Senal.js';
