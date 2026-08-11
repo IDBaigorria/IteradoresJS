@@ -17,7 +17,7 @@ console.log("NodoElectrico");
  * - La propiedad `pesos` es `null` hasta que se asigna el primer peso.
  * - Si solo hay un peso (sin dimensión explícita) se guarda como escalar.
  * - Si se añade una segunda dimensión, se migra a un objeto (clave '' para el default).
- *
+ * @author Ignacio David Baigorria
  * @class
  * @package Nodos
  * @since 1.2.9

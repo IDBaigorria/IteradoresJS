@@ -17,6 +17,8 @@
  * preocuparse de los detalles de obtención de la ubicación ni del modelo
  * astronómico.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class VectorGravitacional
  * @since 1.3.6
  */

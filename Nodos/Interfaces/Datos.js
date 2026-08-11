@@ -4,6 +4,8 @@
  * Permite establecer y recuperar un valor almacenado en el nodo.
  * Estos métodos son implementados por la clase {@link Nodos.Nodo Nodo}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V3.2.1
  * @memberof Nodos.Interfaces

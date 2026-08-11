@@ -13,6 +13,8 @@ import { Datos } from './Datos.js';
  *
  * Esta interfaz es una **extracción** del trabajo realizado en la versión 1.4.1.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @extends Datos
  * @memberof Nodos.Interfaces

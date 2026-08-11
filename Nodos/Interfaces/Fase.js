@@ -2,6 +2,8 @@
  * Interfaz que define el manejo de fase en un nodo.
  *
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V1.2.0
  * @memberof Nodos.Interfaces

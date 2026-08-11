@@ -3,6 +3,8 @@ import { Iterador } from './Iterador.js';
 /**
  * Itera sobre nodos eléctricos en el grafo.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class IteradorElectrico
  * @extends Iterador
  * @since 1.5.0

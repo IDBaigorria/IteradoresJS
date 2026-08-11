@@ -10,6 +10,8 @@
  * que el {@link Controlador} expone para controlar los dominios.
  * Por ahora, solo el `Controlador` la extiende.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class Dominios
  * @since 1.3.9
  */

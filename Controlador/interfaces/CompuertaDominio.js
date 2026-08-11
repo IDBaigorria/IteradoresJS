@@ -14,6 +14,8 @@
  *
  * Por ahora esta clase es solo documental y no declara métodos.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class CompuertaDominio
  * @since 1.3.8
  */

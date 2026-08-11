@@ -21,6 +21,8 @@ import { SenalAccion } from '../Iteradores/SenalAccion.js';
  * - {@link AntenaTraduccionAccion#traducir_a_senal}: crea una {@link SenalAccion} a partir de un verbo.
  * - {@link AntenaTraduccionAccion#traducir_a_verbo}: extrae el verbo de una {@link SenalAccion}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class AntenaTraduccionAccion
  * @extends Objeto
  * @since 1.4.9

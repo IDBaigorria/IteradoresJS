@@ -5,6 +5,8 @@
  * Versión 1.4.8: {@link Senal}, {@link AntenaComun}, {@link AntenaDeMarcado}.
  * Version 1.4.9: {@link AntenaAccion}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @namespace Iteradores
  * @vesrion 1.4.9
  */

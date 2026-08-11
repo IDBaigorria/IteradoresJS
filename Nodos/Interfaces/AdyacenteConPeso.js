@@ -6,6 +6,8 @@ import { Adyacentes } from './Adyacentes.js'; // Ajusta la ruta de importación 
  * Combina la creación de un enlace adyacente y la asignación de un peso en un solo paso.
  * Estos métodos son implementados por la clase {@link Nodos.NodoElectrico NodoElectrico}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @extends Nodos.Interfaces.Adyacentes
  * @since 1.2.9

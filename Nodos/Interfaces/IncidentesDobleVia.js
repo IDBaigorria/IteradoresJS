@@ -6,6 +6,8 @@ import { Incidentes } from "./Incidentes.js";
  * Permite establecer y recuperar un valor almacenado en el nodo.
  * Estos métodos son implementados por la clase {@link Nodos.Nodo Nodo}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V0.2.0
  * @memberof Nodos.Interfaces

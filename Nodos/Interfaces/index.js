@@ -34,6 +34,8 @@
  * - Los setters usan el prefijo `_` (ej. `_identidad`, `_fase`).
  * - Documentación JSDoc exhaustiva con `@param`, `@returns`, `@see`, etc.
  *
+ * @author Ignacio David Baigorria
+ *
  * @version 1.4.4
  * @since 1.0.0
  * @author Ignacio David Baigorria

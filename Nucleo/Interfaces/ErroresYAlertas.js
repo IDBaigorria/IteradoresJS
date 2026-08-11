@@ -2,10 +2,14 @@ import { mezclar_clase_con_interfaces } from "../../miscelaneas/mixin.js";
 import { Errores, Alertas } from "./index.js";
 
 /**
+ *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @extends Nucleo.Interfaces.Errores
  * @extends Nucleo.Interfaces.Alertas
  * @memberof Nucleo.Interfaces
+ * 
  */
 class ErroresYAlertas extends mezclar_clase_con_interfaces(Errores, Alertas) {
   /**

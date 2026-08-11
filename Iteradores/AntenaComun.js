@@ -45,6 +45,8 @@ import { Entorno } from '../Configuracion/Entorno.js';
  * - {@link AntenaComun#antena} devuelve la instancia única.
  * - {@link AntenaComun#reiniciar} la destruye (solo en entorno de pruebas).
  *
+ * @author Ignacio David Baigorria
+ *
  * @class AntenaComun
  * @extends Objeto
  * @since 1.4.8

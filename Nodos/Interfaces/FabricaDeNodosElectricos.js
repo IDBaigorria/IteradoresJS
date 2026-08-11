@@ -40,6 +40,9 @@ import { Conf } from "../../Configuracion/index.js"
  * de creacion capacidad y fuga. Para que sea compatible con la intefaz de nodo las pondremos opciones
  * en cada entrada de las funciones de creacion y tomaremos los valores por defecto de la clase Conf si 
  * es que no se proporcionan.
+ *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V1.2.0
  * @memberof Nodos.Interfaces

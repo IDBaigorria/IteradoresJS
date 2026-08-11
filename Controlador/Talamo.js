@@ -9,6 +9,8 @@ import { NodoNumerico } from '../Nodos/NodoNumerico.js';
  * Es un {@link ProcesadorDeDominio} limitado a la fase 0 y precargado con
  * los 256 patrones byte↔matriz. Singleton gestionado por el {@link Controlador}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class Talamo
  * @extends ProcesadorDeDominio
  * @since 1.4.7

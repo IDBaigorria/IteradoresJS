@@ -13,6 +13,8 @@ import { Matriz2x2 } from '../Matriz2x2.js';
  * - Proveer el **p‑grama** (lista de factores primos) único del nodo.
  * - Permitir consultar si el nodo es atómico.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @package Iteradores.Nodos.Interfaces
  * @version 1.4.5

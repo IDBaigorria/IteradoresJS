@@ -11,6 +11,8 @@
  * El orden de los imports no es crítico, pero se agrupan por categoría
  * (Depuración, Prueba) para facilitar el mantenimiento.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @namespace Comandos
  * @since 1.3.0
  * @version 1.3.4

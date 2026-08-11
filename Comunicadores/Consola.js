@@ -11,6 +11,8 @@ import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
  * `process.stdin`. La traducción entre bytes y señales se delega
  * en el {@link Talamo}.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class Consola
  * @extends Comunicador
  * @since 1.3.3 (anteriormente SalidaDepuracionConsola)

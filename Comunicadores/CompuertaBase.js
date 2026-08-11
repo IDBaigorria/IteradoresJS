@@ -12,6 +12,8 @@ import { CompuertaDominio } from './CompuertaDominio.js';
  * Las compuertas concretas solo necesitan implementar
  * {@link CompuertaDominio#descomponer}.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class CompuertaBase
  * @extends CompuertaDominio
  * @since 1.4.6

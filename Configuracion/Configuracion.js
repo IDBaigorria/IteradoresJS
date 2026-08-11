@@ -2,6 +2,8 @@
  * Clase de configuración global de la aplicación.
  * Todas las propiedades son estáticas e inmutables.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class
  * @memberof Configuracion
  *

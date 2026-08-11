@@ -35,6 +35,8 @@
  * - El método {@link ProveedorVectorGravitacional#_ubicacion} debe invalidar
  *   cualquier caché interna para forzar el recálculo con las nuevas coordenadas.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class ProveedorVectorGravitacional
  * @since 1.3.5
  */

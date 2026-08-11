@@ -14,6 +14,8 @@
  * para que el Controlador pueda validar argumentos y generar
  * automáticamente la ayuda.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @interface
  * @memberof Nucleo.Interfaces
  * @since 1.3.1

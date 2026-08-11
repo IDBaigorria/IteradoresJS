@@ -1,5 +1,8 @@
 /**
  * Interfaz de objetos con id único.
+ *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @memberof Nucleo.Interfaces
  */

@@ -58,6 +58,8 @@ import { Comando } from './../../Comandos/index.js';
  * - {@link Configuracion.Entorno} determina si el entorno permite el registro.
  * - {@link Configuracion.Conf} almacena las credenciales y parámetros que los comandos pueden necesitar.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @interface
  * @memberof Controlador.Interfaces
  * @since 1.3.1

@@ -29,6 +29,8 @@ import { Matriz2x2 } from '../Nodos/Matriz2x2.js';
  * {@link Controlador} (a través de sus antenas de traducción) y del
  * Tálamo.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class Senal
  * @extends Objeto
  * @since 1.4.5

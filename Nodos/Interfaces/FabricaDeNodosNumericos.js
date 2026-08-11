@@ -9,6 +9,8 @@ import { Conf } from '../../Configuracion/Configuracion.js';
  * Es implementada por {@link NodoNumerico}, que actúa como orquestador de todas
  * las creaciones.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @package Iteradores.Nodos.Interfaces
  * @version 1.4.4

@@ -13,6 +13,8 @@ import { Objeto } from '../../Nucleo/Objeto.js';
  * **Entorno:** solo disponible en desarrollo y pruebas.
  * **Reversible:** No.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class ComandoDepuracionRecoleccion
  * @extends Comando
  * @since 1.3.1

@@ -14,6 +14,8 @@
  * - {@link siguiente_primo_libre} extrae un nodo del pool o crea uno nuevo.
  * - {@link devolver_primo_libre} retorna un nodo al pool para su reutilización.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @package Iteradores.Nodos.Interfaces
  * @version 1.4.4

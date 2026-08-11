@@ -1,6 +1,8 @@
 /** 
  * @namespace Nodos
- * 
+ *
+ * @author Ignacio David Baigorria
+ *
 */
 console.log("Nodo.index.js");
 export {Nodo} from './Nodo.js';

@@ -2,6 +2,8 @@
  * Mezcla interfaces en una clase base.
  * Solo copia métodos de instancia y estáticos. No llama constructores.
  *
+ * @author Ignacio David Baigorria
+ *
  * @param {class} ClaseBase - Clase base
  * @param  {...class} Interfaces - Clases tipo interfaz
  * @returns {class} Clase nueva que combina Base con las interfaces

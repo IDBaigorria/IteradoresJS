@@ -10,6 +10,8 @@
  * La representación interna de los pesos es opaca para el usuario;
  * la interfaz garantiza el acceso uniforme.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since 1.2.9
  * @memberof Nodos.Interfaces

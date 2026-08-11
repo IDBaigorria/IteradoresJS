@@ -6,6 +6,8 @@
  * @interface
  * @memberof Nucleo.Interfaces
  *
+ * @author Ignacio David Baigorria
+ *
  * @example
  *export class MiClase extends Objeto {/Objeto implementa la interfaz Errores
  * ...

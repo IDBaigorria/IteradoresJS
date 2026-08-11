@@ -15,6 +15,8 @@
  * ⚠️ Método `eliminar_autoenlazado(nodo)` está marcado como `@deprecated`:  
  * la responsabilidad de limpiar autoenlaces recae sobre el programador.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V3.2
  * @memberof Nodos.Interfaces

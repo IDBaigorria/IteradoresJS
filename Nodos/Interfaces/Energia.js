@@ -13,6 +13,8 @@
  *
  * Los callbacks reciben siempre como primer argumento la instancia del nodo.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V1.3.0
  * @memberof Nodos.Interfaces

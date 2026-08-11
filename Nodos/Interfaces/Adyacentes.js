@@ -6,7 +6,9 @@
  * y herederos.
  * 
  * La representacion interna puede variar segun la implementacion 
- * 
+ *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V0.1.9
  * @memberof Nodos.Interfaces

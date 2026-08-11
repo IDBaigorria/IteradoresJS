@@ -9,6 +9,8 @@ console.log("PerdurarSuperestructuraElectricosStringIndexedDB");
  * como alternativa local al sistema SQL. 
  * 
  * Equivalente funcional de {@link PerdurarSuperestructuraStringSQL}.
+ *
+ * @author Ignacio David Baigorria
  * 
  * @extends {Objeto}
  * @implements {PerdurarSuperestructura}

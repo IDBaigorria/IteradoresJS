@@ -8,6 +8,8 @@
  * {@link ProcesadorDeDominio}, {@link AplanadorSenal} y
  * {@link MapeoBytesMatrices}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @namespace Controlador
  * @since 1.3.0
  * @version 1.4.8

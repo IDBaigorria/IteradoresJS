@@ -36,6 +36,8 @@
  *   (autoencolación) ocurren antes de que el Controlador se
  *   evalúe.
  *
+ * @author Ignacio David Baigorria
+ *
  * @module Index
  * @since  1.3.0
  * @version 1.3.4

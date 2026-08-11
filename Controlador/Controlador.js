@@ -25,6 +25,9 @@ import { Talamo } from '../Controlador/Talamo.js';
  * Clase Controlador que gestiona la persistencia de la superestructura.
  * 
  * Permite elegir el método de guardado (sql, json, texto, etc.) en tiempo de ejecución.
+ *
+ * @author Ignacio David Baigorria
+ *
  * @class
  * @extends Objeto
  * @implements {Controlador.PerdurarSuperestructura.PerdurarSuperestructura}

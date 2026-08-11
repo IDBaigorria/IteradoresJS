@@ -25,6 +25,8 @@
  *   patrones hasta sus primos atómicos, y generar comandos del sistema
  *   (p. ej. `['escribir_byte', 65]`) listos para ser encolados.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @interface
  * @since 1.4.6
  * @version 1.4.6

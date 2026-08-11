@@ -7,6 +7,8 @@
  * 
  * Cada clase que implemente esta interfaz deberá proveer
  * su propia lógica para cada método.
+ *
+ * @author Ignacio David Baigorria
  * 
  * @since V3.3.0
  */

@@ -10,6 +10,8 @@
  * los comandos pueden obtener la referencia al Controlador a través de
  * {@link controlador}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @module Controlador/RegistroGlobal
  * @since 1.3.4
  */

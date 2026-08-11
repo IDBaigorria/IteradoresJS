@@ -30,6 +30,8 @@ import { NodoNumerico } from '../Nodos/NodoNumerico.js';
  * }
  * ```
  *
+ * @author Ignacio David Baigorria
+ *
  * @class AplanadorSenal
  * @since 1.4.6
  * @version 1.4.6

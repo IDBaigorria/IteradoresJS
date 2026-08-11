@@ -24,6 +24,8 @@ import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
  * - Permite realizar predicciones buscando en el grafo pesos cuyos vectores
  *   sean cercanos a una configuración futura simulada.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class RelojAstronomico
  * @extends Objeto
  * @implements {ProveedorVectorGravitacional}

@@ -17,6 +17,8 @@ import { Conf } from '../Configuracion/Configuracion.js';
  * Incorpora el mecanismo de **sapiencia** (proporción de matrices capturadas
  * sobre el total procesado) y el aprendizaje trivial en fase 0.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class ProcesadorDeDominio
  * @extends Objeto
  * @since 1.4.5

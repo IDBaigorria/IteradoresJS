@@ -1,5 +1,7 @@
 /** 
  * @namespace Configuracion
+ *
+ * @author Ignacio David Baigorria
  * 
 */
 //console.log("Configuracion.index.js");

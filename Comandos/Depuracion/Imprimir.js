@@ -9,6 +9,8 @@ import { Objeto } from '../../Nucleo/Objeto.js';
  * Solo está disponible en entornos de desarrollo y pruebas.
  * No es reversible.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class ComandoDepuracionImprimir
  * @extends Comando
  * @since 1.3.1

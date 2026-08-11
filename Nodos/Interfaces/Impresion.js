@@ -4,6 +4,8 @@
  * Define un único método `imprimir()` que se adapta automáticamente al tipo de
  * salida configurado en {@link Configuracion.Entorno Entorno} (HTML o consola).
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @memberof Nodos.Interfaces
  * @since V3.2.5

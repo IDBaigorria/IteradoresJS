@@ -13,6 +13,8 @@ import { Senal } from '../Iteradores/Senal.js';
  * A partir de la versión 1.4.7, la conversión entre bytes y {@link Senal}
  * se delega en el {@link Talamo}.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class Archivo
  * @extends Comunicador
  * @since 1.3.3

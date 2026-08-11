@@ -11,6 +11,8 @@
  * Los comunicadores de salida (consola y HTML) se cargan primero,
  * seguidos por el comunicador de archivo.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @namespace Comunicadores
  * @since 1.3.3
  * @version 1.3.4

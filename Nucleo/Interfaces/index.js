@@ -1,4 +1,7 @@
 /** 
+ *
+ * @author Ignacio David Baigorria
+ *
  * @namespace Interfaces
  * @memberof Nucleo
 */

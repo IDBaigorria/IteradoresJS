@@ -18,6 +18,8 @@ import { Objeto } from '../Nucleo/Objeto.js';
  * - `verbo` (number): constante de acción definida en {@link Conf}.
  * - `fase_origen` (string): fase completa desde la que se emite la señal.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class SenalAccion
  * @extends Objeto
  * @since 1.4.9

@@ -6,6 +6,8 @@
  * Cada implementación es responsable de la conversión entre el medio
  * nativo y la representación canónica de señales.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @interface
  * @memberof Comunicadores
  * @since 1.3.3

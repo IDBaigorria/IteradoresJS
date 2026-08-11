@@ -35,6 +35,8 @@ import { Conf } from '../Configuracion/Configuracion.js';
  * (`marcado = true`), porque están destinadas a ser procesadas por la
  * {@link AntenaDeMarcado} del Tálamo.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class AntenaTraduccion
  * @extends Objeto
  * @since 1.4.8

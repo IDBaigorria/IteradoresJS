@@ -10,6 +10,8 @@ import { NodoElectrico } from '../../Nodos/index.js';
  *
  * **Reversible:** Sí – elimina el nodo creado.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class ComandoPruebaCrearNodo
  * @extends Comando
  * @since 1.3.2

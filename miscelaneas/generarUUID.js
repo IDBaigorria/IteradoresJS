@@ -17,6 +17,9 @@
  * La versión con `crypto.randomUUID()` es criptográficamente segura.
  * El polyfill con `Math.random()` solo debe usarse para identificadores
  * internos, logs o nombres de objetos temporales.
+ *
+ * @author Ignacio David Baigorria
+ *
  */
 export function generarUUID() {
   // Usa la implementación nativa si está disponible

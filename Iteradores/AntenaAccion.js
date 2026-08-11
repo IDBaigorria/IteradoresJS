@@ -31,6 +31,8 @@ import { SenalAccion } from './SenalAccion.js';
  * - {@link AntenaAccion#antena} devuelve la instancia única.
  * - {@link AntenaAccion#reiniciar} la destruye (solo en entorno de pruebas).
  *
+ * @author Ignacio David Baigorria
+ *
  * @class AntenaAccion
  * @extends Objeto
  * @since 1.4.9

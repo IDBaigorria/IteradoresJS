@@ -1,6 +1,9 @@
 /** 
  * @namespace Interfaces
  * @memberof Controlador
+ * 
+ * @author Ignacio David Baigorria
+ * 
 */
 import { Comandos } from './Comandos.js';
 import { Comunicadores } from './Comunicadores.js';

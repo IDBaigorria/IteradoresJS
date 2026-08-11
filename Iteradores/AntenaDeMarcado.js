@@ -45,6 +45,8 @@ import { Entorno } from '../Configuracion/Entorno.js';
  * - {@link AntenaDeMarcado#reiniciar} la destruye (solo en entorno de pruebas,
  *   verificado con {@link Entorno#permite_pruebas}).
  *
+ * @author Ignacio David Baigorria
+ *
  * @class AntenaDeMarcado
  * @extends Objeto
  * @see AntenaComun

@@ -7,6 +7,8 @@
  * 
  * Estos métodos son implementados por la clase {@link Nodos.Nodo Nodo}.
  *
+ * @author Ignacio David Baigorria
+ *
  * @interface
  * @since V3.2.4
  * @memberof Nodos.Interfaces

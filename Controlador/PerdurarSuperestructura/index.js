@@ -1,6 +1,9 @@
 /** 
  * @namespace PerdurarSuperestructura
  * @memberof Nodos
+ * 
+ * @author Ignacio David Baigorria
+ * 
 */
 import { PerdurarSuperestructura } from './PerdurarSuperestructura.js';
 import { PerdurarSuperestructuraStringIndexedDB } from './PerdurarSuperestructuraStringIndexedDB.js';

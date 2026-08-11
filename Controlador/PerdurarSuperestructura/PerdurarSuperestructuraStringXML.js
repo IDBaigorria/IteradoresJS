@@ -9,7 +9,9 @@ console.log("PerdurarSuperestructuraStringJSON");
  * Clase PerdurarSuperestructuraXML
  * 
  * @version 1.0.0 (Última revisión: 28/10/2025)
- * @author ...
+ *
+ * @author Ignacio David Baigorria
+ *
  * 
  * @extends Objeto
  * @implements PerdurarSuperestructura

@@ -3,6 +3,8 @@ import { IteradorElectrico } from './IteradorElectrico.js';
 /**
  * Itera sobre nodos numéricos y gestiona el ascenso de patrones.
  *
+ * @author Ignacio David Baigorria
+ *
  * @class IteradorNumerico
  * @extends IteradorElectrico
  * @since 1.5.0

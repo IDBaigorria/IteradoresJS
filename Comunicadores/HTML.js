@@ -10,6 +10,8 @@ import { RegistroGlobal } from '../Controlador/RegistroGlobal.js';
  * `salida-estandar`. No admite entrada. La traducción entre
  * bytes y señales se delega en el {@link Talamo}.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class HTML
  * @extends Comunicador
  * @since 1.3.3 (anteriormente SalidaDepuracionHTML)

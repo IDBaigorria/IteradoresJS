@@ -13,6 +13,8 @@
  * que el {@link Controlador} expone para controlar el ciclo de vida
  * del motor. Por ahora, solo el `Controlador` la extiende.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @class Motor
  * @since 1.3.7
  * @version 1.3.9

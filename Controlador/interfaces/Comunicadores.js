@@ -9,6 +9,8 @@ import { Comunicador } from './../../Comunicadores/index.js';
  * También expone un método de conveniencia para escribir directamente
  * en la salida estándar configurada según el entorno para depuración.
  *
+ * @author Ignacio David Baigorria
+ * 
  * @interface
  * @memberof Comunicadores
  * @since 1.3.3
