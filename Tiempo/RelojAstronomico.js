@@ -1,109 +1,30 @@
 /**
  * Reloj Astronómico — Iteradores Neuronales.
  *
- * Implementa {@link ProveedorVectorGravitacional} y proporciona un
- * **ramillete de espines** (vectores individuales por astro) que representan
- * de forma determinista la configuración del cielo local para cualquier
+ * Genera un **ramillete de espines** (vectores individuales por astro) que
+ * representan de forma determinista la configuración celeste para cualquier
  * ubicación geográfica e instante de tiempo.
  *
- * A partir de la versión 1.5.1, el reloj abandona el vector único combinado
- * en favor de un conjunto independiente de espines gravitacionales. Cada astro
- * es una entrada autónoma en el Plano Cósmico, con su propia masa y dirección.
- * Esto allana el camino para la arquitectura de *Iteradores Neuronales*, donde
- * el contexto se organiza en planos ortogonales (Cósmico, Rítmico,
- * Estado×Acción).
- *
- * El cálculo utiliza un modelo geométrico simplificado con órbitas circulares
- * que genera ciclos día/noche, fases lunares, estaciones, la precesión nodal
- * lunar (18.6 años), el ciclo de Júpiter (~11.86 años) y el bamboleo del eje
- * terrestre (~25 800 años), sin necesidad de efemérides de alta precisión.
- *
- * ## Prisma geográfico simplificado (v1.5.1)
- *
- * Desde la versión 1.5.1, el prisma geográfico no es un operador externo
- * que transforme cada plano. Es un **espin adicional** en el ramillete:
- * `centro_tierra`, un vector que apunta desde el observador hacia el centro
- * de la Tierra, expresado en el marco inercial del sistema. Al sumarse
- * ponderadamente con los demás espines, distorsiona naturalmente el vector
- * de activación según la ubicación geográfica y la hora del día (vía LST).
- *
- * ## Rol en el sistema
- *
- * - Los iteradores obtienen el ramillete de espines a través del Controlador.
- * - Cada espin se usa para "marcar" las ramas que recorren (huella temporal).
- * - La distancia entre el espin almacenado y el espin actual mide la
- *   "antigüedad" relativa de ese recuerdo.
- * - Permite realizar predicciones buscando ramas cuyos espines sean cercanos
- *   a una configuración futura simulada.
+ * A partir de la versión 1.5.2, el marco de referencia es
+ * **galáctico‑eclíptico**. Los espines cósmicos (Sol, Luna, Júpiter, eje
+ * terrestre) se expresan en un marco común a todo el planeta, de modo que
+ * dos observadores en distintos lugares comparten exactamente esos vectores.
+ * La ubicación geográfica queda representada únicamente por el espin
+ * `centro_tierra`, que apunta hacia el centro del planeta.
  *
  * @class RelojAstronomico
  * @extends Objeto
- * @implements {ProveedorVectorGravitacional}
  * @author Ignacio David Baigorria
  * @since 1.3.5
- * @version 1.5.1
+ * @version 1.5.2
  */
 
 import { Conf } from '../Configuracion/Configuracion.js';
 import { Objeto } from "../Nucleo/index.js";
-import { ProveedorVectorGravitacional } from './interfaces/index.js';
+import { ProveedorEspines } from './interfaces/index.js';
 import { mezclar_clase_con_interfaces } from "../miscelaneas/mixin.js";
 
-class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVectorGravitacional) {
-    // ═══════════════════════════════════════════════════════
-    // REGISTRO DE ASTROS (extensible)
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * Astros registrados en el reloj con sus masas gravitacionales.
-     *
-     * Esta estructura permite agregar nuevos astros sin modificar la lógica
-     * de cálculo central. Cada astro es una entrada independiente en el
-     * Plano Cósmico.
-     *
-     * `centro_tierra` actúa como prisma geográfico: es el vector que apunta
-     * desde el observador hacia el centro del planeta. Su dirección depende
-     * de la latitud, longitud y el tiempo sidéreo local, de modo que dos
-     * observadores en distintos lugares (o el mismo lugar en distintos
-     * momentos) generan vectores de activación distintos.
-     *
-     * @type {Object.<string, {masa: number, tipo: string}>}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     */
-    static ASTROS = {
-        sol:            { masa: 10.0, tipo: 'Astro' },
-        luna:           { masa: 5.8,  tipo: 'Astro' },
-        jupiter:        { masa: 7.3,  tipo: 'Astro' },
-        eje_terrestre:  { masa: 8.0,  tipo: 'Eje' },
-        centro_tierra:  { masa: 9.0,  tipo: 'Prisma' },
-    };
-
-    /**
-     * Período orbital de Júpiter en años terrestres.
-     *
-     * @type {number}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     */
-    static PERIODO_JUPITER_ANIOS = 11.86;
-
-    /**
-     * Período de precesión del eje terrestre en años terrestres.
-     *
-     * @type {number}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     */
-    static PERIODO_PRECESION_ANIOS = 25800.0;
-
-    // ═══════════════════════════════════════════════════════
-    // ESTADO INTERNO PARA CACHÉ DE CÓMPUTOS
-    // ═══════════════════════════════════════════════════════
-
+class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorEspines) {
     /**
      * Latitud configurada para esta instancia (en grados, -90 a 90).
      * @type {number}
@@ -119,18 +40,11 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
     _longitud;
 
     /**
-     * Último timestamp para el que se calculó el vector (Unix).
+     * Último tiempo Unix para el que se calculó el ramillete.
      * @type {number|null}
      * @private
      */
-    _ultimo_timestamp = null;
-
-    /**
-     * Último vector de activación calculado (caché).
-     * @type {{x: number, y: number, z: number}|null}
-     * @private
-     */
-    _ultimo_vector = null;
+    _ultimo_tiempo_unix = null;
 
     /**
      * Último ramillete de espines calculado (caché).
@@ -140,62 +54,32 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
     _ultimo_espines = null;
 
     /**
-     * Construye un reloj con estado ligado a una ubicación fija.
+     * Escalas temporales y astros relevantes.
+     * @type {Object<string, string[]>}
+     * @since 1.5.2
+     */
+    static ESCALAS_TEMPORALES = {
+        segundos: ['centro_tierra'],
+        horas:    ['centro_tierra'],
+        dias:     ['sol'],
+        semanas:  ['sol'],
+        meses:    ['sol'],
+        anios:    ['jupiter'],
+        decadas:  ['eje_terrestre'],
+        siglos:   ['eje_terrestre'],
+        milenios: ['eje_terrestre'],
+    };
+
+    /**
+     * Constructor.
      *
-     * @param {number} latitud  Latitud en grados (-90 a 90).
-     * @param {number} longitud Longitud en grados (-180 a 180).
-     * @author Ignacio David Baigorria
-     * @since 1.3.5
-     * @version 1.5.1
+     * @param {number} latitud  Latitud en grados.
+     * @param {number} longitud Longitud en grados.
      */
     constructor(latitud, longitud) {
         super();
         this._latitud = latitud;
         this._longitud = longitud;
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // MÉTODOS PÚBLICOS
-    // ═══════════════════════════════════════════════════════
-
-    /**
-     * Devuelve el vector de activación combinado para el instante dado.
-     *
-     * @param {number|null} [timestamp=null] Marca de tiempo Unix. Si es null,
-     *   usa `Date.now() / 1000`.
-     * @returns {{x: number, y: number, z: number}} Vector unitario.
-     * @author Ignacio David Baigorria
-     * @since 1.3.5
-     * @version 1.5.1
-     */
-    vector(timestamp = null) {
-        const ts = timestamp ?? Math.floor(Date.now() / 1000);
-
-        if (this._ultimo_timestamp === ts && this._ultimo_vector !== null) {
-            return this._ultimo_vector;
-        }
-
-        this._ultimo_timestamp = ts;
-        this._ultimo_vector = RelojAstronomico._calcular_vector(this._latitud, this._longitud, ts);
-        this._ultimo_espines = null;
-
-        return this._ultimo_vector;
-    }
-
-    /**
-     * Método estático para obtener el vector de activación sin estado.
-     *
-     * @param {number} latitud   Latitud en grados.
-     * @param {number} longitud  Longitud en grados.
-     * @param {number|null} [timestamp=null] Marca de tiempo Unix.
-     * @returns {{x: number, y: number, z: number}} Vector unitario.
-     * @author Ignacio David Baigorria
-     * @since 1.3.5
-     * @version 1.5.1
-     */
-    static vector_gravitacional(latitud, longitud, timestamp = null) {
-        const ts = timestamp ?? Math.floor(Date.now() / 1000);
-        return this._calcular_vector(latitud, longitud, ts);
     }
 
     /**
@@ -204,52 +88,29 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
      * @param {number} latitud  Nueva latitud.
      * @param {number} longitud Nueva longitud.
      * @returns {void}
-     * @author Ignacio David Baigorria
-     * @since 1.3.5
-     * @version 1.5.1
      */
     _ubicacion(latitud, longitud) {
         this._latitud = latitud;
         this._longitud = longitud;
-        this._ultimo_timestamp = null;
-        this._ultimo_vector = null;
+        this._ultimo_tiempo_unix = null;
         this._ultimo_espines = null;
     }
-
-    // ═══════════════════════════════════════════════════════
-    // RAMILLETE DE ESPINES (nuevo en 1.5.1)
-    // ═══════════════════════════════════════════════════════
 
     /**
      * Devuelve el ramillete de espines para todos los astros registrados.
      *
-     * Cada espin es un objeto con:
-     * - `nombre`: identificador del astro.
-     * - `tipo`: categoría (ej: 'Astro', 'Eje', 'Prisma').
-     * - `masa`: masa gravitacional del astro.
-     * - `vector`: vector unitario en el marco inercial (x, y, z).
-     *
-     * El espin `centro_tierra` representa la orientación geográfica local:
-     * el vector que apunta desde el observador hacia el centro de la Tierra.
-     * Su dirección depende de la latitud, longitud y LST, distorsionando
-     * naturalmente el vector de activación por lugar geográfico.
-     *
-     * @param {number|null} [timestamp=null] Marca de tiempo Unix.
+     * @param {number|null} [tiempo_unix=null] Tiempo Unix.
      * @returns {Array<{nombre: string, tipo: string, masa: number, vector: {x: number, y: number, z: number}}>}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
      */
-    espines(timestamp = null) {
-        const ts = timestamp ?? Math.floor(Date.now() / 1000);
+    espines(tiempo_unix = null) {
+        const ts = tiempo_unix ?? Math.floor(Date.now() / 1000);
 
-        if (this._ultimo_timestamp === ts && this._ultimo_espines !== null) {
+        if (this._ultimo_tiempo_unix === ts && this._ultimo_espines !== null) {
             return this._ultimo_espines;
         }
 
-        this._ultimo_timestamp = ts;
+        this._ultimo_tiempo_unix = ts;
         this._ultimo_espines = RelojAstronomico._calcular_espines(this._latitud, this._longitud, ts);
-        this._ultimo_vector = null;
 
         return this._ultimo_espines;
     }
@@ -257,86 +118,61 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
     /**
      * Devuelve el espin de un astro específico.
      *
-     * @param {string} astro     Nombre del astro.
-     * @param {number|null} [timestamp=null] Marca de tiempo Unix.
+     * @param {string} astro Nombre del astro.
+     * @param {number|null} [tiempo_unix=null] Tiempo Unix.
      * @returns {{nombre: string, tipo: string, masa: number, vector: {x: number, y: number, z: number}}|null}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
      */
-    espin(astro, timestamp = null) {
-        const ts = timestamp ?? Math.floor(Date.now() / 1000);
+    espin(astro, tiempo_unix = null) {
+        const ts = tiempo_unix ?? Math.floor(Date.now() / 1000);
 
-        if (!RelojAstronomico.ASTROS[astro]) {
-            this._error(`Astro '${astro}' no está registrado en el reloj.`);
+        if (!Conf.RELOJ_ASTROS[astro]) {
+            this.constructor._error(`Astro '${astro}' no está registrado en el reloj.`);
             return null;
         }
 
         const lat_rad = (this._latitud * Math.PI) / 180.0;
         const lon_rad = (this._longitud * Math.PI) / 180.0;
-        const lst = RelojAstronomico._tiempo_sidereo_local(ts, lon_rad);
-        const vector = RelojAstronomico._calcular_espin_astro(astro, ts, lat_rad, lon_rad, lst);
+        const vector = RelojAstronomico._calcular_espin_astro(astro, ts, lat_rad, lon_rad);
 
         return {
             nombre: astro,
-            tipo: RelojAstronomico.ASTROS[astro].tipo,
-            masa: RelojAstronomico.ASTROS[astro].masa,
+            tipo: Conf.RELOJ_ASTROS[astro].tipo,
+            masa: Conf.RELOJ_ASTROS[astro].masa,
             vector: vector,
         };
     }
 
     /**
-     * Calcula el vector de activación a partir del ramillete de espines.
+     * Devuelve el ramillete filtrado por escala temporal.
      *
-     * @param {number|null} [timestamp=null] Marca de tiempo Unix.
-     * @returns {{x: number, y: number, z: number}} Vector unitario.
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
+     * @param {string} escala Escala temporal.
+     * @param {number|null} [tiempo_unix=null] Tiempo Unix.
+     * @returns {Array}
      */
-    vector_activacion(timestamp = null) {
-        const ts = timestamp ?? Math.floor(Date.now() / 1000);
-        const espines = RelojAstronomico._calcular_espines(this._latitud, this._longitud, ts);
-        return RelojAstronomico._activacion_desde_espines(espines);
+    espines_por_escala(escala, tiempo_unix = null) {
+        const espines = this.espines(tiempo_unix);
+        const nombres = RelojAstronomico.ESCALAS_TEMPORALES[escala] || Object.keys(Conf.RELOJ_ASTROS);
+        return espines.filter(e => nombres.includes(e.nombre));
     }
 
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
     // CÁLCULOS INTERNOS
-    // ═══════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════
 
     /**
      * @param {number} latitud
      * @param {number} longitud
      * @param {number} ts
-     * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.3.5
-     * @version 1.5.1
-     * @private
-     */
-    static _calcular_vector(latitud, longitud, ts) {
-        const espines = this._calcular_espines(latitud, longitud, ts);
-        return this._activacion_desde_espines(espines);
-    }
-
-    /**
-     * @param {number} latitud
-     * @param {number} longitud
-     * @param {number} ts
-     * @returns {Array<{nombre: string, tipo: string, masa: number, vector: {x: number, y: number, z: number}}>}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
+     * @returns {Array}
      * @private
      */
     static _calcular_espines(latitud, longitud, ts) {
         const lat_rad = (latitud * Math.PI) / 180.0;
         const lon_rad = (longitud * Math.PI) / 180.0;
-        const lst = this._tiempo_sidereo_local(ts, lon_rad);
 
         const espines = [];
-        for (const [nombre, config] of Object.entries(this.ASTROS)) {
-            const vector = this._calcular_espin_astro(nombre, ts, lat_rad, lon_rad, lst);
+        for (const [nombre, config] of Object.entries(Conf.RELOJ_ASTROS)) {
+            const vector = this._calcular_espin_astro(nombre, ts, lat_rad, lon_rad);
             espines.push({
                 nombre: nombre,
                 tipo: config.tipo,
@@ -344,7 +180,6 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
                 vector: vector,
             });
         }
-
         return espines;
     }
 
@@ -353,71 +188,184 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
      * @param {number} ts
      * @param {number} lat_rad
      * @param {number} lon_rad
-     * @param {number} lst
      * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
      * @private
      */
-    static _calcular_espin_astro(nombre, ts, lat_rad, lon_rad, lst) {
+    static _calcular_espin_astro(nombre, ts, lat_rad, lon_rad) {
         switch (nombre) {
             case 'sol':
-                return this._calcular_vector_sol(ts, lat_rad, lst);
+                return this._transformar_a_galactico(this._calcular_vector_sol_ecliptico(ts));
             case 'luna':
-                return this._calcular_vector_luna(ts, lat_rad, lst);
+                return this._transformar_a_galactico(this._calcular_vector_luna_ecliptico(ts));
             case 'jupiter':
-                return this._calcular_vector_jupiter(ts, lat_rad, lst);
+                return this._transformar_a_galactico(this._calcular_vector_jupiter_ecliptico(ts));
             case 'eje_terrestre':
-                return this._calcular_vector_eje_terrestre(ts, lat_rad);
+                return this._transformar_a_galactico(this._calcular_vector_eje_terrestre_ecliptico(ts));
             case 'centro_tierra':
-                return this._calcular_vector_centro_tierra(lat_rad, lon_rad, lst);
+                return this._transformar_a_galactico(
+                    this._calcular_vector_centro_tierra_ecliptico(lat_rad, lon_rad, ts)
+                );
             default:
-                this._error(`Astro '${nombre}' no implementado.`);
+                RelojAstronomico._error(`Astro '${nombre}' no implementado.`);
                 return { x: 0.0, y: 0.0, z: 1.0 };
         }
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // MARCO GALÁCTICO‑ECLÍPTICO
+    // ═══════════════════════════════════════════════════════════
+
     /**
-     * @param {Array} espines
+     * @param {{x: number, y: number, z: number}} v
      * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
      * @private
      */
-    static _activacion_desde_espines(espines) {
-        let x = 0.0, y = 0.0, z = 0.0;
+    static _transformar_a_galactico(v) {
+        const lon_gal = (Conf.RELOJ_GALACTICO_LONGITUD * Math.PI) / 180.0;
 
-        for (const espin of espines) {
-            const m = espin.masa;
-            const v = espin.vector;
-            x += m * v.x;
-            y += m * v.y;
-            z += m * v.z;
-        }
+        const e1 = [Math.cos(lon_gal), Math.sin(lon_gal), 0.0];
+        const e3 = [0.0, 0.0, 1.0];
+        const e2 = [-Math.sin(lon_gal), Math.cos(lon_gal), 0.0];
 
-        const magnitud = Math.sqrt(x * x + y * y + z * z);
+        const resultado = [
+            v.x * e1[0] + v.y * e1[1] + v.z * e1[2],
+            v.x * e2[0] + v.y * e2[1] + v.z * e2[2],
+            v.x * e3[0] + v.y * e3[1] + v.z * e3[2],
+        ];
+
+        return this._normalizar(resultado);
+    }
+
+    /**
+     * @param {number[]} v
+     * @returns {{x: number, y: number, z: number}}
+     * @private
+     */
+    static _normalizar(v) {
+        const magnitud = Math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2);
         if (magnitud < 1e-9) {
             return { x: 0.0, y: 0.0, z: 1.0 };
         }
-
         return {
-            x: x / magnitud,
-            y: y / magnitud,
-            z: z / magnitud,
+            x: v[0] / magnitud,
+            y: v[1] / magnitud,
+            z: v[2] / magnitud,
         };
     }
 
     /**
-     * @param {number} ts
-     * @param {number} lon_rad
-     * @returns {number}
-     * @author Ignacio David Baigorria
-     * @since 1.3.5
-     * @version 1.5.1
+     * @param {number} longitud
+     * @param {number} latitud
+     * @returns {{x: number, y: number, z: number}}
      * @private
      */
+    static _vector_ecliptico(longitud, latitud) {
+        return this._normalizar([
+            Math.cos(latitud) * Math.cos(longitud),
+            Math.cos(latitud) * Math.sin(longitud),
+            Math.sin(latitud),
+        ]);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // MODELOS ORBITALES SIMPLIFICADOS
+    // ═══════════════════════════════════════════════════════════
+
+    static _calcular_vector_sol_ecliptico(ts) {
+        const angulo_anual = 2.0 * Math.PI * (ts % Conf.RELOJ_SEGUNDOS_POR_ANIO)
+            / Conf.RELOJ_SEGUNDOS_POR_ANIO;
+        const longitud = angulo_anual % (2.0 * Math.PI);
+        return this._vector_ecliptico(longitud, 0.0);
+    }
+
+    static _calcular_vector_luna_ecliptico(ts) {
+        const angulo_sinodico = 2.0 * Math.PI * (ts % Conf.RELOJ_SEGUNDOS_POR_MES_SINODICO)
+            / Conf.RELOJ_SEGUNDOS_POR_MES_SINODICO;
+        const angulo_nodal = 2.0 * Math.PI * (ts % (Conf.RELOJ_PERIODO_PRECESION_NODAL * Conf.RELOJ_SEGUNDOS_POR_ANIO))
+            / (Conf.RELOJ_PERIODO_PRECESION_NODAL * Conf.RELOJ_SEGUNDOS_POR_ANIO);
+
+        const longitud = angulo_sinodico % (2.0 * Math.PI);
+        const latitud = (Conf.RELOJ_INCLINACION_LUNAR * Math.PI / 180.0)
+            * Math.sin(angulo_sinodico)
+            * Math.cos(angulo_nodal);
+
+        return this._vector_ecliptico(longitud, latitud);
+    }
+
+    static _calcular_vector_jupiter_ecliptico(ts) {
+        const periodo_jupiter = Conf.RELOJ_SEGUNDOS_POR_ANIO * Conf.RELOJ_PERIODO_JUPITER_ANIOS;
+        const angulo_tierra = 2.0 * Math.PI * (ts % Conf.RELOJ_SEGUNDOS_POR_ANIO)
+            / Conf.RELOJ_SEGUNDOS_POR_ANIO;
+        const angulo_jupiter = 2.0 * Math.PI * (ts % periodo_jupiter)
+            / periodo_jupiter;
+
+        const tierra = [Math.cos(angulo_tierra), Math.sin(angulo_tierra), 0.0];
+        const jupiter = [5.2 * Math.cos(angulo_jupiter), 5.2 * Math.sin(angulo_jupiter), 0.0];
+
+        const relativo = [
+            jupiter[0] - tierra[0],
+            jupiter[1] - tierra[1],
+            0.0,
+        ];
+
+        return this._normalizar(relativo);
+    }
+
+    static _calcular_vector_eje_terrestre_ecliptico(ts) {
+        const periodo_precesion = Conf.RELOJ_SEGUNDOS_POR_ANIO * Conf.RELOJ_PERIODO_PRECESION_ANIOS;
+        const theta = 2.0 * Math.PI * (ts % periodo_precesion) / periodo_precesion;
+
+        const longitud = Math.PI / 2.0 + theta;
+        const latitud = Math.PI / 2.0 - (Conf.RELOJ_INCLINACION_ECLIPTICA * Math.PI / 180.0);
+
+        return this._vector_ecliptico(longitud, latitud);
+    }
+
+    static _calcular_vector_centro_tierra_ecliptico(lat_rad, lon_rad, ts) {
+        const eje_planetario = this._calcular_vector_eje_terrestre_ecliptico(ts);
+
+        // Convertir a array numérico para operaciones vectoriales
+        const eje = [eje_planetario.x, eje_planetario.y, eje_planetario.z];
+        const z_ecliptica = [0.0, 0.0, 1.0];
+
+        // Producto vectorial y normalización
+        let e1_eq = this._normalizar(this._producto_vectorial(eje, z_ecliptica));
+
+        // ⚠️ Convertir e1_eq a array numérico para usar índices
+        e1_eq = [e1_eq.x, e1_eq.y, e1_eq.z];
+
+        const e2_eq = this._producto_vectorial(eje, e1_eq);
+
+        const theta = this._tiempo_sidereo_local(ts, lon_rad);
+
+        const arriba = [
+            Math.cos(lat_rad) * Math.cos(theta) * e1_eq[0]
+                + Math.cos(lat_rad) * Math.sin(theta) * e2_eq[0]
+                + Math.sin(lat_rad) * eje[0],
+            Math.cos(lat_rad) * Math.cos(theta) * e1_eq[1]
+                + Math.cos(lat_rad) * Math.sin(theta) * e2_eq[1]
+                + Math.sin(lat_rad) * eje[1],
+            Math.cos(lat_rad) * Math.cos(theta) * e1_eq[2]
+                + Math.cos(lat_rad) * Math.sin(theta) * e2_eq[2]
+                + Math.sin(lat_rad) * eje[2],
+        ];
+
+        const centro = [-arriba[0], -arriba[1], -arriba[2]];
+        return this._normalizar(centro);
+    }
+
+    static _producto_vectorial(a, b) {
+        return [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+        ];
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // TIEMPO SIDÉREO LOCAL
+    // ═══════════════════════════════════════════════════════════
+
     static _tiempo_sidereo_local(ts, lon_rad) {
         const dias_desde_j2000 = (ts / Conf.RELOJ_SEGUNDOS_POR_DIA) - 10957.5;
         let gmst_deg = (280.46061837 + 360.98564736629 * dias_desde_j2000) % 360.0;
@@ -426,187 +374,6 @@ class RelojAstronomico extends mezclar_clase_con_interfaces(Objeto, ProveedorVec
 
         let lst = (gmst_rad + lon_rad) % (2.0 * Math.PI);
         return lst < 0 ? lst + 2.0 * Math.PI : lst;
-    }
-
-    /**
-     * @param {number} ts
-     * @param {number} lat_rad
-     * @param {number} lst
-     * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     * @private
-     */
-    static _calcular_vector_sol(ts, lat_rad, lst) {
-        const angulo_anual = 2.0 * Math.PI * (ts % Conf.RELOJ_SEGUNDOS_POR_ANIO) / Conf.RELOJ_SEGUNDOS_POR_ANIO;
-        const ar = angulo_anual % (2.0 * Math.PI);
-        const declinacion = (Conf.RELOJ_INCLINACION_ECLIPTICA * Math.PI / 180.0) * Math.sin(angulo_anual);
-
-        return this._vector_horizontal(ar, declinacion, lat_rad, lst);
-    }
-
-    /**
-     * @param {number} ts
-     * @param {number} lat_rad
-     * @param {number} lst
-     * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     * @private
-     */
-    static _calcular_vector_luna(ts, lat_rad, lst) {
-        const angulo_sinodico = 2.0 * Math.PI * (ts % Conf.RELOJ_SEGUNDOS_POR_MES_SINODICO) / Conf.RELOJ_SEGUNDOS_POR_MES_SINODICO;
-        const angulo_nodal = 2.0 * Math.PI * (ts % (Conf.RELOJ_PERIODO_PRECESION_NODAL * Conf.RELOJ_SEGUNDOS_POR_ANIO))
-            / (Conf.RELOJ_PERIODO_PRECESION_NODAL * Conf.RELOJ_SEGUNDOS_POR_ANIO);
-        const longitud_ecliptica = angulo_sinodico;
-        const declinacion_max = (Conf.RELOJ_INCLINACION_ECLIPTICA + Conf.RELOJ_INCLINACION_LUNAR) * Math.PI / 180.0;
-        const declinacion = declinacion_max * Math.sin(longitud_ecliptica) * Math.cos(angulo_nodal);
-        const ar = longitud_ecliptica;
-
-        return this._vector_horizontal(ar, declinacion, lat_rad, lst);
-    }
-
-    /**
-     * @param {number} ts
-     * @param {number} lat_rad
-     * @param {number} lst
-     * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     * @private
-     */
-    static _calcular_vector_jupiter(ts, lat_rad, lst) {
-        const periodo = Conf.RELOJ_SEGUNDOS_POR_ANIO * this.PERIODO_JUPITER_ANIOS;
-        const angulo = 2.0 * Math.PI * (ts % periodo) / periodo;
-        const ar = angulo % (2.0 * Math.PI);
-        const declinacion = (Conf.RELOJ_INCLINACION_ECLIPTICA * Math.PI / 180.0) * Math.sin(angulo);
-
-        return this._vector_horizontal(ar, declinacion, lat_rad, lst);
-    }
-
-    /**
-     * @param {number} ts
-     * @param {number} lat_rad
-     * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     * @private
-     */
-    static _calcular_vector_eje_terrestre(ts, lat_rad) {
-        const periodo = Conf.RELOJ_SEGUNDOS_POR_ANIO * this.PERIODO_PRECESION_ANIOS;
-        const theta = 2.0 * Math.PI * (ts % periodo) / periodo;
-
-        let x = Math.sin(theta) * Math.cos(lat_rad);
-        let y = Math.cos(theta) * Math.cos(lat_rad);
-        let z = Math.sin(lat_rad);
-
-        const magnitud = Math.sqrt(x * x + y * y + z * z);
-        if (magnitud < 1e-9) {
-            return { x: 0.0, y: 0.0, z: 1.0 };
-        }
-
-        return {
-            x: x / magnitud,
-            y: y / magnitud,
-            z: z / magnitud,
-        };
-    }
-
-    /**
-     * Calcula el vector unitario del centro de la Tierra (prisma geográfico).
-     *
-     * Este espin representa la orientación geográfica local del observador.
-     * Es el vector que apunta desde el observador hacia el centro de la
-     * Tierra, expresado en el marco inercial del sistema.
-     *
-     * En el modelo simplificado, asumimos que el eje de rotación terrestre
-     * está alineado con el eje Z del marco inercial. Entonces el vector
-     * "abajo" del observador depende de su latitud y de su longitud efectiva
-     * (longitud + LST):
-     *
-     * $$\hat{u}_{centro} = (-\cos\phi \cos\theta, \; -\cos\phi \sin\theta, \; -\sin\phi)$$
-     *
-     * donde $\phi$ es la latitud y $\theta = \lambda + \text{LST}$ es la
-     * longitud efectiva en el marco inercial.
-     *
-     * Al sumarse ponderadamente con los demás espines, este vector distorsiona
-     * naturalmente el vector de activación según la ubicación geográfica,
-     * eliminando la necesidad de un operador prisma externo.
-     *
-     * @param {number} lat_rad Latitud en radianes.
-     * @param {number} lon_rad Longitud en radianes.
-     * @param {number} lst     Tiempo Sidéreo Local en radianes.
-     * @returns {{x: number, y: number, z: number}} Vector unitario.
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     * @private
-     */
-    static _calcular_vector_centro_tierra(lat_rad, lon_rad, lst) {
-        const theta = lon_rad + lst;
-
-        let x = -Math.cos(lat_rad) * Math.cos(theta);
-        let y = -Math.cos(lat_rad) * Math.sin(theta);
-        let z = -Math.sin(lat_rad);
-
-        const magnitud = Math.sqrt(x * x + y * y + z * z);
-        if (magnitud < 1e-9) {
-            return { x: 0.0, y: 0.0, z: -1.0 };
-        }
-
-        return {
-            x: x / magnitud,
-            y: y / magnitud,
-            z: z / magnitud,
-        };
-    }
-
-    /**
-     * @param {number} ar
-     * @param {number} declinacion
-     * @param {number} lat_rad
-     * @param {number} lst
-     * @returns {{x: number, y: number, z: number}}
-     * @author Ignacio David Baigorria
-     * @since 1.5.1
-     * @version 1.5.1
-     * @private
-     */
-    static _vector_horizontal(ar, declinacion, lat_rad, lst) {
-        let angulo_horario = (lst - ar) % (2.0 * Math.PI);
-        if (angulo_horario < 0) angulo_horario += 2.0 * Math.PI;
-
-        const sin_alt = Math.sin(declinacion) * Math.sin(lat_rad)
-                      + Math.cos(declinacion) * Math.cos(lat_rad) * Math.cos(angulo_horario);
-        const altitud = Math.asin(Math.max(-1.0, Math.min(1.0, sin_alt)));
-
-        const cos_alt = Math.cos(altitud);
-        if (Math.abs(cos_alt) < 1e-9) {
-            return { x: 0.0, y: 0.0, z: sin_alt > 0 ? 1.0 : -1.0 };
-        }
-
-        const sin_az = -Math.cos(declinacion) * Math.sin(angulo_horario) / cos_alt;
-        const cos_az = (Math.sin(declinacion) - Math.sin(lat_rad) * Math.sin(altitud)) / (Math.cos(lat_rad) * cos_alt);
-        const azimut = Math.atan2(sin_az, cos_az);
-
-        let x = Math.cos(altitud) * Math.sin(azimut);
-        let y = Math.cos(altitud) * Math.cos(azimut);
-        let z = Math.sin(altitud);
-
-        const magnitud = Math.sqrt(x * x + y * y + z * z);
-        if (magnitud < 1e-9) {
-            return { x: 0.0, y: 0.0, z: 1.0 };
-        }
-
-        return {
-            x: x / magnitud,
-            y: y / magnitud,
-            z: z / magnitud,
-        };
     }
 }
 
