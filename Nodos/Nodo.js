@@ -103,8 +103,8 @@ import { generarUUID } from "./../miscelaneas/generarUUID.js";
  * 
  * @class
  * @author Ignacio David Baigorria
- * @version 3.2.7
- * @since 0.0
+ * @version 1.5i.0
+ * @since 1.0
  * @extends Objeto
  * @implements {Nodos.Interfaces.FabricaDeNodos}
  * @implements {Nodos.Interfaces.Datos}
@@ -619,63 +619,31 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * @param {Nodo} nodo Nodo a eliminar.
      * @returns {boolean|null} `true` si fue eliminado, `false` si no pudo eliminarse,
      *                         `null` si el parámetro no es válido.
+     * @version 1.5i.0
      */
-      static eliminar(nodo) {
-          // Validación: debe ser instancia de Nodos.Nodo
-          if (!(nodo instanceof Nodo)) {
-              Nodo._error("El parámetro no es de la clase Nodo");
-              return null;
-          }
-          if (nodo._referencias===0){
-              if (nodo._adyacentes!==undefined) {
-                  for (let [, nodo2] of nodo._adyacentes) {
-                      nodo2._referencias--;
-                  }
-              }
-              Nodo._superestructura.delete(nodoid);
-              Nodo._nodos_especiales.delete(nodoid);           
-          }
-       /*   let nodoid=nodo.id()+"";//concateno con string vacio para hacer cast rapido
-          // Caso 1: Solo 1 referencia (superestructura principal)
-          if (nodo._referencias === 1) {
-              Nodo._superestructura.delete(nodoid);//concateno con string vacio para hacer cast rapido
+    static eliminar(nodo) {
+        if (!(nodo instanceof Nodo)) {
+            Nodo._error("El parámetro no es de la clase Nodo");
+            return null;
+        }
 
-              if (nodo._adyacentes!==undefined) {
-                  for (let [, nodo2] of nodo._adyacentes) {
-                      nodo2._referencias--;
-                  }
-              }
-              nodo.destructor();
-              return true;
-          }
+        let nodoid = nodo.id() + "";
 
-          // Caso 2: 2 referencias (posiblemente especial)
-          else if (nodo._referencias === 2) {
-              if (nodo.es_especial()) {
+        if (nodo._referencias === 0) {
+            if (nodo._adyacentes !== undefined) {
+                for (let [, nodo2] of nodo._adyacentes) {
+                    nodo2._referencias--;
+                }
+            }
+            Nodo._superestructura.delete(nodoid);
+            Nodo._nodos_especiales.delete(nodoid);
+            return true;   // <-- Añadir retorno explícito
+        }
 
-                  Nodo._superestructura.delete(nodoid);
-                  Nodo._nodos_especiales.delete(nodoid);
-
-                  if (nodo._adyacentes!==undefined) {
-                      for (let [, nodo2] of nodo._adyacentes) {
-                          nodo2._referencias--;
-                      }
-                  }
-                nodo.destructor();
-                return true;
-              }else{
-                  Nodo._error("debe eliminar todos los enlaces que apuntan hacia el nodo antes de intentar eliminarlo");
-                  return null;
-              }
-              
-          }
-
-          // Caso 3: Más de 2 referencias → no se elimina
-          else {
-              Nodo._error("debe eliminar todos los enlaces que enlazan hacia el nodo antes de intentar eliminarlo");
-              return false;
-          }*/
-      }
+        // Si tiene referencias, no se puede eliminar
+        Nodo._error("debe eliminar todos los enlaces que enlazan hacia el nodo antes de intentar eliminarlo");
+        return false;
+    }
 
     /**
 	   * Elimina un nodo que solo tiene autoenlaces (Interfaz {@link Nodos.Nodo.Interfaces.FabricaDeNodos FabricaDeNodos})
