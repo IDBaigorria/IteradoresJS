@@ -201,7 +201,7 @@ export class Iterador extends Objeto {
         }
 
         if (!nclase.adyacente("alias permitidos")) {
-            const npermitidos = iterador._alias_permitidos();
+            const npermitidos = Iterador._alias_permitidos();
             if (!npermitidos || !(npermitidos instanceof Nodo)) {
                 Iterador._error(`Iterador._registrar_iterador: error asignando los enlaces permitidos de ${nombrec}`);
                 return null;
@@ -595,7 +595,416 @@ export class Iterador extends Objeto {
     }
 
 
-        /**
+    //********************************************************************************
+	//------------------------------------------------------------------------------->
+	//---------------------- INTERFAZ de Propiedades del Iterador ------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+
+	/**
+	 * Verifica si el elemento dado es una instancia de Iterador.
+	 *
+	 * 🔗 Interfaz: Propiedades del Iterador
+	 * Caso de uso: saber si un elemento es iterador.
+	 *
+	 * @since 1.0
+	 * @version 1.5i.1
+	 *
+	 * @param {*} elemento Elemento a comprobar.
+	 * @returns {boolean} `true` si es un Iterador, `false` en caso contrario.
+	 */
+	static es_iterador(elemento) {
+		return elemento instanceof Iterador;
+	}
+
+	/**
+	 * Obtiene el nombre del iterador.
+	 *
+	 * 🔗 Interfaz: Propiedades del Iterador
+	 * Caso de uso: obtener nombre del iterador.
+	 *
+	 * @since 1.0
+	 * @version 1.5i.1
+	 *
+	 * @returns {string|boolean} El nombre del iterador, `false` si no está ocupado o no tiene cuerpo.
+	 */
+	nombre() {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.nombre: el iterador no esta ocupado");
+			return false;
+		}
+		return cuerpo.dato();
+	}
+
+	//********************************************************************************
+	//------------------------------------------------------------------------------->
+	//---------------------- INTERFAZ de Marca de ocupado---------------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+	/**
+	 * Notas generales de la interfaz:
+	 * Esta interfaz tiene como tarea administrar el acceso a la "marca de ocupado" del iterador.
+	 * Esta marca en la realidad no es más que un enlace de la raíz del iterador a sí misma.
+	 */
+
+	/**
+	 * Activa la "marca de ocupado".
+	 *
+	 * 🔗 Interfaz: INTERFAZ OCUPAR/DESOCUPAR/OCUPADO
+	 * Caso de uso: Activar la "marca de ocupado".
+	 *
+	 * @since 1.0
+	 * @version 1.5i.1
+	 *
+	 * @returns {boolean} `true` si se activó, `false` si ya estaba ocupado o no tiene cuerpo.
+	 */
+	_ocupar() { // En JS no hay protected real, se indica con guion bajo
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo) {
+			Iterador._error("Iterador._ocupar: el iterador no tiene cuerpo!!");
+			return false;
+		}
+		if (!cuerpo.adyacente("ocupado")) {
+			cuerpo._adyacente_en(cuerpo, "ocupado");
+			return true;
+		} else {
+			Iterador._alerta("Iterador._ocupar: el iterador ya esta ocupado");
+			return false;
+		}
+	}
+
+    /**
+     * Elimina la "marca de ocupado".
+     *
+     * 🔗 Interfaz: INTERFAZ OCUPAR/DESOCUPAR/OCUPADO
+     * Caso de uso: Desactivar la "marca de ocupado".
+     *
+     * @since 1.0
+     * @version 1.5i.1
+     *
+     * @returns {boolean} `true` si se desactivó, `false` si no estaba ocupado.
+     */
+    desocupar() {
+        const cuerpo = this.raiz_cuerpo;
+        if (!cuerpo) {
+            Iterador._alerta("Iterador.desocupar: el iterador ya esta desocupado(1)");
+            return false;
+        }
+        if (cuerpo.adyacente("ocupado")) {
+            this._liberar(); // placeholder para liberación adicional
+            this.destruir_datos_temporales();
+            cuerpo.eliminar_adyacente("ocupado");
+            this.raiz_cuerpo = null;
+            return true;
+        } else {
+            Iterador._alerta("Iterador.desocupar: el iterador ya esta desocupado (2)");
+            return false;
+        }
+    }
+
+	/**
+	 * Comprueba si el iterador está ocupado.
+	 *
+	 * 🔗 Interfaz: INTERFAZ OCUPAR/DESOCUPAR/OCUPADO
+	 * Caso de uso: Saber si existe "marca de ocupado".
+	 *
+	 * @since 1.0
+	 * @version 1.5i.1
+	 *
+	 * @returns {boolean} `true` si está ocupado, `false` en caso contrario.
+	 */
+	ocupado() {
+		const cuerpo = this.raiz_cuerpo;
+		if (cuerpo && cuerpo.adyacente("ocupado")) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	//********************************************************************************
+	//------------------------------------------------------------------------------->
+	//----------------------manejo de ALIAS------------------------------------------>
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+		/*Notas generales de la interfaz:
+			Esta interfaz administra la relación bidireccional entre alias y enlaces.
+			En la clase base cualquier string es un alias válido.
+		*/
+
+	/**
+	 * Devuelve el nodo con los alias permitidos para esta clase.
+	 * En la clase base devuelve un nodo vacío (sin restricciones). Las subclases deben sobrescribir.
+	 *
+	 * @returns {Nodo} Nodo vacío.
+	 * @since 1.0
+	 * @version 1.5i.1
+	 * @protected
+	 */
+	static _alias_permitidos() {
+		return Nodo.crear();
+	}
+
+	/**
+	 * Verifica si un alias es válido.
+	 * En la clase base solo se exige que sea string.
+	 *
+	 * @param {*} alias Alias a validar.
+	 * @param {Iterador} iterador Iterador sobre el que se valida.
+	 * @returns {boolean} `true` si es string.
+	 * @since 1.0
+	 * @version 1.5i.1
+	 * @protected
+	 */
+	static _es_alias_valido(alias, iterador) {
+		if (typeof alias !== 'string') {
+			Iterador._error("Iterador._es_alias_valido: el alias debe ser un string");
+			return false;
+		}
+		return true;
+	}
+
+    /**
+     * Verifica si un enlace es válido para el iterador.
+     * En la clase base se acepta número o string. Las subclases pueden sobrescribir.
+     *
+     * @param {*} enlace Enlace a validar.
+     * @param {Iterador} iterador Iterador.
+     * @returns {boolean} `true` si es válido.
+     * @since 1.0
+     * @version 1.5i.1
+     * @protected
+     */
+    static _es_enlace_valido(enlace, iterador) {
+        if (typeof enlace !== 'string') {
+            Iterador._error("Iterador._es_enlace_valido: el enlace debe ser un string");
+            return false;
+        }
+        return true;
+    }
+
+	/**
+	 * Asigna un alias a un enlace.
+	 *
+	 * @param {number|string} enlace Enlace.
+	 * @param {string} alias Alias.
+	 * @returns {boolean} `true` si se asignó.
+	 */
+	_alias(enlace, alias) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador._alias: el iterador no esta ocupado");
+			return false;
+		}
+		if (!Iterador._es_alias_valido(alias, this)) {
+			Iterador._error("Iterador._alias: el alias no es válido");
+			return false;
+		}
+
+		let nalias = cuerpo.adyacente("alias");
+		if (!nalias) {
+			nalias = Nodo.crear();
+			cuerpo._adyacente_en(nalias, "alias");
+		}
+		let nenlacesalias = cuerpo.adyacente("enlaces alias");
+		if (!nenlacesalias) {
+			nenlacesalias = Nodo.crear();
+			cuerpo._adyacente_en(nenlacesalias, "enlaces alias");
+		}
+
+		// Si ya existía el alias
+		const ant_alias = nalias.adyacente(alias);
+		if (ant_alias) {
+			const datoant = ant_alias.dato();
+			ant_alias._dato(enlace);
+			const nodoeli = nenlacesalias.eliminar_adyacente(datoant);
+			if (nodoeli) Nodo.eliminar(nodoeli);
+		} else {
+			nalias._adyacente_en(Nodo.crear_con_dato(enlace), alias);
+		}
+
+		// Si ya existía el enlace
+		const ant_enlace = nenlacesalias.adyacente(enlace);
+		if (ant_enlace) {
+			const datoant = ant_enlace.dato();
+			ant_enlace._dato(alias);
+			const nodoeli = nalias.eliminar_adyacente(datoant);
+			if (nodoeli) Nodo.eliminar(nodoeli);
+		} else {
+			nenlacesalias._adyacente_en(Nodo.crear_con_dato(alias), enlace);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Elimina un alias individualmente.
+	 * @param {string} alias Alias a eliminar.
+	 * @returns {boolean} `true` si se eliminó.
+	 */
+	eliminar_alias(alias) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.eliminar_alias: el iterador no esta ocupado");
+			return false;
+		}
+		const todoslosalias = cuerpo.adyacente("alias");
+		if (todoslosalias) {
+			const nodo1 = todoslosalias.adyacente(alias);
+			if (nodo1) {
+				const enlace = nodo1.dato();
+				const todoslosenlacesalias = cuerpo.adyacente("enlaces alias");
+				if (todoslosenlacesalias) {
+					const nodo2 = todoslosenlacesalias.adyacente(enlace);
+					if (nodo2) {
+						todoslosalias.eliminar_adyacente(alias);
+						Nodo.eliminar(nodo1);
+						todoslosenlacesalias.eliminar_adyacente(enlace);
+						Nodo.eliminar(nodo2);
+						return true;
+					} else {
+						Iterador._alerta("no existe el alias que intenta eliminar(1)");
+						return false;
+					}
+				} else {
+					Iterador._alerta("no existe el alias que intenta eliminar(1)");
+					return false;
+				}
+			}
+		}
+		Iterador._alerta("no existe el alias que intenta eliminar(2)");
+		return false;
+	}
+
+	/**
+	 * Asigna varios alias desde un objeto {alias: enlace}.
+	 * @param {Object} arreglo_alias Objeto con pares alias->enlace.
+	 * @returns {boolean} `true` si todos se asignaron.
+	 */
+	_varios_alias(arreglo_alias) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador._varios_alias: el iterador no esta ocupado");
+			return false;
+		}
+		if (typeof arreglo_alias !== 'object' || arreglo_alias === null) {
+			Iterador._error("Iterador._varios_alias: debe recibir un objeto cuyas claves sean alias y valores enlaces");
+			return false;
+		}
+		let error = false;
+		for (const alias in arreglo_alias) {
+			const enlace = arreglo_alias[alias];
+			if (!this._alias(enlace, alias)) {
+				error = true;
+			}
+		}
+		if (error) {
+			Iterador._error("Iterador._varios_alias: uno o varios pares no son válidos");
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Elimina todos los alias.
+	 * @returns {boolean} `true` si se eliminaron.
+	 */
+	eliminar_todos_los_alias() {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.eliminar_todos_los_alias: el iterador no esta ocupado");
+			return false;
+		}
+		const nalias = cuerpo.adyacente("alias");
+		const nenlacesalias = cuerpo.adyacente("enlaces alias");
+		if (!nalias || !nenlacesalias) {
+			Iterador._alerta("Iterador.eliminar_todos_los_alias: no había alias");
+			return true;
+		}
+
+		// Eliminar mapa alias→enlace
+		const adyacentesAlias = nalias.adyacentes();
+		if (adyacentesAlias) {
+			for (const enlaceAlias of Object.keys(adyacentesAlias)) {
+				const nodoaelim = nalias.adyacente(enlaceAlias);
+				nalias.eliminar_adyacente(enlaceAlias);
+				if (!Nodo.eliminar(nodoaelim)) {
+					Iterador._error("Iterador.eliminar_todos_los_alias: error al eliminar nodo alias");
+				}
+			}
+		}
+		cuerpo.eliminar_adyacente("alias");
+		Nodo.eliminar(nalias);
+
+		// Eliminar mapa enlace→alias
+		const adyacentesEnlaces = nenlacesalias.adyacentes();
+		if (adyacentesEnlaces) {
+			for (const enlace of Object.keys(adyacentesEnlaces)) {
+				const nodoaelim = nenlacesalias.adyacente(enlace);
+				nenlacesalias.eliminar_adyacente(enlace);
+				if (!Nodo.eliminar(nodoaelim)) {
+					Iterador._error("Iterador.eliminar_todos_los_alias: error al eliminar nodo enlace alias");
+				}
+			}
+		}
+		cuerpo.eliminar_adyacente("enlaces alias");
+		Nodo.eliminar(nenlacesalias);
+
+		return true;
+	}
+
+	/**
+	 * Devuelve el enlace asociado a un alias.
+	 * Si no hay traducción, devuelve el alias.
+	 *
+	 * @param {string|number} alias Alias.
+	 * @returns {*} Enlace o alias original.
+	 */
+    enlace(alias) {
+        const cuerpo = this.raiz_cuerpo;
+        if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+            Iterador._error("Iterador.enlace: el iterador no esta ocupado");
+            return false;
+        }
+        if (!this.constructor._es_alias_valido(alias, this)) {
+            Iterador._error("Iterador.enlace: el alias no es válido");
+            return false;
+        }
+        const nalias = cuerpo.adyacente("alias");
+        if (nalias) {
+            const nodo = nalias.adyacente(alias);
+            if (nodo) return nodo.dato();
+        }
+        return alias;
+    }
+
+	/**
+	 * Devuelve el alias asociado a un enlace.
+	 * Si no hay traducción, devuelve el enlace.
+	 *
+	 * @param {string|number} enlace Enlace.
+	 * @returns {*} Alias o enlace original.
+	 */
+    alias(enlace) {
+        const cuerpo = this.raiz_cuerpo;
+        if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+            Iterador._error("Iterador.alias: el iterador no esta ocupado");
+            return false;
+        }
+        if (!this.constructor._es_enlace_valido(enlace, this)) {
+            Iterador._error("Iterador.alias: el enlace no es válido");
+            return false;
+        }
+        const nenlacesalias = cuerpo.adyacente("enlaces alias");
+        if (nenlacesalias) {
+            const nodo = nenlacesalias.adyacente(enlace);
+            if (nodo) return nodo.dato();
+        }
+        return enlace;
+    }
+
+    /**
      * Devuelve el nodo de alias permitidos.
      * Placeholder: debe ser implementado por subclases.
      * @returns {Nodo|null}
@@ -603,7 +1012,7 @@ export class Iterador extends Objeto {
      * @version 1.5i.0
      * @protected
      */
-    _alias_permitidos() { return Nodo.nodo("hola"); }
+    //_alias_permitidos() { return Nodo.nodo("hola"); }
 
     /** Placeholder para destruir datos */
     destruir_datos() {}
@@ -615,5 +1024,9 @@ export class Iterador extends Objeto {
     destruir_datos_temporales() {}
 
     /** Placeholder para eliminar todos los alias */
-    eliminar_todos_los_alias() {}
+    //eliminar_todos_los_alias() {}
+    _liberar() {
+        // Pendiente de implementación
+    }
+    
 }

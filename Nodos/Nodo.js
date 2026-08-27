@@ -133,7 +133,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * @type {*}
      * @protected
      */
-    _dato;
+    __dato;
 
     /**
      * Enlaces hacia nodos adyacentes.
@@ -328,7 +328,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
     static crear_con_dato(dato, todos = false) {
       if (!todos) {
         const nodo = new this();
-        nodo._dato=dato;
+        nodo.__dato=dato;
         Nodo._superestructura.set(nodo.id(),nodo);
         return nodo;
       }/* else {// esta parte la voy a quitar cuando encuentre donde se usa
@@ -453,7 +453,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
           if (nodo._id_interno(id)) {
             Nodo._superestructura.set(id, nodo);
             Nodo._nodos_especiales.set(id, nodo);
-            nodo._dato=dato;
+            nodo.__dato=dato;
             return nodo;
           }
           Nodo._error(`No se pudo  el nodo con dato e id ${id}`);
@@ -562,7 +562,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
             es_nodo = true;
         } else {
             nodo = new this();
-            nodo._dato=elemento;
+            nodo.__dato=elemento;
             Nodo._superestructura.set(nodo.id(), nodo);
             es_nodo = false;
         }
@@ -726,7 +726,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
        * console.log(nodo.dato()); // Devuelve: Hola Mundo
        */
       _dato(dato){
-        this._dato=dato;
+        this.__dato=dato;
       }
 
       /**
@@ -748,8 +748,8 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
        * @public
        */
       dato() {
-          if (this._dato !== undefined) {
-              return this._dato;
+          if (this.__dato !== undefined) {
+              return this.__dato;
           } else {
               return null;
           }

@@ -3279,7 +3279,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
 
     constructor() {
         super();
-        delete this._dato;
+        delete this.__dato;
         this._datos = new Map();
     }
 
@@ -3298,7 +3298,7 @@ class NodoElectrico extends  mezclar_clase_con_interfaces(Nodo, FabricaDeNodosEl
      * @returns {void}
      * @since 1.4.1
      */
-    _dato(valor, dimension = null) {
+    __dato(valor, dimension = null) {
         const fase = NodoElectrico.fase();
         const dim = dimension ?? '';
         if (!this._datos.has(fase)) {
