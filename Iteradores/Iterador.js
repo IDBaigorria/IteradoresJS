@@ -49,7 +49,7 @@ import { Nodo } from '../Nodos/Nodo.js'
  * @class Iterador
  * @extends Objeto
  * @since 1.0 (versión original consolidada)
- * @version 1.5.0 (inicio de refactorización)
+ * @version 1.5i.4 (inicio de refactorización)
  * @author Ignacio David Baigorria
  */
 export class Iterador extends Objeto {
@@ -594,7 +594,37 @@ export class Iterador extends Objeto {
         return iter;
     }
 
+    /**
+     * Verifica si existe un iterador con el nombre dado.
+     *
+     * @param {string} nombre Nombre del iterador.
+     * @returns {boolean} `true` si existe, `false` en caso contrario.
+     * @since 1.0
+     * @version 1.5i.4
+     */
+    static existe(nombre) {
+        if (typeof nombre !== 'string') {
+            return false;
+        }
 
+        const iteradores = Nodo.nodo_por_id('iteradores');
+        if (!iteradores) {
+            return false;
+        }
+
+        const nombrec = this.name;
+        const nclase = iteradores.adyacente(nombrec);
+        if (!nclase) {
+            return false;
+        }
+
+        const nits = nclase.adyacente('iteradores');
+        if (!nits) {
+            return false;
+        }
+
+        return nits.adyacente(nombre) !== null;
+    }
     //********************************************************************************
 	//------------------------------------------------------------------------------->
 	//---------------------- INTERFAZ de Propiedades del Iterador ------------------->
@@ -692,7 +722,7 @@ export class Iterador extends Objeto {
             return false;
         }
         if (cuerpo.adyacente("ocupado")) {
-            this._liberar(); // placeholder para liberación adicional
+            this.liberar();
             this.destruir_datos_temporales();
             cuerpo.eliminar_adyacente("ocupado");
             this.raiz_cuerpo = null;
@@ -1957,6 +1987,146 @@ export class Iterador extends Objeto {
 		return this._como_adyacente_de_nodo_en_alias(elemento, alias, camino, es_nodo_callback);
 	}
 
+
+    //********************************************************************************
+	//------------------------------------------------------------------------------->
+	//---------------------- INTERFAZ Dato ------------------------------------------>
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+
+	/**
+	 * Asigna un dato al nodo actual.
+	 *
+	 * 🔗 Interfaz: Dato
+	 * Caso de uso: Asignar dato al nodo actual, con opción de avanzar por un camino.
+	 *
+	 * @param {*} dato Dato a asignar. No puede ser un Nodo.
+	 * @param {string|null} [camino=null] Camino opcional a recorrer antes de asignar.
+	 * @returns {Nodo|null} Nodo con el dato asignado, o null si error.
+	 */
+	_dato(dato, camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador._dato: el iterador no esta ocupado");
+			return null;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador._dato: el iterador no tiene asignado nodo actual");
+			return null;
+		}
+
+		let es_nodo = false;
+		if (!this.constructor.es_elemento_valido(dato, (el, es) => { es_nodo = es; })) {
+			Iterador._error("Iterador._dato: el dato no pasa la prueba es_elemento_valido");
+			return null;
+		}
+		if (es_nodo) {
+			Iterador._error("Iterador._dato: el dato es un nodo. No se puede guardar un nodo dentro de un nodo");
+			return null;
+		}
+
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador._dato: camino no válido");
+				return null;
+			}
+		}
+
+		const actual = cuerpo.adyacente("actual");
+		actual._dato(dato);
+
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		return actual;
+	}
+
+	/**
+	 * Retorna el dato del nodo actual.
+	 *
+	 * 🔗 Interfaz: Dato
+	 * Caso de uso: Obtener dato del nodo actual, con opción de avanzar.
+	 *
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @returns {*} Dato del nodo, o null si error.
+	 */
+	dato(camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.dato: el iterador no esta ocupado");
+			return null;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador.dato: el iterador no tiene asignado nodo actual");
+			return null;
+		}
+
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador.dato: camino no válido");
+				return null;
+			}
+		}
+
+		const res = cuerpo.adyacente("actual").dato();
+
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		return res;
+	}
+
+	//********************************************************************************
+	//------------------------------------------------------------------------------->
+	//---------------------- Liberar ////////////////////////////////////////////////>
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+	/**
+	 * Libera el nodo actual, estableciendo como actual el propio cuerpo.
+	 *
+	 * 🔗 Interfaz: Liberar
+	 * Caso de uso: Liberar el nodo actual.
+	 *
+	 * @returns {Nodo|boolean|null} Nodo que era actual, false si no ocupado, null si ya estaba liberado.
+	 */
+	liberar() {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.liberar: el iterador no esta ocupado");
+			return false;
+		}
+		const act = cuerpo.adyacente("actual");
+		if (act === cuerpo) {
+			Iterador._error("Iterador.liberar: el Iterador ya estaba liberado");
+			return null;
+		}
+		// Eliminar actual anterior y asignar cuerpo
+		if (act) {
+			cuerpo.eliminar_adyacente("actual");
+		}
+		cuerpo._adyacente_en(cuerpo, "actual");
+		return act;
+	}
+
+
+
+
+
+
+
+
+
+
     /**
      * Placeholder: crea u obtiene la lista auxiliar de visitados.
      * @returns {*} null
@@ -1976,6 +2146,10 @@ export class Iterador extends Objeto {
     guardar_visitado_interno(lista, nodo) {
         // Pendiente de implementación
     }
+
+
+
+
 
     /**
      * Devuelve el nodo de alias permitidos.
@@ -1998,8 +2172,8 @@ export class Iterador extends Objeto {
 
     /** Placeholder para eliminar todos los alias */
     //eliminar_todos_los_alias() {}
-    _liberar() {
+  /*  _liberar() {
         // Pendiente de implementación
-    }
+    }*/
     
 }

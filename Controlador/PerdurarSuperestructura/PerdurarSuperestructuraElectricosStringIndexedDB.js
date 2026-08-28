@@ -118,65 +118,65 @@ class PerdurarSuperestructuraElectricosStringIndexedDB extends mezclar_clase_con
      *
      * @since v3.2.5
      */
-static #abrir_BD() {
-    return new Promise((resolve, reject) => {
-        const solicitud = indexedDB.open(this.#NOMBRE_BD, this.#VERSION_BD);
+    static #abrir_BD() {
+        return new Promise((resolve, reject) => {
+            const solicitud = indexedDB.open(this.#NOMBRE_BD, this.#VERSION_BD);
 
-        solicitud.onerror = () => reject(new Error("No se pudo abrir la base de datos"));
-        solicitud.onsuccess = () => resolve(solicitud.result);
+            solicitud.onerror = () => reject(new Error("No se pudo abrir la base de datos"));
+            solicitud.onsuccess = () => resolve(solicitud.result);
 
-        solicitud.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            const tx = event.target.transaction; // transacción de upgrade
+            solicitud.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                const tx = event.target.transaction; // transacción de upgrade
 
-            // Referencias a los almacenes (serán asignadas tanto si se crean como si ya existían)
-            let almacenNodos;
-            let almacenAdyacentes;
+                // Referencias a los almacenes (serán asignadas tanto si se crean como si ya existían)
+                let almacenNodos;
+                let almacenAdyacentes;
 
-            // NODOS
-            if (!db.objectStoreNames.contains(this.#ALMACEN_NODOS)) {
-                // Crear si no existe
-                almacenNodos = db.createObjectStore(this.#ALMACEN_NODOS, {
-                    keyPath: ['idsuperestructura', 'idnodo']
-                });
-            } else {
-                // Recuperar referencia desde la transacción de upgrade
-                almacenNodos = tx.objectStore(this.#ALMACEN_NODOS);
-            }
+                // NODOS
+                if (!db.objectStoreNames.contains(this.#ALMACEN_NODOS)) {
+                    // Crear si no existe
+                    almacenNodos = db.createObjectStore(this.#ALMACEN_NODOS, {
+                        keyPath: ['idsuperestructura', 'idnodo']
+                    });
+                } else {
+                    // Recuperar referencia desde la transacción de upgrade
+                    almacenNodos = tx.objectStore(this.#ALMACEN_NODOS);
+                }
 
-            // Crear índice en nodos si no existe
-            // indexNames es un DOMStringList; usamos .contains si está disponible
-            const indexName = 'idsuperestructura';
-            const idxNamesNodos = almacenNodos.indexNames;
-            const indexExisteNodos = (typeof idxNamesNodos.contains === 'function')
-                ? idxNamesNodos.contains(indexName)
-                : Array.from(idxNamesNodos).includes(indexName);
+                // Crear índice en nodos si no existe
+                // indexNames es un DOMStringList; usamos .contains si está disponible
+                const indexName = 'idsuperestructura';
+                const idxNamesNodos = almacenNodos.indexNames;
+                const indexExisteNodos = (typeof idxNamesNodos.contains === 'function')
+                    ? idxNamesNodos.contains(indexName)
+                    : Array.from(idxNamesNodos).includes(indexName);
 
-            if (!indexExisteNodos) {
-                almacenNodos.createIndex(indexName, 'idsuperestructura', { unique: false });
-            }
+                if (!indexExisteNodos) {
+                    almacenNodos.createIndex(indexName, 'idsuperestructura', { unique: false });
+                }
 
-            // ADYACENTES
-            if (!db.objectStoreNames.contains(this.#ALMACEN_ADYACENTES)) {
-                almacenAdyacentes = db.createObjectStore(this.#ALMACEN_ADYACENTES, {
-                    keyPath: ['idsuperestructura', 'idnodo', 'enlace', 'idadyacente']
-                });
-            } else {
-                almacenAdyacentes = tx.objectStore(this.#ALMACEN_ADYACENTES);
-            }
+                // ADYACENTES
+                if (!db.objectStoreNames.contains(this.#ALMACEN_ADYACENTES)) {
+                    almacenAdyacentes = db.createObjectStore(this.#ALMACEN_ADYACENTES, {
+                        keyPath: ['idsuperestructura', 'idnodo', 'enlace', 'idadyacente']
+                    });
+                } else {
+                    almacenAdyacentes = tx.objectStore(this.#ALMACEN_ADYACENTES);
+                }
 
-            // Crear índice en adyacentes si no existe
-            const idxNamesAdyacentes = almacenAdyacentes.indexNames;
-            const indexExisteAdyacentes = (typeof idxNamesAdyacentes.contains === 'function')
-                ? idxNamesAdyacentes.contains(indexName)
-                : Array.from(idxNamesAdyacentes).includes(indexName);
+                // Crear índice en adyacentes si no existe
+                const idxNamesAdyacentes = almacenAdyacentes.indexNames;
+                const indexExisteAdyacentes = (typeof idxNamesAdyacentes.contains === 'function')
+                    ? idxNamesAdyacentes.contains(indexName)
+                    : Array.from(idxNamesAdyacentes).includes(indexName);
 
-            if (!indexExisteAdyacentes) {
-                almacenAdyacentes.createIndex(indexName, 'idsuperestructura', { unique: false });
-            }
-        };
-    });
-}
+                if (!indexExisteAdyacentes) {
+                    almacenAdyacentes.createIndex(indexName, 'idsuperestructura', { unique: false });
+                }
+            };
+        });
+    }
 
     /**
      * Crea la consulta de inserción para nodos en IndexedDB.
