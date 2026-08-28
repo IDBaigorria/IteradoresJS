@@ -711,7 +711,7 @@ export class Iterador extends Objeto {
      * Caso de uso: Desactivar la "marca de ocupado".
      *
      * @since 1.0
-     * @version 1.5i.1
+     * @version 1.5i.4
      *
      * @returns {boolean} `true` si se desactivó, `false` si no estaba ocupado.
      */
@@ -722,10 +722,8 @@ export class Iterador extends Objeto {
             return false;
         }
         if (cuerpo.adyacente("ocupado")) {
-            this.liberar();
-            this.destruir_datos_temporales();
+            // Solo elimina la marca de ocupado, sin cambiar la posición actual
             cuerpo.eliminar_adyacente("ocupado");
-            this.raiz_cuerpo = null;
             return true;
         } else {
             Iterador._alerta("Iterador.desocupar: el iterador ya esta desocupado (2)");

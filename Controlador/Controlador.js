@@ -37,6 +37,7 @@ import { Talamo } from '../Controlador/Talamo.js';
  * @implements {Controlador.Interfaces.Dominios}
  * @memberof Controlador
  * @since 1.2.0
+ * @version 1.5i.4
  */
 class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor, Dominios) {
     /** 
@@ -90,29 +91,18 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return this._procesadores[clave];
     }
 
-    /**
-     * Registra una clase de persistencia disponible para el sistema.
-     *
-     * @param {string} nombre Identificador del método ('sql', 'json', 'texto', etc.)
-     * @param {Function} clase Clase de implementación concreta.
-     * @return {void}
-     */
-    static registrar_implementacion(nombre, clase) {
-        this.implementaciones[nombre] = clase;
 
-        // Si ya existe el token, lo transmite a la clase registrada
+
+        // ======= Métodos de persistencia =======
+    static registrar_implementacion(nombre, clase) {
+        this.implementaciones[nombre.toUpperCase()] = clase;
         if (this.token && typeof clase.recibir_token === "function") {
             clase.recibir_token(this.token);
         }
     }
 
-    /**
-     * Establece qué método de persistencia será el actual.
-     *
-     * @param {string} nuevo_metodo Identificador de la implementación ('sql', 'json', 'texto', etc.)
-     * @return {boolean} Devuelve `true` si el método fue reconocido y configurado correctamente.
-     */
     static establecer_metodo(nuevo_metodo) {
+        nuevo_metodo = nuevo_metodo.toUpperCase();
         if (this.implementaciones[nuevo_metodo]) {
             this.metodo = nuevo_metodo;
             this.clase_actual = this.implementaciones[nuevo_metodo];
@@ -122,56 +112,87 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return false;
     }
 
-    /**
-     * Recibe el token de seguridad desde la clase Nodo y lo distribuye
-     * a todas las implementaciones de persistencia registradas.
-     *
-     * @param {string} token Token de seguridad proporcionado por Nodo.
-     * @return {void}
-     */
     static recibir_token(token) {
         this.token = token;
         for (const nombre in this.implementaciones) {
             const clase = this.implementaciones[nombre];
-            if (typeof clase.recibir_token === "function") {
+            if (clase && typeof clase.recibir_token === "function") {
                 clase.recibir_token(token);
             }
         }
     }
 
-    /**
-     * Ejecuta una operación delegada a la clase de persistencia activa.
-     *
-     * @param {string} funcion Nombre del método a ejecutar.
-     * @param {*} nombre Parámetro principal de la operación.
-     * @return {*} Devuelve el resultado de la operación o `null` si no fue posible.
-     */
     static delegar(funcion, nombre) {
         const clase = this.clase_actual;
-
         if (!clase) {
             this._alerta("Clase de persistencia no disponible para el método actual.");
             return null;
         }
-
         if (typeof clase[funcion] !== "function") {
             this._alerta(`El método '${funcion}' no existe en la clase seleccionada.`);
             return null;
         }
-
         return clase[funcion](nombre);
+    }
+
+     /**
+     * Verifica que no haya nodos ocupados (autoenlace "ocupado") en la superestructura.
+     *
+     * @return {boolean} `true` si todos los nodos están desocupados, `false` en caso contrario.
+     * @version 1.5i.4
+     */
+    static verificar_superestructura_desocupada() {
+        const resultado = Nodo.por_cada_nodo_ejecutar(this.token, (nodo) => {
+            const ady = nodo.adyacente("ocupado");
+            return (ady === nodo);
+        });
+
+        // Si no hay nodos, no hay ocupados
+        if (resultado === null || resultado === undefined) {
+            return true;
+        }
+
+        // Normalizar a iterable según tipo
+        let entradas;
+        if (resultado instanceof Map) {
+            entradas = resultado.entries();
+        } else if (Array.isArray(resultado)) {
+            entradas = resultado.entries();
+        } else if (typeof resultado === 'object') {
+            entradas = Object.entries(resultado);
+        } else {
+            return true; // No se puede analizar, asumimos que está desocupada
+        }
+
+        for (const [id, esta_ocupado] of entradas) {
+            if (esta_ocupado) {
+                this._error(`No se puede guardar: el nodo con ID ${id} está ocupado.`);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ======= Métodos públicos de operación =======
 
-    /** @return {boolean} */
-    static guardar(nombre) {
-        return this.delegar("guardar", nombre);
+    /** @return {boolean} 
+     * @version 1.5i.4
+    */
+    static async guardar(nombre) {
+        if (!this.verificar_superestructura_desocupada()) {
+            return false;
+        }
+        return await this.delegar("guardar", nombre);
     }
 
-    /** @return {boolean} */
-    static cargar(nombre) {
-        return this.delegar("cargar", nombre);
+
+    /** @return {boolean} 
+     * @version 1.5i.4
+    */
+    static async cargar(nombre) {
+        Nodo.vaciar_superestructura(this.token);
+        return await this.delegar("cargar", nombre);
     }
 
     /** @return {boolean} */
@@ -183,6 +204,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     static existe(nombre) {
         return this.delegar("existe", nombre);
     }
+
 
     /**
      * Imprime todos los nodos de la superestructura en el formato adecuado

@@ -45,7 +45,11 @@ console.log('══════════════════════�
 console.log(' PRUEBAS v1.5i.4 – PERSISTENCIA DEL ITERADOR');
 console.log('══════════════════════════════════\n');
 
-Controlador.ejecutar_prueba(function (token) {
+Controlador.ejecutar_prueba(async function (token) {
+    // Cambiar método a SQL (IndexedDB en realidad ya está activo por defecto)
+    Controlador.establecer_metodo('IndexedDB');
+
+    // 1. Crear lista enlazada 0→1→2→3→4
     const nodos = [];
     for (let i = 0; i < 5; i++) {
         nodos.push(Nodo.crear_con_dato(i));
@@ -54,43 +58,46 @@ Controlador.ejecutar_prueba(function (token) {
         nodos[i]._adyacente_en(nodos[i + 1], 'siguiente');
     }
 
+    // 2. Crear iterador apuntando al nodo 0
     const nombre_iter = 'iter_persistencia';
     const iter = Iterador.crear(nombre_iter, nodos[0]);
     verificar_no_nulo(iter, 'Iterador creado');
     verificar_iguales(iter.dato(), 0, 'dato inicial es 0');
 
+    // 3. Avanzar dos posiciones por 'siguiente'
     const actual = iter.avanzar('siguiente;siguiente');
     verificar_no_nulo(actual, 'avanzar devuelve nodo');
     verificar_iguales(actual.dato(), 2, 'tras avanzar 2, dato actual es 2');
 
-    const guardado = Controlador.guardar('persistencia_iterador_test');
+    // 3.1 Desocupar el iterador antes de guardar (conserva posición actual)
+    verificar_verdadero(iter.desocupar(), 'desocupar iterador antes de guardar');
+
+    // 4. Guardar superestructura
+    const guardado = await Controlador.guardar('persistencia_iterador_test');
     verificar_verdadero(guardado, 'guardar superestructura devuelve true');
 
-    // Vaciar superestructura en JS, si existe el método
-    if (typeof Nodo.vaciar_superestructura === 'function') {
-        Nodo.vaciar_superestructura(token);
-    } else {
-        iter.destruir();
-    }
-    verificar_falso(Iterador.existe(nombre_iter), 'tras vaciar, el iterador ya no existe');
-
-    const cargado = Controlador.cargar('persistencia_iterador_test');
+    // 5. Cargar superestructura guardada
+    const cargado = await Controlador.cargar('persistencia_iterador_test');
     verificar_verdadero(cargado, 'cargar superestructura devuelve true');
 
+    // 6. Recuperar iterador cargado
     const iter_cargado = Iterador.cargar(nombre_iter);
     verificar_no_nulo(iter_cargado, 'iterador cargado correctamente');
 
+    // 7. Verificar posición actual
     const actual_cargado = iter_cargado.actual();
     verificar_no_nulo(actual_cargado, 'nodo actual no nulo');
     verificar_iguales(actual_cargado.dato(), 2, 'dato del nodo actual es 2');
     verificar_iguales(iter_cargado.dato(), 2, 'método dato() devuelve 2');
 
+    // 8. Verificar enlace siguiente desde actual
     const siguiente = actual_cargado.adyacente('siguiente');
     verificar_no_nulo(siguiente, "existe enlace 'siguiente' desde actual");
     verificar_iguales(siguiente.dato(), 3, 'el siguiente nodo tiene dato 3');
 
+    // 9. Limpiar
     iter_cargado.destruir();
-    Controlador.eliminar('persistencia_iterador_test');
+    await Controlador.eliminar('persistencia_iterador_test');
     verificar_verdadero(true, 'Limpieza final completada');
 });
 

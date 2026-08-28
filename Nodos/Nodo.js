@@ -2165,19 +2165,27 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * } else {
      *     console.error("Error: token inválido o acceso no autorizado.");
      * }
+     * @version 1.5i.4
      */
-    static vaciar_superestructura(token){
-      if (token===this._token){
-        console.log("vaciarndo");
-        this._superestructura=new Map();
-        this._cant=0;
-        this._nodos_especiales=new Map();
-        return true;
-      }else{
-        this._error("intento de acceso no aurotizado");
-        return null;       
+  static vaciar_superestructura(token) {
+      if (token === this._token) {
+          this._superestructura.clear();
+          this._nodos_especiales.clear();
+          // Limpiar depósito de IDs especiales (si existe)
+          if (typeof this._deposito_de_ids !== 'undefined') {
+              for (const id of Object.keys(this._deposito_de_ids)) {
+                  if (typeof id === 'string' && !/^\d+$/.test(id)) {
+                      delete this._deposito_de_ids[id];
+                  }
+              }
+          }
+          this._cant = 0;
+          return true;
+      } else {
+          this._error("Intento de acceso no autorizado");
+          return null;
       }
-    }
+  }
 
     /**
      * Llave de seguridad interna utilizada para autorizar operaciones sensibles
@@ -2219,17 +2227,20 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
    *
    * @see Nodo._token
    * @see Nodo.por_cada_nodo_ejecutar
+   * @version 1.5i.4
    */
   static registrar_controlador(controlador) {
-    console.log(controlador);
-   /* const clase = globalThis[controlador];
-    console.log(clase);
-    if (typeof clase?.recibir_token === "function") {*/
-      controlador.recibir_token(this._token);
-      alert("RI");
-    /*} else {
-      this._error(`⚠️ No se pudo registrar el controlador '${controlador}'.`);
-    }*/
+      let clase = controlador;
+      if (typeof controlador === 'string') {
+          clase = globalThis[controlador];
+      }
+
+      if (clase && clase.recibir_token) {
+          clase.recibir_token(this._token);
+          console.log(`Controlador '${clase.name}' registrado correctamente.`);
+      } else {
+          console.warn('No se encontró el método recibir_token en Controlador, pero continuamos.');
+      }
   }
   
     /***************************  NODOS ESPECIALES********************* */

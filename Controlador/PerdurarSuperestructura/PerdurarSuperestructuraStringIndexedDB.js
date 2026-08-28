@@ -340,69 +340,80 @@ static #abrir_BD() {
      * 
      * @notes Maneja equivalencias de IDs y reconstruye las relaciones entre nodos.
      */
-    static async cargar(nombre) {
-        if (typeof nombre !== 'string') {
-            this._error("cargar: el identificador pasado como parametro no es un string");
+static async cargar(nombre) {
+    if (typeof nombre !== 'string') {
+        this._error("cargar: el identificador pasado como parametro no es un string");
+        return false;
+    }
+
+    try {
+        const db = await this.#abrir_BD();
+
+        if (!(await this.#existe_superestructura(db, nombre))) {
+            this._alerta("alerta al cargar, no existe superestructura con el identificador pasado como parametro");
+            db.close();
             return false;
         }
 
-        try {
-            const db = await this.#abrir_BD();
+        // La superestructura ya fue vaciada por el Controlador
+        const nodos = await this.#obtener_nodos_por_superestructura(db, nombre);
+        const equivalencias = {};
 
-            // Verificar existencia
-            if (!(await this.#existe_superestructura(db, nombre))) {
-                this._alerta("alerta al cargar, no existe superestructura con el identificador pasado como parametro");
-                db.close();
-                return false;
-            }
-            console.log("gg"+this.#token);
-            await Nodo.vaciar_superestructura(this.#token);
-            // Cargar nodos
-            const nodos = await this.#obtener_nodos_por_superestructura(db, nombre);
-            const equivalencias = {};
-
-            for (const nodo of nodos) {
-                const id = nodo.idnodo;
-                if (this.es_id_especial(id)) {
-                    let naux = Nodo.nodo_por_id(id);
-                    if (!naux) {
-                        Nodo.crear_con_dato_e_id(nodo.dato, id);
-                    } else {
-                        naux._dato(nodo.dato);
-                    }
+        for (const nodo of nodos) {
+            const id = nodo.idnodo;
+            if (this.es_id_especial(id)) {
+                let naux = Nodo.nodo_por_id(id);
+                if (!naux) {
+                    Nodo.crear_con_dato_e_id(nodo.dato, id);
                 } else {
-                    const idnuevo = Nodo.crear_con_dato(nodo.dato).id();
-                    equivalencias[id] = idnuevo;
+                    naux._dato(nodo.dato);
                 }
+            } else {
+                const idnuevo = Nodo.crear_con_dato(nodo.dato).id();
+                equivalencias[id] = idnuevo;
             }
-
-            // Cargar adyacentes
-            const adyacentes = await this.#obtener_adyacentes_por_superestructura(db, nombre);
-
-            for (const ady of adyacentes) {
-                let idnod = ady.idnodo;
-                if (!this.es_id_especial(idnod)) {
-                    idnod = equivalencias[idnod];
-                }
-                const nodo = Nodo.nodo_por_id(idnod);
-
-                let idady = ady.idadyacente;
-             //   if (this.es_id_especial(idady)) {
-                    idady = equivalencias[idady];
-              //  }
-                const nodoady = Nodo.nodo_por_id(idady);
-
-                nodo._adyacente_en(nodoady, ady.enlace);
-            }
-
-            db.close();
-            return true;
-        } catch (error) {
-            this._error("Error en cargar: " + error.message);
-            return null;
         }
-    }
 
+        const adyacentes = await this.#obtener_adyacentes_por_superestructura(db, nombre);
+
+        for (const ady of adyacentes) {
+            let idnod = ady.idnodo;
+            if (!this.es_id_especial(idnod)) {
+                if (!equivalencias.hasOwnProperty(idnod)) {
+                    this._error(`No se encontró equivalencia para idnodo=${idnod}`);
+                    continue;
+                }
+                idnod = equivalencias[idnod];
+            }
+
+            const nodo = Nodo.nodo_por_id(idnod);
+
+            let idady = ady.idadyacente;
+            if (!this.es_id_especial(idady)) {
+                if (!equivalencias.hasOwnProperty(idady)) {
+                    this._error(`No se encontró equivalencia para idadyacente=${idady}`);
+                    continue;
+                }
+                idady = equivalencias[idady];
+            }
+
+            const nodoady = Nodo.nodo_por_id(idady);
+
+            if (!nodo || !nodoady) {
+                this._error(`No se pudo reconstruir el enlace: idnodo=${idnod}, idadyacente=${idady}, enlace=${ady.enlace}`);
+                continue;
+            }
+
+            nodo._adyacente_en(nodoady, ady.enlace);
+        }
+
+        db.close();
+        return true;
+    } catch (error) {
+        this._error("Error en cargar: " + error.message);
+        return null;
+    }
+}
     /**
      * Verifica la existencia de una superestructura en IndexedDB.
      * 

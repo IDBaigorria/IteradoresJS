@@ -350,14 +350,13 @@ class PerdurarSuperestructuraElectricosStringIndexedDB extends mezclar_clase_con
         try {
             const db = await this.#abrir_BD();
 
-            // Verificar existencia
             if (!(await this.#existe_superestructura(db, nombre))) {
                 this._alerta("alerta al cargar, no existe superestructura con el identificador pasado como parametro");
                 db.close();
                 return false;
             }
-            console.log("gg"+this.#token);
-            await Nodo.vaciar_superestructura(this.#token);
+
+            // Nodo.vaciar_superestructura ya fue llamado por Controlador
             // Cargar nodos
             const nodos = await this.#obtener_nodos_por_superestructura(db, nombre);
             const equivalencias = {};
@@ -383,15 +382,29 @@ class PerdurarSuperestructuraElectricosStringIndexedDB extends mezclar_clase_con
             for (const ady of adyacentes) {
                 let idnod = ady.idnodo;
                 if (!this.es_id_especial(idnod)) {
+                    if (!equivalencias.hasOwnProperty(idnod)) {
+                        this._error(`No se encontró equivalencia para idnodo=${idnod}`);
+                        continue;
+                    }
                     idnod = equivalencias[idnod];
                 }
-                const nodo = Nodo.nodo_por_id(idnod);
 
+                const nodo = Nodo.nodo_por_id(idnod);
                 let idady = ady.idadyacente;
-             //   if (this.es_id_especial(idady)) {
+                if (!this.es_id_especial(idady)) {
+                    if (!equivalencias.hasOwnProperty(idady)) {
+                        this._error(`No se encontró equivalencia para idadyacente=${idady}`);
+                        continue;
+                    }
                     idady = equivalencias[idady];
-              //  }
+                }
+
                 const nodoady = Nodo.nodo_por_id(idady);
+
+                if (!nodo || !nodoady) {
+                    this._error(`No se pudo reconstruir el enlace: idnodo=${idnod}, idadyacente=${idady}, enlace=${ady.enlace}`);
+                    continue;
+                }
 
                 nodo._adyacente_en(nodoady, ady.enlace);
             }
