@@ -1587,7 +1587,375 @@ export class Iterador extends Objeto {
         return nodo;
     }
 
+	//********************************************************************************
+	//------------------------------------------------------------------------------->
+	//---------------------- INTERFAZ Adyacente ------------------------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+	//------------------------------------------------------------------------------->
+		/*Notas generales de la interfaz:
+			Permite agregar, obtener y eliminar adyacentes del nodo actual,
+			con opción de desplazarse por un camino antes de operar.
+		*/
 
+	/**
+	 * Agrega un adyacente en un alias, con elemento obligatorio.
+	 *
+	 * @param {*} elemento Elemento o nodo a agregar.
+	 * @param {string|number} alias Alias del enlace.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @param {function(boolean)} [es_nodo_callback] Recibe true si era nodo.
+	 * @returns {Nodo|null} Nodo agregado o null.
+	 * @since 1.0
+	 * @version 1.5i.3
+	 */
+	_adyacente_en(elemento, alias, camino = null, es_nodo_callback = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador._adyacente_en: el Iterador no está ocupado");
+			return null;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador._adyacente_en: no hay nodo actual");
+			return null;
+		}
+		const enlace = this.enlace(alias);
+		if (!enlace) {
+			Iterador._error("Iterador._adyacente_en: alias no válido");
+			return null;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador._adyacente_en: camino no válido");
+				return null;
+			}
+		}
+		const actual = cuerpo.adyacente("actual");
+		let es_nodo_interno = false;
+		const nodo = this.nodo(elemento, (n, es) => { es_nodo_interno = es; });
+		if (es_nodo_callback) es_nodo_callback(es_nodo_interno);
+		if (!nodo) {
+			Iterador._error("Iterador._adyacente_en: elemento no válido");
+			if (avanzo) {
+				cuerpo.eliminar_adyacente("actual");
+				cuerpo._adyacente_en(origen, "actual");
+			}
+			return null;
+		}
+        if (actual.adyacente(enlace)) {
+            actual.eliminar_adyacente(enlace);
+            Iterador._alerta("Iterador._adyacente_en: se está reemplazando un nodo en ese enlace");
+        }
+        actual._adyacente_en(nodo, enlace);
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		return nodo;
+	}
+
+	/**
+	 * Agrega un adyacente en un alias, con elemento opcional.
+	 *
+	 * @param {string|number} alias Alias del enlace.
+	 * @param {*} [elemento=null] Elemento a agregar.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @param {function(boolean)} [es_nodo_callback] Recibe true si era nodo.
+	 * @returns {Nodo|null} Nodo agregado o null.
+	 */
+	_adyacente(alias, elemento = null, camino = null, es_nodo_callback = null) {
+		return this._adyacente_en(elemento, alias, camino, es_nodo_callback);
+	}
+
+	/**
+	 * Agrega varios adyacentes desde un objeto {alias: elemento}.
+	 *
+	 * @param {Object} arreglo_elementos Objeto alias => elemento.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @returns {boolean} `true` si éxito.
+	 */
+	_adyacentes(arreglo_elementos, camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador._adyacentes: el iterador no esta ocupado");
+			return false;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador._adyacentes: no hay nodo actual");
+			return null;
+		}
+		if (typeof arreglo_elementos !== 'object' || arreglo_elementos === null) {
+			Iterador._error("Iterador._adyacentes: debe recibir un objeto alias => elemento");
+			return false;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador._adyacentes: camino no válido");
+				return false;
+			}
+		}
+		const actual = cuerpo.adyacente("actual");
+		let error = false;
+		for (const alias in arreglo_elementos) {
+			const elemento = arreglo_elementos[alias];
+			const enlace = this.enlace(alias);
+			const nodo = this.nodo(elemento);
+			if (!enlace || !nodo) {
+				error = true;
+			} else {
+				actual._adyacente_en(nodo, enlace);
+			}
+		}
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		if (error) {
+			Iterador._error("Iterador._adyacentes: algunos pares no son válidos");
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Retorna todos los adyacentes del nodo actual.
+	 *
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @returns {Object|null} Objeto enlace => nodo.
+	 */
+	adyacentes(camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.adyacentes: el iterador no esta ocupado");
+			return null;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador.adyacentes: el iterador no tiene asignado nodo actual");
+			return null;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador.adyacentes: camino no válido");
+				return null;
+			}
+		}
+		const actual = cuerpo.adyacente("actual");
+		const res = actual.por_cada_adyacente_ejecutar((nodo) => nodo);
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		return res;
+	}
+
+	/**
+	 * Retorna un adyacente específico por alias.
+	 *
+	 * @param {string|number} alias Alias.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @returns {Nodo|null} Nodo adyacente.
+	 */
+	adyacente(alias, camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.adyacente: el iterador no esta ocupado");
+			return null;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador.adyacente: no hay nodo actual");
+			return null;
+		}
+		const enlace = this.enlace(alias);
+		if (!enlace) {
+			Iterador._error("Iterador.adyacente: alias no válido");
+			return null;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador.adyacente: camino no válido");
+				return null;
+			}
+		}
+		const actual = cuerpo.adyacente("actual");
+		const res = actual.adyacente(enlace);
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		if (!res) {
+			Iterador._alerta("Iterador.adyacente: no existe adyacente en ese alias");
+			return null;
+		}
+		return res;
+	}
+
+	/**
+	 * Elimina un adyacente por alias.
+	 *
+	 * @param {string|number} alias Alias.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @returns {Nodo|boolean} Nodo eliminado o false.
+	 */
+	eliminar_adyacente(alias, camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.eliminar_adyacente: el iterador no esta ocupado");
+			return false;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador.eliminar_adyacente: no hay nodo actual");
+			return false;
+		}
+		const enlace = this.enlace(alias);
+		if (!enlace) {
+			Iterador._error("Iterador.eliminar_adyacente: alias no válido");
+			return false;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador.eliminar_adyacente: camino no válido");
+				return false;
+			}
+		}
+		const actual = cuerpo.adyacente("actual");
+		const elim = actual.eliminar_adyacente(enlace);
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		if (!elim) {
+			Iterador._error("Iterador.eliminar_adyacente: no existe nodo en el enlace");
+			return false;
+		}
+		return elim;
+	}
+
+	/**
+	 * Elimina todos los adyacentes del nodo actual.
+	 *
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @returns {boolean} `true` si éxito.
+	 */
+	eliminar_adyacentes(camino = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador.eliminar_adyacentes: el iterador no esta ocupado");
+			return false;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador.eliminar_adyacentes: el iterador no tiene asignado nodo actual");
+			return false;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador.eliminar_adyacentes: camino no válido");
+				return false;
+			}
+		}
+		const actual = cuerpo.adyacente("actual");
+		const res = actual.eliminar_adyacentes(); // devuelve Map
+
+		if (res.size === 0) {
+			if (avanzo) {
+				cuerpo.eliminar_adyacente("actual");
+				cuerpo._adyacente_en(origen, "actual");
+			}
+			Iterador._error("Iterador.eliminar_adyacentes: no se pudieron eliminar enlaces");
+			return false;
+		}
+
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		return true;
+	}
+	/**
+	 * Agrega un enlace desde el elemento hacia la estructura.
+	 *
+	 * @param {*} elemento Elemento/nodo desde el cual sale el enlace.
+	 * @param {string|number} alias Alias.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @param {function(boolean)} [es_nodo_callback] Recibe true si era nodo.
+	 * @returns {Nodo|null} Nodo origen.
+	 */
+	_como_adyacente_de_nodo_en_alias(elemento, alias, camino = null, es_nodo_callback = null) {
+		const cuerpo = this.raiz_cuerpo;
+		if (!cuerpo || !cuerpo.adyacente("ocupado")) {
+			Iterador._error("Iterador._como_adyacente_de_nodo_en_alias: el iterador no esta ocupado");
+			return null;
+		}
+		const origen = cuerpo.adyacente("actual");
+		if (!origen) {
+			Iterador._error("Iterador._como_adyacente_de_nodo_en_alias: no hay nodo actual");
+			return null;
+		}
+		const enlace = this.enlace(alias);
+		if (!enlace) {
+			Iterador._error("Iterador._como_adyacente_de_nodo_en_alias: alias no válido");
+			return null;
+		}
+		let avanzo = false;
+		if (camino) {
+			avanzo = this._avanzar_interno(camino);
+			if (!avanzo) {
+				Iterador._error("Iterador._como_adyacente_de_nodo_en_alias: camino no válido");
+				return null;
+			}
+		}
+		let es_nodo_interno = false;
+		const nodo = this.nodo(elemento, (n, es) => { es_nodo_interno = es; });
+		if (es_nodo_callback) es_nodo_callback(es_nodo_interno);
+		if (!nodo) {
+			Iterador._error("Iterador._como_adyacente_de_nodo_en_alias: elemento no válido");
+			if (avanzo) {
+				cuerpo.eliminar_adyacente("actual");
+				cuerpo._adyacente_en(origen, "actual");
+			}
+			return null;
+		}
+		const actual = cuerpo.adyacente("actual");
+		if (nodo.adyacente(enlace)) {
+			Iterador._alerta("Iterador._como_adyacente_de_nodo_en_alias: se está reemplazando un nodo en ese enlace");
+		}
+		nodo._adyacente_en(actual, enlace);
+		if (avanzo) {
+			cuerpo.eliminar_adyacente("actual");
+			cuerpo._adyacente_en(origen, "actual");
+		}
+		return nodo;
+	}
+
+	/**
+	 * Versión alternativa de _como_adyacente_de_nodo_en_alias con orden de parámetros cambiado.
+	 *
+	 * @param {string|number} alias Alias.
+	 * @param {*} [elemento=null] Elemento.
+	 * @param {string|null} [camino=null] Camino opcional.
+	 * @param {function(boolean)} [es_nodo_callback] Recibe true si era nodo.
+	 * @returns {Nodo|null} Nodo origen.
+	 */
+	_adyacente_inverso(alias, elemento = null, camino = null, es_nodo_callback = null) {
+		return this._como_adyacente_de_nodo_en_alias(elemento, alias, camino, es_nodo_callback);
+	}
 
     /**
      * Placeholder: crea u obtiene la lista auxiliar de visitados.
