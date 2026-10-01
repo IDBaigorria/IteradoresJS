@@ -2171,14 +2171,14 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
       if (token === this._token) {
           this._superestructura.clear();
           this._nodos_especiales.clear();
-          // Limpiar depósito de IDs especiales (si existe)
-          if (typeof this._deposito_de_ids !== 'undefined') {
-              for (const id of Object.keys(this._deposito_de_ids)) {
-                  if (typeof id === 'string' && !/^\d+$/.test(id)) {
-                      delete this._deposito_de_ids[id];
-                  }
-              }
-          }
+          // Limpiar el depósito de IDs de Objeto. En JS el depósito
+          // es un campo privado de Objeto (#deposito_de_ids) y no
+          // es accesible desde Nodo. Antes había un bloque con
+          // `typeof this._deposito_de_ids` que nunca se ejecutaba
+          // en JS, así que al recargar una superestructura los
+          // nodos con IDs especiales ya existían en el depósito y
+          // `crear_con_dato_e_id` fallaba con "Ya existe ese id".
+          Objeto.limpiar_deposito_ids();
           this._cant = 0;
           return true;
       } else {

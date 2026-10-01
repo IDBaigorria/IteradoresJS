@@ -8,7 +8,7 @@ console.log("PerdurarSuperestructuraStringJSON");
 /**
  * Clase PerdurarSuperestructuraXML
  * 
- * @version 1.0.0 (Última revisión: 28/10/2025)
+ * @version 1.0.1 (Última revisión: 30/09/2026)
  *
  * @author Ignacio David Baigorria
  *
@@ -249,6 +249,13 @@ class PerdurarSuperestructuraStringXML extends mezclar_clase_con_interfaces(Obje
      * @private
      */
     static #procesar_xml(xmlDoc) {
+        // Validar que exista el nodo <nodos>. Si no, se devuelve null
+        // para que el llamador decida.
+        const nodos_elem = xmlDoc.querySelector('nodos');
+        if (!nodos_elem) {
+            return null;
+        }
+
         const estructura = {
             metadata: {
                 fecha_creacion: '',
@@ -375,8 +382,13 @@ class PerdurarSuperestructuraStringXML extends mezclar_clase_con_interfaces(Obje
             const xmlDoc = await this.#crear_input_carga();
             const estructura = this.#procesar_xml(xmlDoc);
             
-            // Limpiar la superestructura actual antes de cargar
-            Nodo.vaciar_superestructura(this.#token);
+            if (!estructura) {
+                this._error("El XML no tiene el nodo <nodos> esperado");
+                return null;
+            }
+
+            // La superestructura ya fue vaciada por Controlador.cargar.
+            // No vaciar de nuevo.
 
             const equivalencias = {};
 
@@ -493,7 +505,14 @@ class PerdurarSuperestructuraStringXML extends mezclar_clase_con_interfaces(Obje
             
             const estructura = this.#procesar_xml(xmlDoc);
             
-            // Limpiar la superestructura actual antes de cargar
+            if (!estructura) {
+                this._error("El XML no tiene el nodo <nodos> esperado");
+                return false;
+            }
+
+            // Vaciar la superestructura actual. Este metodo se puede llamar
+            // desde fuera del Controlador (por ejemplo, desde codigo de
+            // pruebas), por eso mantiene su propio vaciado.
             Nodo.vaciar_superestructura(this.#token);
 
             const equivalencias = {};

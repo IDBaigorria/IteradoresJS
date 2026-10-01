@@ -37,7 +37,7 @@ import { Talamo } from '../Controlador/Talamo.js';
  * @implements {Controlador.Interfaces.Dominios}
  * @memberof Controlador
  * @since 1.2.0
- * @version 1.5i.4
+ * @version 1.5i.5
  */
 class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor, Dominios) {
     /** 
@@ -122,7 +122,11 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         }
     }
 
-    static delegar(funcion, nombre) {
+    static async delegar(funcion, nombre) {
+        if (typeof nombre !== "string") {
+            this._error("delegar: el nombre debe ser un string");
+            return null;
+        }
         const clase = this.clase_actual;
         if (!clase) {
             this._alerta("Clase de persistencia no disponible para el método actual.");
@@ -132,7 +136,9 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             this._alerta(`El método '${funcion}' no existe en la clase seleccionada.`);
             return null;
         }
-        return clase[funcion](nombre);
+        // `await` funciona tanto si la implementación es async
+        // (IndexedDB) como si es sync (JSON/XML).
+        return await clase[funcion](nombre);
     }
 
      /**
@@ -195,14 +201,14 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
         return await this.delegar("cargar", nombre);
     }
 
-    /** @return {boolean} */
-    static eliminar(nombre) {
-        return this.delegar("eliminar", nombre);
+    /** @return {Promise<boolean|null>} */
+    static async eliminar(nombre) {
+        return await this.delegar("eliminar", nombre);
     }
 
-    /** @return {boolean} */
-    static existe(nombre) {
-        return this.delegar("existe", nombre);
+    /** @return {Promise<boolean|null>} */
+    static async existe(nombre) {
+        return await this.delegar("existe", nombre);
     }
 
 
@@ -316,7 +322,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @since 0.2.6
      * @static
      */
-    static ejecutar_prueba(callback) {
+    static async ejecutar_prueba(callback) {
         if (!Entorno.permite_pruebas()) {
             this._alerta('ejecutar_prueba() no está disponible en entorno de producción');
             return;
@@ -325,7 +331,10 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
             this._error('Controlador no registrado. Llame a Controlador.registrar() primero.');
             return;
         }
-        callback(this.token);
+        // `await` sobre el callback permite que los tests con
+        // callbacks async esperen a que termine el trabajo real.
+        // Si el callback es sync, no afecta: devuelve undefined.
+        return await callback(this.token);
     }
 
     // ══════════════════════════════════════════════════════

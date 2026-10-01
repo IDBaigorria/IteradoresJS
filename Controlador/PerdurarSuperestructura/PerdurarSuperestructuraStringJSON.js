@@ -8,7 +8,7 @@ console.log("PerdurarSuperestructuraStringJSON");
 /**
  * Clase PerdurarSuperestructuraJSON
  * 
- * @version 1.0.0 (Última revisión: 28/10/2025)
+ * @version 1.0.1 (Última revisión: 30/09/2026)
  *
  * @author Ignacio David Baigorria
  * 
@@ -297,8 +297,14 @@ static #construir_estructura_json() {
         try {
             const estructura = await this.#crear_input_carga();
             
-            // Limpiar la superestructura actual antes de cargar
-            Nodo.vaciar_superestructura(this.#token);
+            if (!estructura || !Array.isArray(estructura.nodos)) {
+                this._error("El JSON no tiene la clave 'nodos' esperada");
+                return null;
+            }
+
+            // La superestructura ya fue vaciada por Controlador.cargar.
+            // No vaciar de nuevo: si algo falla entre las dos limpiezas,
+            // queda vacia sin que nadie lo note.
 
             const equivalencias = {};
 
@@ -403,9 +409,16 @@ static #construir_estructura_json() {
      * o datos previamente cargados en memoria.
      */
     static cargar_desde_objeto(estructura) {
+        if (!estructura || !Array.isArray(estructura.nodos)) {
+            this._error("cargar_desde_objeto: la estructura no tiene la clave 'nodos'");
+            return false;
+        }
         try {
-            // Limpiar la superestructura actual antes de cargar
-            Nodo.vaciar_superestructura();
+            // Vaciar la superestructura actual. Este metodo se puede llamar
+            // desde fuera del Controlador (por ejemplo, desde codigo de
+            // pruebas), por eso mantiene su propio vaciado. Antes se llamaba
+            // sin token y fallaba silenciosamente.
+            Nodo.vaciar_superestructura(this.#token);
 
             const equivalencias = {};
 

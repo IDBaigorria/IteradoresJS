@@ -12,6 +12,11 @@ function verificar_iguales(a, b, mensaje, tolerancia = 1e-9) {
     let ok;
     if (a === b) {
         ok = true;
+    } else if (String(a) === String(b)) {
+        // Los datos del framework viajan como strings (consistencia
+        // con SQL/JSON en PHP). Aceptamos que "2" y 2 sean
+        // equivalentes a nivel de test.
+        ok = true;
     } else if (typeof a === 'number' && typeof b === 'number') {
         ok = Math.abs(a - b) < tolerancia;
     } else {
@@ -45,7 +50,9 @@ console.log('══════════════════════�
 console.log(' PRUEBAS v1.5i.4 – PERSISTENCIA DEL ITERADOR');
 console.log('══════════════════════════════════\n');
 
-Controlador.ejecutar_prueba(async function (token) {
+(async () => {
+    try {
+        await Controlador.ejecutar_prueba(async function (token) {
     // Cambiar método a SQL (IndexedDB en realidad ya está activo por defecto)
     Controlador.establecer_metodo('IndexedDB');
 
@@ -99,10 +106,52 @@ Controlador.ejecutar_prueba(async function (token) {
     iter_cargado.destruir();
     await Controlador.eliminar('persistencia_iterador_test');
     verificar_verdadero(true, 'Limpieza final completada');
-});
+        });
+    } catch (e) {
+        console.error('Excepción durante el test:', e);
+    } finally {
+        console.log('\n══════════════════════════════════');
+        console.log(' PRUEBAS v1.5i.4 FINALIZADAS');
+        console.log('══════════════════════════════════');
+        _diagnosticar_iterador();
+        Iterador.imprimir_alertas();
+        Iterador.imprimir_errores();
+    }
+})();
 
-console.log('\n══════════════════════════════════');
-console.log(' PRUEBAS v1.5i.4 FINALIZADAS');
-console.log('══════════════════════════════════');
-Iterador.imprimir_alertas();
-Iterador.imprimir_errores();
+/**
+ * Diagnóstico del grafo del iterador tras la carga.
+ *
+ * Recorre paso a paso la cadena que usa Iterador._cargar_interno
+ * e imprime dónde se rompe (o si todos los pasos están OK).
+ */
+function _diagnosticar_iterador() {
+    console.log('\n=== DIAGNOSTICO DEL ITERADOR ===');
+    const iteradores = Nodo.nodo_por_id('iteradores');
+    console.log('iteradores:', iteradores ? 'OK' : 'NULL');
+    if (!iteradores) { console.log('=== FIN DIAGNOSTICO ==='); return; }
+    const nclase = iteradores.adyacente('Iterador');
+    console.log('nclase (Iterador):', nclase ? ('OK id=' + nclase.id() + ' dato=' + nclase.dato()) : 'NULL');
+    if (!nclase) { console.log('=== FIN DIAGNOSTICO ==='); return; }
+    const nits = nclase.adyacente('iteradores');
+    console.log('nits (inner iteradores):', nits ? ('OK id=' + nits.id()) : 'NULL');
+    if (!nits) { console.log('=== FIN DIAGNOSTICO ==='); return; }
+    const cuerpo = nits.adyacente('iter_persistencia');
+    console.log('cuerpo (iter_persistencia):', cuerpo ? ('OK id=' + cuerpo.id() + ' dato=' + cuerpo.dato()) : 'NULL');
+    if (!cuerpo) {
+        console.log('   Adyacentes de nits:');
+        const ady = nits.adyacentes();
+        if (ady) {
+            for (const [enlace, nodo] of ady) {
+                console.log('     ' + enlace + ' -> id=' + nodo.id() + ' dato=' + nodo.dato());
+            }
+        }
+        console.log('=== FIN DIAGNOSTICO ===');
+        return;
+    }
+    const clase = cuerpo.adyacente('clase');
+    console.log('clase:', clase ? ('OK dato=' + clase.dato()) : 'NULL');
+    const actual = cuerpo.adyacente('actual');
+    console.log('actual:', actual ? ('OK id=' + actual.id() + ' dato=' + actual.dato()) : 'NULL');
+    console.log('=== FIN DIAGNOSTICO ===');
+}

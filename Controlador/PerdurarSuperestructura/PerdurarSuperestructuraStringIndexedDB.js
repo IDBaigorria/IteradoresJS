@@ -10,6 +10,8 @@ console.log("PerdurarSuperestructuraStringIndexDB");
  * 
  * Equivalente funcional de {@link PerdurarSuperestructuraStringSQL}.
  *
+ * @version 1.0.0 (Última revisión: 30/09/2026)
+ *
  * @author Ignacio David Baigorria
  * 
  * @extends {Objeto}
@@ -195,13 +197,17 @@ static #abrir_BD() {
         const nodos = [];
 
         for (let [id, dato] of Object.entries(datos)) {
-            if (typeof dato !== 'string' && dato !== null && typeof dato !== 'number') {
-                dato = null;
+            // Todos los datos se guardan como strings, igual que en PHP.
+            // Los numeros tambien. Si el dato es null/undefined, se guarda "".
+            if (dato === null || dato === undefined) {
+                dato = '';
+            } else {
+                dato = String(dato);
             }
             nodos.push({
-                idsuperestructura: nombre,
-                idnodo: id,
-                dato: dato // No necesitamos utf8_encode en JavaScript
+                idsuperestructura: String(nombre),
+                idnodo: String(id),
+                dato: dato
             });
         }
 
@@ -222,9 +228,16 @@ static #abrir_BD() {
     static #crear_datos_insertar_adyacentes(nombre) {
         const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {
             const enlaces = {};
-            nodo.por_cada_adyacente_ejecutar((adyacente, enlace) => {
-                enlaces[enlace] = adyacente.id();
-            });
+            // Usamos `adyacentes()` en lugar de `por_cada_adyacente_ejecutar`
+            // porque el primero devuelve null sin alerta cuando el nodo no
+            // tiene adyacentes. El segundo emite una alerta por cada nodo
+            // sin adyacentes, lo que llena la lista de alertas con ruido.
+            const ady = nodo.adyacentes();
+            if (ady) {
+                for (const [enlace, adyacente] of ady) {
+                    enlaces[enlace] = adyacente.id();
+                }
+            }
             return enlaces;
         }, null) || {};
 
@@ -232,11 +245,12 @@ static #abrir_BD() {
 
         for (const [idnodo, enlaces] of Object.entries(datos)) {
             for (const [enlace, idadyacente] of Object.entries(enlaces)) {
+                // Todo se guarda como string para consistencia entre cargas.
                 adyacentes.push({
-                    idsuperestructura: nombre,
-                    idnodo,
-                    enlace,
-                    idadyacente
+                    idsuperestructura: String(nombre),
+                    idnodo: String(idnodo),
+                    enlace: String(enlace),
+                    idadyacente: String(idadyacente)
                 });
             }
         }
@@ -265,27 +279,104 @@ static #abrir_BD() {
             return false;
         }
 
+        let db = null;
         try {
-            console.log("guardar "+nombre);
-            const db = await this.#abrir_BD();
+            db = await this.#abrir_BD();
 
-            // Eliminar datos existentes con el mismo nombre
-            await this.#eliminar_por_superestructura(db, nombre);
-
-            // Insertar nodos
+            // Preparar los datos.
             const nodos = this.#crear_datos_insertar_nodos(nombre);
-            await this.#insertar_en_almacen(db, this.#ALMACEN_NODOS, nodos);
-
-            // Insertar adyacentes
             const adyacentes = this.#crear_datos_insertar_adyacentes(nombre);
-            await this.#insertar_en_almacen(db, this.#ALMACEN_ADYACENTES, adyacentes);
 
-            db.close();
+            // Guardar todo en una sola transaccion atomica.
+            // Si algo falla, la transaccion se aborta y los datos
+            // previos quedan intactos. Mismo patron que SQL con
+            // begin_transaction / commit / rollback.
+            await this.#reemplazar_en_transaccion(db, nombre, nodos, adyacentes);
+
             return true;
         } catch (error) {
             this._error("Error en guardar: " + error.message);
             return false;
+        } finally {
+            if (db) {
+                try { db.close(); } catch (e) { /* ignorar */ }
+            }
         }
+    }
+
+    /**
+     * Reemplaza (borra e inserta) todos los nodos y adyacentes de una
+     * superestructura en una sola transaccion de IndexedDB.
+     *
+     * Estrategia:
+     * 1. Abre una transaccion `readwrite` sobre los dos almacenes.
+     * 2. Borra todos los registros existentes con ese nombre usando
+     *    cursores sobre el indice `idsuperestructura`.
+     * 3. Cuando ambos cursores terminan, encola todos los INSERT
+     *    (add) en la misma transaccion.
+     * 4. Si algo falla, IndexedDB aborta la transaccion y hace
+     *    rollback automatico. Los datos previos quedan intactos.
+     *
+     * @param {IDBDatabase} db Conexion abierta.
+     * @param {string} nombre Nombre de la superestructura.
+     * @param {Array} nodos Nodos a insertar.
+     * @param {Array} adyacentes Adyacentes a insertar.
+     * @returns {Promise<void>}
+     */
+    static #reemplazar_en_transaccion(db, nombre, nodos, adyacentes) {
+        return new Promise((resolve, reject) => {
+            let tx;
+            try {
+                tx = db.transaction(
+                    [this.#ALMACEN_NODOS, this.#ALMACEN_ADYACENTES],
+                    'readwrite'
+                );
+            } catch (e) {
+                reject(e);
+                return;
+            }
+
+            const almacen_nodos = tx.objectStore(this.#ALMACEN_NODOS);
+            const almacen_ady = tx.objectStore(this.#ALMACEN_ADYACENTES);
+            const rango = IDBKeyRange.only(nombre);
+
+            // Fase 1: borrar. Cuando los dos cursores terminan, se
+            // encolan los inserts.
+            let pendientes_borrado = 2;
+            const al_terminar_borrado = () => {
+                pendientes_borrado--;
+                if (pendientes_borrado !== 0) return;
+                // Fase 2: insertar.
+                for (const n of nodos) almacen_nodos.add(n);
+                for (const a of adyacentes) almacen_ady.add(a);
+            };
+
+            const cursor_nodos = almacen_nodos.index('idsuperestructura').openCursor(rango);
+            cursor_nodos.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    cursor.delete();
+                    cursor.continue();
+                } else {
+                    al_terminar_borrado();
+                }
+            };
+
+            const cursor_ady = almacen_ady.index('idsuperestructura').openCursor(rango);
+            cursor_ady.onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    cursor.delete();
+                    cursor.continue();
+                } else {
+                    al_terminar_borrado();
+                }
+            };
+
+            tx.oncomplete = () => resolve();
+            tx.onerror = (event) => reject(event.target.error || new Error('Error en transaccion'));
+            tx.onabort = () => reject(new Error('Transaccion abortada'));
+        });
     }
 
     /**
@@ -307,21 +398,24 @@ static #abrir_BD() {
             return null;
         }
 
+        let db = null;
         try {
-            const db = await this.#abrir_BD();
+            db = await this.#abrir_BD();
             const existia = await this.#existe_superestructura(db, nombre);
             if (existia) {
                 await this.#eliminar_por_superestructura(db, nombre);
-                db.close();
                 return true;
             } else {
                 this._error("eliminar: no existe superestructura con ese nombre");
-                db.close();
                 return false;
             }
         } catch (error) {
             this._error("Error en eliminar: " + error.message);
             return null;
+        } finally {
+            if (db) {
+                try { db.close(); } catch (e) { /* ignorar */ }
+            }
         }
     }
 
@@ -346,12 +440,12 @@ static async cargar(nombre) {
         return false;
     }
 
+    let db = null;
     try {
-        const db = await this.#abrir_BD();
+        db = await this.#abrir_BD();
 
         if (!(await this.#existe_superestructura(db, nombre))) {
             this._alerta("alerta al cargar, no existe superestructura con el identificador pasado como parametro");
-            db.close();
             return false;
         }
 
@@ -407,11 +501,14 @@ static async cargar(nombre) {
             nodo._adyacente_en(nodoady, ady.enlace);
         }
 
-        db.close();
         return true;
     } catch (error) {
         this._error("Error en cargar: " + error.message);
         return null;
+    } finally {
+        if (db) {
+            try { db.close(); } catch (e) { /* ignorar */ }
+        }
     }
 }
     /**
@@ -429,14 +526,18 @@ static async cargar(nombre) {
             return null;
         }
 
+        let db = null;
         try {
-            const db = await this.#abrir_BD();
+            db = await this.#abrir_BD();
             const existe = await this.#existe_superestructura(db, nombre);
-            db.close();
             return existe;
         } catch (error) {
             this._error("Error en existe: " + error.message);
             return null;
+        } finally {
+            if (db) {
+                try { db.close(); } catch (e) { /* ignorar */ }
+            }
         }
     }
 
@@ -460,71 +561,53 @@ static async cargar(nombre) {
  */
 static #eliminar_por_superestructura(db, nombre) {
     return new Promise((resolve, reject) => {
+        let transaccion;
         try {
-            const transaccion = db.transaction(
+            transaccion = db.transaction(
                 [this.#ALMACEN_NODOS, this.#ALMACEN_ADYACENTES],
                 'readwrite'
             );
-
-            const almacenNodos = transaccion.objectStore(this.#ALMACEN_NODOS);
-            const almacenAdyacentes = transaccion.objectStore(this.#ALMACEN_ADYACENTES);
-
-            const indexNodos = almacenNodos.index('idsuperestructura');
-            const indexAdyacentes = almacenAdyacentes.index('idsuperestructura');
-
-            const rango = IDBKeyRange.only(nombre);
-
-            // --- Control de finalización ---
-            let pendientes = 2; // uno por cada cursor
-            const checkDone = () => {
-                pendientes--;
-                if (pendientes === 0) {
-                    resolve(); // Solo resolvemos cuando ambos terminaron
-                }
-            };
-
-            // --- Eliminación de nodos ---
-            const solicitudNodos = indexNodos.openCursor(rango);
-            solicitudNodos.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                    cursor.delete(); // Elimina el registro actual
-                    cursor.continue(); // Continúa con el siguiente
-                } else {
-                    checkDone(); // Cursor agotado
-                }
-            };
-            solicitudNodos.onerror = (event) => {
-                console.error("Error al eliminar nodos:", event.target.error);
-                reject(event.target.error);
-            };
-
-            // --- Eliminación de adyacentes ---
-            const solicitudAdyacentes = indexAdyacentes.openCursor(rango);
-            solicitudAdyacentes.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                    cursor.delete();
-                    cursor.continue();
-                } else {
-                    checkDone();
-                }
-            };
-            solicitudAdyacentes.onerror = (event) => {
-                console.error("Error al eliminar adyacentes:", event.target.error);
-                reject(event.target.error);
-            };
-
-            // --- Errores de la transacción ---
-            transaccion.onerror = (event) => {
-                console.error("Error en la transacción de eliminación:", event.target.error);
-                reject(event.target.error);
-            };
-
         } catch (e) {
-            console.error("Error interno en #eliminar_por_superestructura:", e);
             reject(e);
+            return;
         }
+
+        const almacenNodos = transaccion.objectStore(this.#ALMACEN_NODOS);
+        const almacenAdyacentes = transaccion.objectStore(this.#ALMACEN_ADYACENTES);
+
+        const indexNodos = almacenNodos.index('idsuperestructura');
+        const indexAdyacentes = almacenAdyacentes.index('idsuperestructura');
+
+        const rango = IDBKeyRange.only(nombre);
+
+        // Eliminar nodos via cursor. Si algo falla, la transaccion
+        // se aborta automaticamente y dispara transaccion.onerror.
+        const solicitudNodos = indexNodos.openCursor(rango);
+        solicitudNodos.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                cursor.delete();
+                cursor.continue();
+            }
+        };
+
+        // Eliminar adyacentes via cursor.
+        const solicitudAdyacentes = indexAdyacentes.openCursor(rango);
+        solicitudAdyacentes.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                cursor.delete();
+                cursor.continue();
+            }
+        };
+
+        // Resolver solo cuando la transaccion ENTERA haya terminado.
+        // Antes se resolvia cuando ambos cursores llegaban al final,
+        // pero un delete individual podia fallar despues sin que la
+        // promesa se enterara.
+        transaccion.oncomplete = () => resolve();
+        transaccion.onerror = (event) => reject(event.target.error);
+        transaccion.onabort = () => reject(new Error('Transaccion abortada'));
     });
 }
 

@@ -1634,6 +1634,24 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
     return true;
   }
 
+  /**
+   * Vacía el depósito de IDs ya asignados.
+   *
+   * Se llama desde {@link Nodos.Nodo.vaciar_superestructura} para
+   * que al recargar una superestructura se puedan volver a crear
+   * los nodos con IDs especiales (que en JS viven en un Set
+   * privado de esta clase y no son accesibles desde Nodo).
+   *
+   * No resetea `#contador_ids`: los nuevos IDs siguen generándose
+   * desde donde quedó el contador, para evitar colisiones con
+   * objetos que aún estén vivos en memoria.
+   *
+   * @returns {void}
+   */
+  static limpiar_deposito_ids() {
+    Objeto.#deposito_de_ids.clear();
+  }
+
   ////////////////////////////////////////////////////////////////////////////////////////
   // Interface Id - Métodos auxiliares protegidos
   ////////////////////////////////////////////////////////////////////////////////////////
