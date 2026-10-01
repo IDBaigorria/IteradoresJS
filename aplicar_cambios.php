@@ -1,17 +1,13 @@
 <?php
 /**
- * Aplicador de cambios automáticos — Framework JS (espejo navegador).
+ * Aplicador de cambios automáticos — Framework Iteradores (PHP).
  *
- * Tanda V1.5i.7: comparación de datos en el test y limpieza de
- * alertas en IndexedDB.
+ * Tanda V1.5i.7d: fix del script Pruebas/prueba_deposito.php.
  *
- * - pruebas_iterador_persistencia.js: `verificar_iguales` acepta
- *   "2" y 2 como equivalentes. Los datos del framework viajan como
- *   strings (consistencia con SQL/JSON en PHP).
- * - PerdurarSuperestructuraStringIndexedDB.js:
- *   `#crear_datos_insertar_adyacentes` usa `nodo.adyacentes()` en
- *   lugar de `por_cada_adyacente_ejecutar`, para no emitir alertas
- *   por cada nodo sin adyacentes.
+ * El script anterior no tenía `use` ni `require_once`, así que PHP
+ * no encontraba la clase `Controlador` (está en el namespace
+ * Iteradores\Controlador). Se reescribe siguiendo el patrón del test
+ * viejo: require_once de las dependencias + use de las clases.
  *
  * Uso:
  *   php aplicar_cambios.php
@@ -30,85 +26,79 @@ $raiz_proyecto = __DIR__;
 
 $cambios = [
 
-    // ============================================================
-    // pruebas/pruebas_iterador_persistencia.js
-    // ============================================================
-
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'pruebas/pruebas_iterador_persistencia.js',
-        'descripcion' => 'verificar_iguales acepta string/number equivalentes',
-        'buscar' => [
-            'function verificar_iguales(a, b, mensaje, tolerancia = 1e-9) {',
-            '    let ok;',
-            '    if (a === b) {',
-            '        ok = true;',
-            '    } else if (typeof a === \'number\' && typeof b === \'number\') {',
-            '        ok = Math.abs(a - b) < tolerancia;',
-            '    } else {',
-            '        ok = false;',
-            '    }',
-            '    console.log((ok ? \'✅ \' : \'❌ \') + mensaje);',
-            '    if (!ok) console.log(\'   Esperado: \' + b + \', Obtenido: \' + a);',
-            '    return ok;',
+        'tipo' => 'crear',
+        'archivo' => 'Pruebas/prueba_deposito.php',
+        'descripcion' => 'Fix del script: agregar use y require_once',
+        'contenido' => [
+            '<?php',
+            '/**',
+            ' * Prueba del depósito de IDs del framework Iteradores (PHP).',
+            ' *',
+            ' * Verifica que al cargar una superestructura el depósito de IDs',
+            ' * especiales se limpia correctamente, permitiendo recrear nodos',
+            ' * con los mismos IDs especiales.',
+            ' *',
+            ' * Se ejecuta como bloque temporal desde index.php:',
+            ' *   http://localhost/.../index.php?probar_deposito=1',
+            ' *',
+            ' * @package   Iteradores',
+            ' * @since     1.5i.7a',
+            ' */',
+            '',
+            'require_once __DIR__ . \'/../Controlador/Controlador.php\';',
+            'require_once __DIR__ . \'/../Configuracion/Configuracion.php\';',
+            'require_once __DIR__ . \'/../Nodos/Nodo.php\';',
+            'require_once __DIR__ . \'/../Nucleo/Objeto.php\';',
+            '',
+            'use Iteradores\\Controlador\\Controlador;',
+            'use Iteradores\\Nodos\\Nodo;',
+            'use Iteradores\\Nucleo\\Objeto;',
+            '',
+            'header(\'Content-Type: text/plain; charset=utf-8\');',
+            '',
+            'echo "=== PRUEBA DEL DEPOSITO DE IDS (PHP) ===\\n\\n";',
+            '',
+            '$id_prueba = \'test_especial_deposito\';',
+            '$nombre_prueba = \'prueba_deposito_php\';',
+            '',
+            '// Limpieza por si la prueba se corrió antes.',
+            'if (Controlador::existe($nombre_prueba)) {',
+            '    Controlador::eliminar($nombre_prueba);',
             '}',
-        ],
-        'reemplazar' => [
-            'function verificar_iguales(a, b, mensaje, tolerancia = 1e-9) {',
-            '    let ok;',
-            '    if (a === b) {',
-            '        ok = true;',
-            '    } else if (String(a) === String(b)) {',
-            '        // Los datos del framework viajan como strings (consistencia',
-            '        // con SQL/JSON en PHP). Aceptamos que "2" y 2 sean',
-            '        // equivalentes a nivel de test.',
-            '        ok = true;',
-            '    } else if (typeof a === \'number\' && typeof b === \'number\') {',
-            '        ok = Math.abs(a - b) < tolerancia;',
-            '    } else {',
-            '        ok = false;',
-            '    }',
-            '    console.log((ok ? \'✅ \' : \'❌ \') + mensaje);',
-            '    if (!ok) console.log(\'   Esperado: \' + b + \', Obtenido: \' + a);',
-            '    return ok;',
+            '',
+            '// 1. Crear un nodo especial.',
+            '$n1 = Nodo::crear_con_id($id_prueba);',
+            'echo "1. Crear \'{$id_prueba}\' (1ra vez): " . ($n1 ? \'OK\' : \'FALLO\') . "\\n";',
+            '',
+            '// 2. Guardar la superestructura.',
+            'guardar_ambos($nombre_prueba);',
+            'echo "2. Guardar \'{$nombre_prueba}\': OK\\n";',
+            '',
+            '// 3. Cargar (esto debe vaciar y limpiar el depósito).',
+            '$cargado = Controlador::cargar($nombre_prueba);',
+            'echo "3. Cargar \'{$nombre_prueba}\': " . ($cargado ? \'OK\' : \'FALLO\') . "\\n";',
+            '',
+            '// 4. Intentar crear el mismo id especial otra vez.',
+            '$n2 = Nodo::crear_con_id($id_prueba);',
+            'echo "4. Crear \'{$id_prueba}\' (2da vez tras cargar): " . ($n2 ? \'OK\' : \'FALLO\') . "\\n";',
+            '',
+            '// 5. Limpieza.',
+            'Controlador::eliminar($nombre_prueba);',
+            'echo "5. Eliminar \'{$nombre_prueba}\': OK\\n";',
+            '',
+            'echo "\\n=== RESULTADO ===\\n";',
+            'if ($n2) {',
+            '    echo "SIN BUG: el depósito de IDs se limpió correctamente.\\n";',
+            '} else {',
+            '    echo "BUG PRESENTE: el depósito NO se limpió.\\n";',
+            '    echo "El id \'{$id_prueba}\' sigue registrado en Objeto::\\$deposito_de_ids.\\n";',
+            '    echo "\\nErrores:\\n";',
+            '    echo Objeto::json_errores() . "\\n";',
+            '    echo "\\nAlertas:\\n";',
+            '    echo Objeto::json_alertas() . "\\n";',
             '}',
-        ],
-    ],
-
-    // ============================================================
-    // Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB.js
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB.js',
-        'descripcion' => 'crear_datos_insertar_adyacentes sin alertas',
-        'buscar' => [
-            '    static #crear_datos_insertar_adyacentes(nombre) {',
-            '        const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
-            '            const enlaces = {};',
-            '            nodo.por_cada_adyacente_ejecutar((adyacente, enlace) => {',
-            '                enlaces[enlace] = adyacente.id();',
-            '            });',
-            '            return enlaces;',
-            '        }, null) || {};',
-        ],
-        'reemplazar' => [
-            '    static #crear_datos_insertar_adyacentes(nombre) {',
-            '        const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
-            '            const enlaces = {};',
-            '            // Usamos `adyacentes()` en lugar de `por_cada_adyacente_ejecutar`',
-            '            // porque el primero devuelve null sin alerta cuando el nodo no',
-            '            // tiene adyacentes. El segundo emite una alerta por cada nodo',
-            '            // sin adyacentes, lo que llena la lista de alertas con ruido.',
-            '            const ady = nodo.adyacentes();',
-            '            if (ady) {',
-            '                for (const [enlace, adyacente] of ady) {',
-            '                    enlaces[enlace] = adyacente.id();',
-            '                }',
-            '            }',
-            '            return enlaces;',
-            '        }, null) || {};',
+            'echo "\\n=== FIN DE LA PRUEBA ===\\n";',
         ],
     ],
 
@@ -207,7 +197,6 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     echo "=== ABORTADO ===\n";
     echo "Se detectaron " . count($bloques_fallidos) . " problema(s). No se escribió ningún archivo.\n\n";
     foreach ($bloques_fallidos as $f) echo "  [FALLO] $f\n";
-    echo "\nSugerencia: revisá que el bloque a buscar coincida exactamente con el archivo actual.\n";
     exit(1);
 }
 

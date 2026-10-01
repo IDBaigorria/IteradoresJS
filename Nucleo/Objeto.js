@@ -1649,7 +1649,19 @@ class Objeto extends mezclar_clase_con_interfaces(Object, ErroresYAlertas, Id) {
    * @returns {void}
    */
   static limpiar_deposito_ids() {
-    Objeto.#deposito_de_ids.clear();
+    // Alineado con PHP (Objeto::limpiar_ids_especiales): limpia
+    // solo los IDs especiales (no numéricos). Los IDs numéricos
+    // quedan en el depósito, pero no colisionan porque
+    // #contador_ids no se resetea.
+    const a_borrar = [];
+    for (const id of Objeto.#deposito_de_ids) {
+      if (typeof id === 'string' && isNaN(Number(id))) {
+        a_borrar.push(id);
+      }
+    }
+    for (const id of a_borrar) {
+      Objeto.#deposito_de_ids.delete(id);
+    }
   }
 
   ////////////////////////////////////////////////////////////////////////////////////////
