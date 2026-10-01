@@ -1,13 +1,13 @@
 <?php
 /**
- * Aplicador de cambios automáticos — Framework Iteradores (PHP).
+ * Aplicador de cambios automáticos — Framework JS (espejo navegador).
  *
- * Tanda V1.5i.7d: fix del script Pruebas/prueba_deposito.php.
+ * Tanda V1.5i.7f: fix del bug latente `if (elemento)` en Iterador.js.
  *
- * El script anterior no tenía `use` ni `require_once`, así que PHP
- * no encontraba la clase `Controlador` (está en el namespace
- * Iteradores\Controlador). Se reescribe siguiendo el patrón del test
- * viejo: require_once de las dependencias + use de las clases.
+ * Espejo del fix PHP 1.5i.7f. Los 4 usos de `if (elemento)` en
+ * `_crear_interno`, `_cargar_interno` y `_iterador_interno` (dos
+ * veces) se cambian por `if (elemento !== null && elemento !==
+ * undefined)`.
  *
  * Uso:
  *   php aplicar_cambios.php
@@ -27,78 +27,114 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     [
-        'tipo' => 'crear',
-        'archivo' => 'Pruebas/prueba_deposito.php',
-        'descripcion' => 'Fix del script: agregar use y require_once',
-        'contenido' => [
-            '<?php',
-            '/**',
-            ' * Prueba del depósito de IDs del framework Iteradores (PHP).',
-            ' *',
-            ' * Verifica que al cargar una superestructura el depósito de IDs',
-            ' * especiales se limpia correctamente, permitiendo recrear nodos',
-            ' * con los mismos IDs especiales.',
-            ' *',
-            ' * Se ejecuta como bloque temporal desde index.php:',
-            ' *   http://localhost/.../index.php?probar_deposito=1',
-            ' *',
-            ' * @package   Iteradores',
-            ' * @since     1.5i.7a',
-            ' */',
+        'tipo' => 'reemplazar',
+        'archivo' => 'Iteradores/Iterador.js',
+        'descripcion' => 'Bump de version a 1.5i.7f',
+        'buscar' => [
+            ' * @version 1.5i.4 (inicio de refactorización)',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5i.7f (fix bug if(elemento) -> chequeo !== null/undefined)',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Iteradores/Iterador.js',
+        'descripcion' => '_crear_interno: fix if (elemento)',
+        'buscar' => [
+            '        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            'require_once __DIR__ . \'/../Controlador/Controlador.php\';',
-            'require_once __DIR__ . \'/../Configuracion/Configuracion.php\';',
-            'require_once __DIR__ . \'/../Nodos/Nodo.php\';',
-            'require_once __DIR__ . \'/../Nucleo/Objeto.php\';',
+            '        if (elemento) { // Nota: JS trata null, undefined, false, 0, \'\' como falsy',
+            '            iterador.nodo(elemento, (nodo, esNodo) => {',
+        ],
+        'reemplazar' => [
+            '        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            'use Iteradores\\Controlador\\Controlador;',
-            'use Iteradores\\Nodos\\Nodo;',
-            'use Iteradores\\Nucleo\\Objeto;',
+            '        // Chequeo estricto: no descartar falsy (0, \'\', false).',
+            '        if (elemento !== null && elemento !== undefined) {',
+            '            iterador.nodo(elemento, (nodo, esNodo) => {',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Iteradores/Iterador.js',
+        'descripcion' => '_cargar_interno: fix if (elemento)',
+        'buscar' => [
+            '        iterador.raiz_cuerpo = cuerpo;',
+            '        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            'header(\'Content-Type: text/plain; charset=utf-8\');',
+            '        if (elemento) {',
+            '            let es_nodo = false;',
+            '            const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });',
+            '            if (!es_valido) {',
+            '                Iterador._error(`Iterador._cargar_interno: el elemento que intenta asignar con la carga de ${nombre} no es valido`);',
+        ],
+        'reemplazar' => [
+            '        iterador.raiz_cuerpo = cuerpo;',
+            '        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            'echo "=== PRUEBA DEL DEPOSITO DE IDS (PHP) ===\\n\\n";',
+            '        // Chequeo estricto: no descartar falsy (0, \'\', false).',
+            '        if (elemento !== null && elemento !== undefined) {',
+            '            let es_nodo = false;',
+            '            const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });',
+            '            if (!es_valido) {',
+            '                Iterador._error(`Iterador._cargar_interno: el elemento que intenta asignar con la carga de ${nombre} no es valido`);',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Iteradores/Iterador.js',
+        'descripcion' => '_iterador_interno rama carga: fix if (elemento)',
+        'buscar' => [
+            '                        iterador.raiz_cuerpo = cuerpo;',
+            '                        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            '$id_prueba = \'test_especial_deposito\';',
-            '$nombre_prueba = \'prueba_deposito_php\';',
+            '                        if (elemento) {',
+            '                            let es_nodo = false;',
+            '                            const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });',
+            '                            if (!es_valido) {',
+            '                                Iterador._error(`Iterador._iterador_interno: el elemento no es valido`);',
+        ],
+        'reemplazar' => [
+            '                        iterador.raiz_cuerpo = cuerpo;',
+            '                        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            '// Limpieza por si la prueba se corrió antes.',
-            'if (Controlador::existe($nombre_prueba)) {',
-            '    Controlador::eliminar($nombre_prueba);',
-            '}',
+            '                        // Chequeo estricto: no descartar falsy (0, \'\', false).',
+            '                        if (elemento !== null && elemento !== undefined) {',
+            '                            let es_nodo = false;',
+            '                            const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });',
+            '                            if (!es_valido) {',
+            '                                Iterador._error(`Iterador._iterador_interno: el elemento no es valido`);',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Iteradores/Iterador.js',
+        'descripcion' => '_iterador_interno rama creacion: fix if (elemento)',
+        'buscar' => [
+            '        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            '// 1. Crear un nodo especial.',
-            '$n1 = Nodo::crear_con_id($id_prueba);',
-            'echo "1. Crear \'{$id_prueba}\' (1ra vez): " . ($n1 ? \'OK\' : \'FALLO\') . "\\n";',
+            '        if (elemento) {',
+            '            let es_nodo = false;',
+            '            const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });',
+            '            if (!es_valido) {',
+            '                Iterador._error(`Iterador._iterador_interno: el elemento no es valido`);',
+            '                Iterador._destruir_interno(iterador);',
+        ],
+        'reemplazar' => [
+            '        cuerpo._adyacente_en(cuerpo, "ocupado");',
             '',
-            '// 2. Guardar la superestructura.',
-            'guardar_ambos($nombre_prueba);',
-            'echo "2. Guardar \'{$nombre_prueba}\': OK\\n";',
-            '',
-            '// 3. Cargar (esto debe vaciar y limpiar el depósito).',
-            '$cargado = Controlador::cargar($nombre_prueba);',
-            'echo "3. Cargar \'{$nombre_prueba}\': " . ($cargado ? \'OK\' : \'FALLO\') . "\\n";',
-            '',
-            '// 4. Intentar crear el mismo id especial otra vez.',
-            '$n2 = Nodo::crear_con_id($id_prueba);',
-            'echo "4. Crear \'{$id_prueba}\' (2da vez tras cargar): " . ($n2 ? \'OK\' : \'FALLO\') . "\\n";',
-            '',
-            '// 5. Limpieza.',
-            'Controlador::eliminar($nombre_prueba);',
-            'echo "5. Eliminar \'{$nombre_prueba}\': OK\\n";',
-            '',
-            'echo "\\n=== RESULTADO ===\\n";',
-            'if ($n2) {',
-            '    echo "SIN BUG: el depósito de IDs se limpió correctamente.\\n";',
-            '} else {',
-            '    echo "BUG PRESENTE: el depósito NO se limpió.\\n";',
-            '    echo "El id \'{$id_prueba}\' sigue registrado en Objeto::\\$deposito_de_ids.\\n";',
-            '    echo "\\nErrores:\\n";',
-            '    echo Objeto::json_errores() . "\\n";',
-            '    echo "\\nAlertas:\\n";',
-            '    echo Objeto::json_alertas() . "\\n";',
-            '}',
-            'echo "\\n=== FIN DE LA PRUEBA ===\\n";',
+            '        // Chequeo estricto: no descartar falsy (0, \'\', false).',
+            '        if (elemento !== null && elemento !== undefined) {',
+            '            let es_nodo = false;',
+            '            const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });',
+            '            if (!es_valido) {',
+            '                Iterador._error(`Iterador._iterador_interno: el elemento no es valido`);',
+            '                Iterador._destruir_interno(iterador);',
         ],
     ],
 
@@ -197,6 +233,7 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     echo "=== ABORTADO ===\n";
     echo "Se detectaron " . count($bloques_fallidos) . " problema(s). No se escribió ningún archivo.\n\n";
     foreach ($bloques_fallidos as $f) echo "  [FALLO] $f\n";
+    echo "\nSugerencia: revisá que el bloque a buscar coincida exactamente con el archivo actual.\n";
     exit(1);
 }
 

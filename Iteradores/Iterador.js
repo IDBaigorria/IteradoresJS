@@ -49,7 +49,7 @@ import { Nodo } from '../Nodos/Nodo.js'
  * @class Iterador
  * @extends Objeto
  * @since 1.0 (versión original consolidada)
- * @version 1.5i.4 (inicio de refactorización)
+ * @version 1.5i.7f (fix bug if(elemento) -> chequeo !== null/undefined)
  * @author Ignacio David Baigorria
  */
 export class Iterador extends Objeto {
@@ -262,7 +262,8 @@ export class Iterador extends Objeto {
 
         cuerpo._adyacente_en(cuerpo, "ocupado");
 
-        if (elemento) { // Nota: JS trata null, undefined, false, 0, '' como falsy
+        // Chequeo estricto: no descartar falsy (0, '', false).
+        if (elemento !== null && elemento !== undefined) {
             iterador.nodo(elemento, (nodo, esNodo) => {
                 if (!nodo) {
                     Iterador._error(`Iterador._crear_interno: el elemento que intenta asignar con la creacion de ${nombre} no es valido`);
@@ -394,7 +395,8 @@ export class Iterador extends Objeto {
         iterador.raiz_cuerpo = cuerpo;
         cuerpo._adyacente_en(cuerpo, "ocupado");
 
-        if (elemento) {
+        // Chequeo estricto: no descartar falsy (0, '', false).
+        if (elemento !== null && elemento !== undefined) {
             let es_nodo = false;
             const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });
             if (!es_valido) {
@@ -467,7 +469,8 @@ export class Iterador extends Objeto {
                         iterador.raiz_cuerpo = cuerpo;
                         cuerpo._adyacente_en(cuerpo, "ocupado");
 
-                        if (elemento) {
+                        // Chequeo estricto: no descartar falsy (0, '', false).
+                        if (elemento !== null && elemento !== undefined) {
                             let es_nodo = false;
                             const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });
                             if (!es_valido) {
@@ -499,7 +502,8 @@ export class Iterador extends Objeto {
         }
         cuerpo._adyacente_en(cuerpo, "ocupado");
 
-        if (elemento) {
+        // Chequeo estricto: no descartar falsy (0, '', false).
+        if (elemento !== null && elemento !== undefined) {
             let es_nodo = false;
             const es_valido = iterador.constructor.es_elemento_valido(elemento, (el, es) => { es_nodo = es; });
             if (!es_valido) {
