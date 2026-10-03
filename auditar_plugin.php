@@ -28,10 +28,6 @@ $raiz = __DIR__;
 
 echo "=== Auditoria del plugin ===\n\n";
 
-// ============================================================
-// Utilidades
-// ============================================================
-
 function leer_archivo($ruta) {
     if (!file_exists($ruta)) return null;
     return file_get_contents($ruta);
@@ -57,10 +53,6 @@ function ruta_relativa($abs, $raiz) {
     return ltrim(str_replace('\\', '/', substr($abs, strlen($raiz))), '/');
 }
 
-// ============================================================
-// Inventario de archivos
-// ============================================================
-
 echo "=== 1. Inventario de archivos ===\n\n";
 
 $manifest_path = $raiz . '/manifest.json';
@@ -80,10 +72,6 @@ echo "\nArchivos .html en Aplicacion/: " . count($archivos_html) . "\n";
 foreach ($archivos_html as $a) echo "  " . ruta_relativa($a, $raiz) . "\n";
 echo "\n";
 
-// ============================================================
-// Manifest: verificar paths declarados
-// ============================================================
-
 echo "=== 2. Manifest: paths declarados ===\n\n";
 
 $manifest_raw = leer_archivo($manifest_path);
@@ -94,7 +82,6 @@ if (!is_array($manifest)) {
 }
 
 $paths_manifest = [];
-
 if (isset($manifest['background']['service_worker'])) {
     $paths_manifest[] = ['background.service_worker', $manifest['background']['service_worker']];
 }
@@ -118,10 +105,6 @@ foreach ($paths_manifest as [$clave, $path]) {
 }
 echo "\n";
 
-// ============================================================
-// Imports de cada .js
-// ============================================================
-
 echo "=== 3. Imports de cada archivo .js ===\n\n";
 
 $patrones_import = [
@@ -137,10 +120,8 @@ foreach ($archivos_js as $archivo_abs) {
     $rel = ruta_relativa($archivo_abs, $raiz);
     $cont = leer_archivo($archivo_abs);
     if ($cont === null) continue;
-
     $lineas = explode("\n", $cont);
     $imports_encontrados = [];
-
     foreach ($lineas as $nro => $linea) {
         foreach ($patrones_import as $pat) {
             if (preg_match_all($pat, $linea, $m)) {
@@ -150,22 +131,17 @@ foreach ($archivos_js as $archivo_abs) {
             }
         }
     }
-
     if (empty($imports_encontrados)) {
-        echo "  $rel\n";
-        echo "    (sin imports)\n";
+        echo "  $rel\n    (sin imports)\n";
         continue;
     }
-
     echo "  $rel\n";
     foreach ($imports_encontrados as [$nro, $destino, $linea_completa]) {
         $total_imports++;
-
         if (strpos($destino, './') !== 0 && strpos($destino, '../') !== 0) {
             printf("    [SKIP] L%d  %s  (no es path relativo)\n", $nro, $destino);
             continue;
         }
-
         $destino_abs = realpath(dirname($archivo_abs) . '/' . $destino);
         if ($destino_abs === false || !file_exists($destino_abs)) {
             $total_rotos++;
@@ -176,13 +152,7 @@ foreach ($archivos_js as $archivo_abs) {
         }
     }
 }
-
-echo "\n";
-echo "Imports totales: $total_imports   |   rotos: $total_rotos\n\n";
-
-// ============================================================
-// Nombres viejos (post-rename de v1.5plugin.2)
-// ============================================================
+echo "\nImports totales: $total_imports   |   rotos: $total_rotos\n\n";
 
 echo "=== 4. Referencias a nombres viejos ===\n\n";
 
@@ -193,25 +163,15 @@ $nombres_viejos = [
     'popup.html',
     'popup.js',
     'prueba_01_smoke',
-    '"ping"' ,
-    "'ping'",
-    '"pong"',
-    "'pong'",
-    '"click"',
-    "'click'",
-    '"fetch_post"',
-    "'fetch_post'",
 ];
 
 $archivos_a_auditar = array_merge($archivos_js, $archivos_html, [$manifest_path]);
 $hallazgos = 0;
-
 foreach ($archivos_a_auditar as $archivo_abs) {
     $rel = ruta_relativa($archivo_abs, $raiz);
     $cont = leer_archivo($archivo_abs);
     if ($cont === null) continue;
     $lineas = explode("\n", $cont);
-
     $encontrados = [];
     foreach ($lineas as $nro => $linea) {
         foreach ($nombres_viejos as $patron) {
@@ -220,27 +180,20 @@ foreach ($archivos_a_auditar as $archivo_abs) {
             }
         }
     }
-
     if (!empty($encontrados)) {
         echo "  $rel\n";
         foreach ($encontrados as [$nro, $patron, $linea_completa]) {
-            printf("    L%d  [%s]\n", $nro, $patron);
-            printf("         %s\n", $linea_completa);
+            printf("    L%d  [%s]\n         %s\n", $nro, $patron, $linea_completa);
             $hallazgos++;
         }
         echo "\n";
     }
 }
-
 if ($hallazgos === 0) {
     echo "  (sin hallazgos)\n\n";
 } else {
     echo "  Total de hallazgos: $hallazgos\n\n";
 }
-
-// ============================================================
-// Archivos sospechosamente vacios
-// ============================================================
 
 echo "=== 5. Archivos sospechosamente vacios ===\n\n";
 
@@ -263,29 +216,22 @@ foreach ($archivos_js as $archivo_abs) {
     $rel = ruta_relativa($archivo_abs, $raiz);
     $cont = leer_archivo($archivo_abs);
     if ($cont === null) continue;
-
     $sin_com = quitar_comentarios_js($cont);
     $lineas_codigo = 0;
     foreach (explode("\n", $sin_com) as $l) {
         if (trim($l) !== '') $lineas_codigo++;
     }
-
     if ($lineas_codigo === 0) {
         echo "  [SOSPECHOSO] $rel\n";
         echo "    El archivo no tiene lineas de codigo despues de quitar comentarios.\n";
         $vacios++;
     }
 }
-
 if ($vacios === 0) {
     echo "  (sin archivos sospechosos)\n\n";
 } else {
     echo "  Total de archivos sospechosos: $vacios\n\n";
 }
-
-// ============================================================
-// URL_PILOTO vs manifest
-// ============================================================
 
 echo "=== 6. URL_PILOTO vs manifest ===\n\n";
 
@@ -297,28 +243,23 @@ if (file_exists($conf_plugin_path)) {
         $url_piloto = $m[1];
     }
 }
-
 if ($url_piloto === null) {
     echo "  [INFO] No se encontro URL_PILOTO en ConfPlugin.js.\n\n";
 } else {
     echo "  URL_PILOTO = $url_piloto\n";
-
     $partes = parse_url($url_piloto);
     $host = isset($partes['host']) ? $partes['host'] : '';
     $esquema = isset($partes['scheme']) ? $partes['scheme'] : 'http';
     $prefijo_esperado = $esquema . "://" . $host . "/";
     echo "  Prefijo esperado en matches: $prefijo_esperado\n\n";
-
     $hosts_manifest = isset($manifest['host_permissions']) ? $manifest['host_permissions'] : [];
     $cubierto = false;
     foreach ($hosts_manifest as $hp) {
         if (strpos($prefijo_esperado, str_replace('*', '', $hp)) === 0) {
-            $cubierto = true;
-            break;
+            $cubierto = true; break;
         }
     }
     printf("  [%s] host_permissions cubre %s\n", $cubierto ? 'OK' : 'REVISAR', $prefijo_esperado);
-
     $matches_manifest = [];
     if (isset($manifest['content_scripts']) && is_array($manifest['content_scripts'])) {
         foreach ($manifest['content_scripts'] as $cs) {
@@ -330,17 +271,12 @@ if ($url_piloto === null) {
     $cubierto = false;
     foreach ($matches_manifest as $m) {
         if (strpos($prefijo_esperado, str_replace('*', '', $m)) === 0) {
-            $cubierto = true;
-            break;
+            $cubierto = true; break;
         }
     }
     printf("  [%s] content_scripts.matches cubre %s\n", $cubierto ? 'OK' : 'REVISAR', $prefijo_esperado);
     echo "\n";
 }
-
-// ============================================================
-// Resumen final
-// ============================================================
 
 echo "=== Resumen ===\n\n";
 echo "  Imports rotos: " . $total_rotos . "\n";

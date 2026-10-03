@@ -1,49 +1,29 @@
 /**
  * Service worker del plugin de pruebas.
  *
- * Este archivo NO usa imports estaticos de modulos del plugin.
- * Registra el listener de mensajes primero y carga los
- * modulos dinamicamente. Asi el listener siempre esta
- * disponible, aunque algun modulo tarde o falle.
+ * Importante: los service workers de Chrome (MV3) NO permiten
+ * `import()` dinamico ("import() is disallowed on
+ * ServiceWorkerGlobalScope by the HTML specification"). Por eso
+ * este archivo usa imports ESTATICOS.
+ *
+ * El listener de mensajes se registra al final del archivo. Si
+ * alguno de los imports estaticos falla, el service worker no
+ * se registra en absoluto (Chrome muestra "unknown error when
+ * fetching the script"). Para detectar ese tipo de problemas
+ * esta `auditar_plugin.php` (seccion 5, archivos sospechosamente
+ * vacios; seccion 3, imports rotos).
  *
  * Mensajes que atiende:
  * - `listar_pruebas`  -> devuelve el catalogo.
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.3
+ * @version 1.5plugin.3b
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
-
-const _estado = {
-    modulos: null,
-    cargando: null,
-    error: null
-};
-
-function _cargar_modulos() {
-    if (_estado.cargando) return _estado.cargando;
-    _estado.cargando = (async () => {
-        console.log(">>> cargando modulos del plugin...");
-        const arranque = await import("./arranque.js");
-        console.log(">>> arranque.js OK");
-        const grafo = await import("./GrafoPlugin.js");
-        console.log(">>> GrafoPlugin.js OK");
-        const catalogo = await import("./pruebas/catalogo.js");
-        console.log(">>> catalogo.js OK");
-        _estado.modulos = { arranque, grafo, catalogo };
-        console.log(">>> modulos cargados");
-        return _estado.modulos;
-    })().catch((e) => {
-        console.error(">>> ERROR cargando modulos:", e);
-        _estado.error = e;
-        throw e;
-    });
-    return _estado.cargando;
-}
-
-_cargar_modulos().catch(() => {});
+import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
+import { CATALOGO } from "./pruebas/catalogo.js";
 
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 
@@ -77,7 +57,7 @@ function _crear_ctx(pestana_id) {
         pestana_id,
         url_base: URL_PILOTO,
         enviar,
-        // === comandos básicos ===
+        // === comandos basicos ===
         clic: (sel) => enviar("clic", { selector: sel }),
         escribir: (sel, txt) => enviar("escribir", { selector: sel, texto: txt }),
         esperar: (sel, timeout_ms = 5000) => enviar("esperar_elemento", { selector: sel, timeout_ms }),
@@ -97,7 +77,7 @@ function _crear_ctx(pestana_id) {
         },
         pedir_post: (url, body) => enviar("pedir_post", { url, body }),
 
-        // === helpers de sesión ===
+        // === helpers de sesion ===
         async cerrar_sesion() {
             const app_visible = await this.esta_visible("#aplicacion");
             if (!app_visible) return true;
@@ -116,11 +96,11 @@ function _crear_ctx(pestana_id) {
             await this.clic("#boton_ingresar");
             const r = await this.esperar_visible("#aplicacion", 8000);
             if (!r || !r.exito) {
-                throw new Error("Login falló. El código puede ser inválido o el usuario está bloqueado.");
+                throw new Error("Login fallo. El codigo puede ser invalido o el usuario esta bloqueado.");
             }
         },
 
-        // === helpers de datos únicos ===
+        // === helpers de datos unicos ===
         dni_unico: () => {
             const base = Date.now() % 90000000;
             return String(base + 10000000);
@@ -135,10 +115,7 @@ function _crear_ctx(pestana_id) {
 }
 
 async function _correr_prueba(id_prueba) {
-    const modulos = await _cargar_modulos();
-    const { catalogo, grafo } = modulos;
-
-    const prueba = catalogo.CATALOGO.find((p) => p.id === id_prueba);
+    const prueba = CATALOGO.find((p) => p.id === id_prueba);
     if (!prueba) {
         return { exito: false, error: "Prueba no encontrada: " + id_prueba };
     }
@@ -163,7 +140,7 @@ async function _correr_prueba(id_prueba) {
     const duracion_ms = Date.now() - inicio;
 
     try {
-        await grafo.registrar_corrida({
+        await registrar_corrida({
             id_prueba,
             fecha_hora: new Date().toISOString(),
             resultado,
@@ -183,27 +160,25 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
     (async () => {
         try {
             switch (mensaje.tipo) {
-                case "listar_pruebas": {
-                    const modulos = await _cargar_modulos();
-                    const pruebas = modulos.catalogo.CATALOGO.map((p) => ({
-                        id: p.id,
-                        nombre: p.nombre,
-                        descripcion: p.descripcion || ""
-                    }));
-                    sendResponse({ exito: true, pruebas });
+                case "listar_pruebas":
+                    sendResponse({
+                        exito: true,
+                        pruebas: CATALOGO.map((p) => ({
+                            id: p.id,
+                            nombre: p.nombre,
+                            descripcion: p.descripcion || ""
+                        }))
+                    });
                     break;
-                }
 
                 case "correr_prueba":
                     sendResponse(await _correr_prueba(mensaje.id_prueba));
                     break;
 
-                case "listar_corridas": {
-                    const modulos = await _cargar_modulos();
-                    const corridas = await modulos.grafo.listar_ultimas_corridas(mensaje.limite || 20);
+                case "listar_corridas":
+                    const corridas = await listar_ultimas_corridas(mensaje.limite || 20);
                     sendResponse({ exito: true, corridas });
                     break;
-                }
 
                 default:
                     sendResponse({ exito: false, error: "Mensaje desconocido: " + mensaje.tipo });
@@ -213,5 +188,5 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
         }
     })();
 
-    return true;
+    return true; // mantener canal abierto para respuesta async
 });

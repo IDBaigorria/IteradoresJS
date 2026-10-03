@@ -213,32 +213,35 @@ Cada corrida persiste un nodo en el grafo del plugin con:
 
 ## 5. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.2.** El esqueleto del plugin está
-armado y funcional, con nombres en español. Archivos:
+**Proyecto en v1.5plugin.3b.** El esqueleto del plugin está
+armado y funcional, y ya tiene la primera prueba real (login
+de admin). Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
-- `Aplicacion/servicio.js` — service worker (module).
-- `Aplicacion/contenido.js` — script de contenido clásico.
+- `Aplicacion/servicio.js` — service worker (module, imports
+  estáticos).
+- `Aplicacion/contenido.js` — script de contenido clásico, con
+  comandos de visibilidad.
 - `Aplicacion/ventana.html` / `ventana.js` — interfaz de la
-  ventana.
+  ventana (con reintentos de `sendMessage`).
 - `Aplicacion/arranque.js` — arranque del framework en el SW.
-- `Aplicacion/ConfPlugin.js` — configuración propia.
+- `Aplicacion/ConfPlugin.js` — configuración propia, URL del
+  piloto y códigos de usuario.
 - `Aplicacion/GrafoPlugin.js` — capa sobre el framework.
 - `Aplicacion/pruebas/catalogo.js` — catálogo de pruebas.
-- `Aplicacion/pruebas/prueba_01_arranque.js` — primera prueba.
+- `Aplicacion/pruebas/prueba_01_arranque.js` — prueba de
+  arranque.
+- `Aplicacion/pruebas/prueba_02_login.js` — prueba de login.
+- `auditar_plugin.php` — auditoría con 6 secciones.
 
 ---
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.3 (infra
-mínima del catálogo + primera prueba real: `ConfPlugin.js`
-centraliza `URL_PILOTO` y los códigos de usuario; `contenido.js`
-suma comandos de visibilidad; `ctx` gana `url_base`, `login`,
-`cerrar_sesion`, `dni_unico`, `texto_unico`, `esta_visible`,
-`esperar_visible`, `esperar_oculto`; nueva prueba `login_admin`.
-La auditoría ahora chequea que `URL_PILOTO` esté cubierta por
-`host_permissions` y `content_scripts.matches` del manifest.).
+**Última actualización de este prompt:** v1.5plugin.3b (infra
+mínima del catálogo + primera prueba real `login_admin` + fix
+de `servicio.js`: había usado `import()` dinámico, prohibido
+en service workers por spec. Volvió a imports estáticos.).
 
 **Decisiones tomadas:**
 
@@ -326,6 +329,17 @@ La auditoría ahora chequea que `URL_PILOTO` esté cubierta por
   archivo faltante). Diagnóstico rápido: reducir `servicio.js`
   a un `console.log` y agregar imports de a uno hasta que
   rompa.
+- **Los service workers de Chrome (MV3) NO permiten `import()`**
+  **dinámico.** La spec lo prohíbe: "import() is disallowed on
+  ServiceWorkerGlobalScope by the HTML specification"
+  (https://github.com/w3c/ServiceWorker/issues/1356). Se decidió
+  "throw on dynamic imports" para prevenir que un SW funcione
+  online y rompa offline. Los imports deben ser ESTÁTICOS.
+- **Regla de diseño (v1.5plugin.3b):** el service worker usa
+  imports estáticos. La defensa contra archivos comentados es
+  la auditoría (sección 5: archivos sospechosamente vacíos).
+  No hay forma de registrar el listener antes de los imports
+  en un SW con módulos.
 - **Si `chrome.runtime.sendMessage` devuelve "Could not establish
   connection. Receiving end does not exist", el listener del
   service worker NO está registrado.** Primer chequeo: que

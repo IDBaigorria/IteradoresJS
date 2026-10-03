@@ -2,7 +2,7 @@
  * Prueba de login: entra con código de admin, verifica que
  * la app está visible y que el nivel mostrado es correcto.
  *
- * @version 1.5plugin.3
+ * @version 1.5plugin.3b
  */
 
 import { CODIGO_ADMIN } from "../ConfPlugin.js";
