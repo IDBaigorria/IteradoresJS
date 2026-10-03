@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4f
+ * @version 1.5plugin.4g
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -47,6 +47,47 @@ async function _enviar_a_pestana(pestana_id, tipo, datos) {
                    " (probá recargar la pestaña del piloto)"
         };
     }
+}
+
+// Funcion que se ejecuta en el page context (main world) via
+// `chrome.scripting.executeScript`. Tiene que ser autocontenida:
+// no puede referenciar variables del service worker. Lee y
+// escribe los globales del page (window.viaje_seleccionado,
+// window.estados_asientos_actuales, etc.).
+function _refresh_asientos_main_world() {
+    return (async function () {
+        try {
+            if (!window.viaje_seleccionado || !window.micro_seleccionado) {
+                return { exito: false, error: "sin viaje o micro abierto" };
+            }
+            const viaje = window.viaje_seleccionado;
+            const micro = window.micro_seleccionado;
+            const resp = await fetch("index.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams({
+                    accion: "viajes/estado_asientos",
+                    nombre_viaje: viaje.nombre_viaje,
+                    nombre_micro: micro,
+                    nombre_dueno: viaje.dueno
+                })
+            });
+            const datos = await resp.json();
+            if (datos.exito && Array.isArray(datos.asientos)) {
+                window.estados_asientos_actuales = datos.asientos;
+                if (typeof window.actualizar_colores_asientos === "function") {
+                    window.actualizar_colores_asientos(datos.asientos);
+                }
+                if (typeof window.refrescar_info_asientos_propios === "function") {
+                    window.refrescar_info_asientos_propios(true);
+                }
+                return { exito: true };
+            }
+            return { exito: false, error: "respuesta inesperada" };
+        } catch (e) {
+            return { exito: false, error: String(e) };
+        }
+    })();
 }
 
 function _crear_ctx(pestana_id) {
@@ -89,6 +130,18 @@ function _crear_ctx(pestana_id) {
             return r && r.exito ? r.valor : null;
         },
         pedir_post: (url, body) => enviar("pedir_post", { url, body }),
+        refrescar_asientos_pagina: async () => {
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: _refresh_asientos_main_world
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
 
         // === helpers de sesion ===
         async cerrar_sesion() {
@@ -192,6 +245,22 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                     const corridas = await listar_ultimas_corridas(mensaje.limite || 20);
                     sendResponse({ exito: true, corridas });
                     break;
+
+                case "refrescar_asientos_pagina": {
+                    const pestana = await _obtener_pestana_piloto();
+                    if (!pestana) { sendResponse({ exito: false, error: "no hay pestaña del piloto" }); break; }
+                    try {
+                        const r = await chrome.scripting.executeScript({
+                            target: { tabId: pestana.id },
+                            world: "MAIN",
+                            func: _refresh_asientos_main_world
+                        });
+                        sendResponse((r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" });
+                    } catch (e) {
+                        sendResponse({ exito: false, error: e.message });
+                    }
+                    break;
+                }
 
                 default:
                     sendResponse({ exito: false, error: "Mensaje desconocido: " + mensaje.tipo });

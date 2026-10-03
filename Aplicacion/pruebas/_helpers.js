@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4f
+ * @version 1.5plugin.4g
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -332,7 +332,7 @@ export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prue
     // mostrando el asiento como vendido. Es no bloqueante: si
     // falla, la venta ya esta cancelada, solo se ve el croquis
     // viejo hasta el proximo polling.
-    const rf = await ctx.enviar("refrescar_asientos_pagina", {});
+    const rf = await ctx.refrescar_asientos_pagina();
     if (!rf || !rf.exito) {
         console.warn("No se pudo refrescar el croquis tras cancelar:", rf && rf.error ? rf.error : "(sin detalle)");
     }

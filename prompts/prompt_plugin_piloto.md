@@ -242,7 +242,13 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4f (no
+**Última actualización de este prompt:** v1.5plugin.4g (cambio
+de técnica para refrescar el croquis: el `<script>` inline
+chocaba con el CSP de la página. Ahora se usa
+`chrome.scripting.executeScript` con `world: "MAIN"` desde
+el service worker, que no pasa por el DOM y no lo bloquea
+el CSP. Requiere el permiso `scripting` en el manifest).
+Antes: v1.5plugin.4f (no
 navegar a la pestaña Vendidos desde el helper
 `obtener_id_ultima_venta`: ahora pide el id por POST. Antes
 navegar cerraba el modal del viaje y mataba el polling,
@@ -429,13 +435,16 @@ el manifest no se bumpea en cada letra.).
   `obtener_id_ultima_venta` navegaba a Vendidos y dejaba el
   croquis congelado. Fix en v1.5plugin.4f: pedir el id por
   POST.
-- **Para refrescar el croquis tras una cancelación, inyectar un
-  `<script>` en el page context.** El content script no puede
-  tocar las variables globales del page (`estados_asientos_actuales`,
-  `viaje_seleccionado`, etc.) por el aislamiento de mundos.
-  La forma más simple sin tocar el manifest es inyectar un
-  `<script>` en el DOM que corre en el page context, hace el
-  fetch y actualiza las variables y el croquis.
+- **Para ejecutar código en el page context, usar
+  `chrome.scripting.executeScript` con `world: "MAIN"`.**
+  El content script no puede tocar las variables globales
+  del page por el aislamiento de mundos. La opción de
+  inyectar un `<script>` inline en el DOM falla si la página
+  tiene CSP (bug en v1.5plugin.4f: "Executing inline script
+  violates the following Content Security Policy directive").
+  Fix en v1.5plugin.4g: `chrome.scripting.executeScript` con
+  `world: "MAIN"` desde el service worker, que no pasa por
+  el DOM. Requiere el permiso `scripting` en el manifest.
 - **Cuando un clic puede perderse por condiciones de carrera**
   **del piloto, usar reintentos con verificación previa.** El
   bug del polling de asientos (v1.5piloto.74e) hacía que un

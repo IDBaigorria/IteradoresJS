@@ -2,22 +2,18 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4f — id de venta sin navegar + refresh del croquis.
+ * Tanda v1.5plugin.4g — refrescar asientos sin inline script.
  *
- * Problema: el helper `obtener_id_ultima_venta` navegaba a la pestaña
- * Vendidos para leer el id. Eso llamaba a `ocultar_detalle_viaje`,
- * que mataba el polling del croquis. El modal del viaje quedaba
- * abierto con el croquis congelado, y después de cancelar la venta
- * el croquis no se actualizaba (bug de UX del piloto, mitigado por
- * v1.5piloto.74f).
+ * Problema: el intento de inyectar un `<script>` inline para
+ * actualizar el croquis en el page context chocaba con el CSP de la
+ * pagina: "Executing inline script violates the following Content
+ * Security Policy directive". El navegador bloquea el script.
  *
- * Fix:
- * - `obtener_id_ultima_venta` ahora pide el id por POST desde el
- *   content script (accion `ventas/listar` tipo terminal) sin
- *   cambiar de pestaña.
- * - `cancelar_venta` ahora dispara un mensaje `refrescar_asientos_pagina`
- *   que inyecta un script en el page context para actualizar
- *   `estados_asientos_actuales` y los colores del croquis.
+ * Fix: usar `chrome.scripting.executeScript` con `world: "MAIN"`
+ * desde el service worker. Chrome ejecuta la funcion en el page
+ * context, sin pasar por el DOM y sin tocar el CSP.
+ *
+ * Requiere agregar el permiso `scripting` al manifest.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -37,30 +33,169 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ============================================================
-    // Aplicacion/contenido.js
+    // manifest.json: agregar permiso scripting
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'manifest.json',
+        'descripcion' => 'manifest.json: agregar permiso scripting',
+        'buscar' => [
+            '  "permissions": ["tabs", "activeTab"],',
+        ],
+        'reemplazar' => [
+            '  "permissions": ["tabs", "activeTab", "scripting"],',
+        ],
+    ],
+
+    // ============================================================
+    // Aplicacion/servicio.js: bump + refrescar_asientos_pagina
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4g',
+        'buscar' => [
+            ' * @version 1.5plugin.4f',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4g',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: helper _refresh_asientos_main_world',
+        'buscar' => [
+            'function _crear_ctx(pestana_id) {',
+        ],
+        'reemplazar' => [
+            '// Funcion que se ejecuta en el page context (main world) via',
+            '// `chrome.scripting.executeScript`. Tiene que ser autocontenida:',
+            '// no puede referenciar variables del service worker. Lee y',
+            '// escribe los globales del page (window.viaje_seleccionado,',
+            '// window.estados_asientos_actuales, etc.).',
+            'function _refresh_asientos_main_world() {',
+            '    return (async function () {',
+            '        try {',
+            '            if (!window.viaje_seleccionado || !window.micro_seleccionado) {',
+            '                return { exito: false, error: "sin viaje o micro abierto" };',
+            '            }',
+            '            const viaje = window.viaje_seleccionado;',
+            '            const micro = window.micro_seleccionado;',
+            '            const resp = await fetch("index.php", {',
+            '                method: "POST",',
+            '                headers: { "Content-Type": "application/x-www-form-urlencoded" },',
+            '                body: new URLSearchParams({',
+            '                    accion: "viajes/estado_asientos",',
+            '                    nombre_viaje: viaje.nombre_viaje,',
+            '                    nombre_micro: micro,',
+            '                    nombre_dueno: viaje.dueno',
+            '                })',
+            '            });',
+            '            const datos = await resp.json();',
+            '            if (datos.exito && Array.isArray(datos.asientos)) {',
+            '                window.estados_asientos_actuales = datos.asientos;',
+            '                if (typeof window.actualizar_colores_asientos === "function") {',
+            '                    window.actualizar_colores_asientos(datos.asientos);',
+            '                }',
+            '                if (typeof window.refrescar_info_asientos_propios === "function") {',
+            '                    window.refrescar_info_asientos_propios(true);',
+            '                }',
+            '                return { exito: true };',
+            '            }',
+            '            return { exito: false, error: "respuesta inesperada" };',
+            '        } catch (e) {',
+            '            return { exito: false, error: String(e) };',
+            '        }',
+            '    })();',
+            '}',
+            '',
+            'function _crear_ctx(pestana_id) {',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: ctx.refrescar_asientos_pagina',
+        'buscar' => [
+            '        pedir_post: (url, body) => enviar("pedir_post", { url, body }),',
+        ],
+        'reemplazar' => [
+            '        pedir_post: (url, body) => enviar("pedir_post", { url, body }),',
+            '        refrescar_asientos_pagina: async () => {',
+            '            try {',
+            '                const r = await chrome.scripting.executeScript({',
+            '                    target: { tabId: pestana_id },',
+            '                    world: "MAIN",',
+            '                    func: _refresh_asientos_main_world',
+            '                });',
+            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
+            '            } catch (e) {',
+            '                return { exito: false, error: e.message };',
+            '            }',
+            '        },',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: handler refrescar_asientos_pagina por si llega por mensaje',
+        'buscar' => [
+            '                case "listar_corridas":',
+            '                    const corridas = await listar_ultimas_corridas(mensaje.limite || 20);',
+            '                    sendResponse({ exito: true, corridas });',
+            '                    break;',
+        ],
+        'reemplazar' => [
+            '                case "listar_corridas":',
+            '                    const corridas = await listar_ultimas_corridas(mensaje.limite || 20);',
+            '                    sendResponse({ exito: true, corridas });',
+            '                    break;',
+            '',
+            '                case "refrescar_asientos_pagina": {',
+            '                    const pestana = await _obtener_pestana_piloto();',
+            '                    if (!pestana) { sendResponse({ exito: false, error: "no hay pestaña del piloto" }); break; }',
+            '                    try {',
+            '                        const r = await chrome.scripting.executeScript({',
+            '                            target: { tabId: pestana.id },',
+            '                            world: "MAIN",',
+            '                            func: _refresh_asientos_main_world',
+            '                        });',
+            '                        sendResponse((r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" });',
+            '                    } catch (e) {',
+            '                        sendResponse({ exito: false, error: e.message });',
+            '                    }',
+            '                    break;',
+            '                }',
+        ],
+    ],
+
+    // ============================================================
+    // Aplicacion/contenido.js: sacar el helper inline y el caso
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4f',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4g',
         'buscar' => [
-            ' * @version 1.5plugin.4e',
+            ' * @version 1.5plugin.4f',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4f',
+            ' * @version 1.5plugin.4g',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: helper _refrescar_asientos_pagina',
+        'descripcion' => 'contenido.js: quitar el helper de inyeccion inline',
         'buscar' => [
-            '    async function _manejar(tipo, datos) {',
-            '        switch (tipo) {',
-        ],
-        'reemplazar' => [
             '    // Refresca el croquis del page context tras una cancelacion.',
             '    // No se puede tocar `window.viaje_seleccionado` ni',
             '    // `window.estados_asientos_actuales` desde el content script',
@@ -124,184 +259,48 @@ $cambios = [
             '    }',
             '',
             '    async function _manejar(tipo, datos) {',
-            '        switch (tipo) {',
+        ],
+        'reemplazar' => [
+            '    async function _manejar(tipo, datos) {',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: casos obtener_id_ultima_venta_terminal y refrescar_asientos_pagina',
+        'descripcion' => 'contenido.js: quitar el caso refrescar_asientos_pagina',
         'buscar' => [
-            '            case "pedir_post": {',
-            '                try {',
-            '                    const resp = await fetch(datos.url, {',
-            '                        method: "POST",',
-            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
-            '                        body: new URLSearchParams(datos.body || {}).toString(),',
-            '                        credentials: "same-origin"',
-            '                    });',
-            '                    const texto = await resp.text();',
-            '                    let json = null;',
-            '                    try { json = JSON.parse(texto); } catch (e) { /* no era JSON */ }',
-            '                    return { exito: true, status: resp.status, texto, json };',
-            '                } catch (e) {',
-            '                    return { exito: false, error: e.message };',
-            '                }',
-            '            }',
-            '',
-            '            default:',
-        ],
-        'reemplazar' => [
-            '            case "pedir_post": {',
-            '                try {',
-            '                    const resp = await fetch(datos.url, {',
-            '                        method: "POST",',
-            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
-            '                        body: new URLSearchParams(datos.body || {}).toString(),',
-            '                        credentials: "same-origin"',
-            '                    });',
-            '                    const texto = await resp.text();',
-            '                    let json = null;',
-            '                    try { json = JSON.parse(texto); } catch (e) { /* no era JSON */ }',
-            '                    return { exito: true, status: resp.status, texto, json };',
-            '                } catch (e) {',
-            '                    return { exito: false, error: e.message };',
-            '                }',
-            '            }',
-            '',
-            '            case "obtener_id_ultima_venta_terminal": {',
-            '                const el_nombre = document.getElementById("nombre_usuario_actual");',
-            '                const nombre = el_nombre ? el_nombre.textContent.trim() : "";',
-            '                if (!nombre) return { exito: false, error: "sin usuario logueado" };',
-            '                try {',
-            '                    const resp = await fetch("index.php", {',
-            '                        method: "POST",',
-            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
-            '                        body: new URLSearchParams({ accion: "ventas/listar", tipo: "terminal", nombre })',
-            '                    });',
-            '                    const datos_v = await resp.json();',
-            '                    if (!datos_v.exito) return { exito: false, error: datos_v.error || "error al listar ventas" };',
-            '                    const ventas = Array.isArray(datos_v.ventas) ? datos_v.ventas : [];',
-            '                    if (ventas.length === 0) return { exito: false, error: "no hay ventas para la terminal" };',
-            '                    return { exito: true, id_venta: ventas[0].id_venta };',
-            '                } catch (e) {',
-            '                    return { exito: false, error: e.message };',
-            '                }',
-            '            }',
-            '',
             '            case "refrescar_asientos_pagina":',
             '                return await _refrescar_asientos_pagina();',
             '',
             '            default:',
         ],
+        'reemplazar' => [
+            '            default:',
+        ],
     ],
 
     // ============================================================
-    // Aplicacion/servicio.js
+    // Aplicacion/pruebas/_helpers.js: usar ctx.refrescar_asientos_pagina
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4f',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4g',
         'buscar' => [
-            ' * @version 1.5plugin.4e',
-        ],
-        'reemplazar' => [
             ' * @version 1.5plugin.4f',
         ],
-    ],
-
-    // ============================================================
-    // Aplicacion/pruebas/_helpers.js
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4f',
-        'buscar' => [
-            ' * @version 1.5plugin.4e',
-        ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4f',
+            ' * @version 1.5plugin.4g',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: obtener_id_ultima_venta sin navegar',
+        'descripcion' => '_helpers.js: cancelar_venta usa ctx.refrescar_asientos_pagina',
         'buscar' => [
-            'export async function obtener_id_ultima_venta(ctx) {',
-            '    const visible = await ctx.esta_visible("#opciones_impresion");',
-            '    if (visible) {',
-            '        await ctx.clic("#btn_cerrar_opciones");',
-            '        await ctx.pausa(300);',
-            '    }',
-            '    await ir_a_tab(ctx, "vendidos");',
-            '    const hay = await ctx.esperar(".sale-card", 8000);',
-            '    if (!hay || !hay.exito) throw new Error("No hay ventas en la pestana Vendidos");',
-            '    const ids = await ctx.obtener_atributos(".sale-card", "data-id-venta");',
-            '    if (ids.length === 0) throw new Error("No se pudo leer el id de la venta");',
-            '    return ids[0];',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function obtener_id_ultima_venta(ctx) {',
-            '    // Cerrar el panel de "Venta exitosa" si esta abierto.',
-            '    const visible = await ctx.esta_visible("#opciones_impresion");',
-            '    if (visible) {',
-            '        await ctx.clic("#btn_cerrar_opciones");',
-            '        await ctx.pausa(300);',
-            '    }',
-            '    // Pedir al backend el id de la ultima venta de la terminal.',
-            '    // Antes navegabamos a la pestaña Vendidos, pero eso cerraba',
-            '    // el modal del viaje y mataba el polling del croquis,',
-            '    // dejandolo congelado tras la cancelacion.',
-            '    const r = await ctx.enviar("obtener_id_ultima_venta_terminal", {});',
-            '    if (!r || !r.exito) {',
-            '        throw new Error("No se pudo obtener el id de la ultima venta: " + (r && r.error ? r.error : "(sin detalle)"));',
-            '    }',
-            '    return r.id_venta;',
-            '}',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: cancelar_venta refresca el croquis',
-        'buscar' => [
-            'export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/cancelar",',
-            '        id_venta,',
-            '        motivo',
-            '    });',
-            '    if (!r || !r.exito) {',
-            '        throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));',
-            '    }',
-            '    if (!r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    return r.json;',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/cancelar",',
-            '        id_venta,',
-            '        motivo',
-            '    });',
-            '    if (!r || !r.exito) {',
-            '        throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));',
-            '    }',
-            '    if (!r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));',
-            '    }',
             '    // Refrescar el croquis del page para que no quede congelado',
             '    // mostrando el asiento como vendido. Es no bloqueante: si',
             '    // falla, la venta ya esta cancelada, solo se ve el croquis',
@@ -311,7 +310,17 @@ $cambios = [
             '        console.warn("No se pudo refrescar el croquis tras cancelar:", rf && rf.error ? rf.error : "(sin detalle)");',
             '    }',
             '    return r.json;',
-            '}',
+        ],
+        'reemplazar' => [
+            '    // Refrescar el croquis del page para que no quede congelado',
+            '    // mostrando el asiento como vendido. Es no bloqueante: si',
+            '    // falla, la venta ya esta cancelada, solo se ve el croquis',
+            '    // viejo hasta el proximo polling.',
+            '    const rf = await ctx.refrescar_asientos_pagina();',
+            '    if (!rf || !rf.exito) {',
+            '        console.warn("No se pudo refrescar el croquis tras cancelar:", rf && rf.error ? rf.error : "(sin detalle)");',
+            '    }',
+            '    return r.json;',
         ],
     ],
 
@@ -322,48 +331,48 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4f',
+        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4g',
         'buscar' => [
-            ' * @version 1.5plugin.4e',
-        ],
-        'reemplazar' => [
             ' * @version 1.5plugin.4f',
         ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4g',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4f',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4g',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4e";',
-        ],
-        'reemplazar' => [
             '    Conf.VERSION_APP = "1.5plugin.4f";',
         ],
+        'reemplazar' => [
+            '    Conf.VERSION_APP = "1.5plugin.4g";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4f',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4g',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4e";',
+            'export const VERSION_PLUGIN = "1.5plugin.4f";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4f";',
+            'export const VERSION_PLUGIN = "1.5plugin.4g";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4f',
+        'descripcion' => 'catalogo.js: bump a 1.5plugin.4g',
         'buscar' => [
-            ' * @version 1.5plugin.4e',
+            ' * @version 1.5plugin.4f',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4f',
+            ' * @version 1.5plugin.4g',
         ],
     ],
 
@@ -374,39 +383,26 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4f',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4g',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4e (reintento',
+            '**Última actualización de este prompt:** v1.5plugin.4f (no',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4f (no',
-            'navegar a la pestaña Vendidos desde el helper',
-            '`obtener_id_ultima_venta`: ahora pide el id por POST. Antes',
-            'navegar cerraba el modal del viaje y mataba el polling,',
-            'dejando el croquis congelado tras cancelar. Además,',
-            '`cancelar_venta` ahora dispara un mensaje',
-            '`refrescar_asientos_pagina` que inyecta un script en el',
-            'page context para actualizar los colores del croquis).',
-            'Antes: v1.5plugin.4e (reintento',
+            '**Última actualización de este prompt:** v1.5plugin.4g (cambio',
+            'de técnica para refrescar el croquis: el `<script>` inline',
+            'chocaba con el CSP de la página. Ahora se usa',
+            '`chrome.scripting.executeScript` con `world: "MAIN"` desde',
+            'el service worker, que no pasa por el DOM y no lo bloquea',
+            'el CSP. Requiere el permiso `scripting` en el manifest).',
+            'Antes: v1.5plugin.4f (no',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion sobre no navegar de pestaña',
+        'descripcion' => 'prompt plugin: leccion sobre CSP',
         'buscar' => [
-            '- **Cuando un clic puede perderse por condiciones de carrera**',
-        ],
-        'reemplazar' => [
-            '- **No navegar de pestaña durante una prueba.** `activar_pestana`',
-            '  en el piloto llama a `ocultar_detalle_viaje`, que cierra el',
-            '  modal del viaje y mata el polling. Si una prueba necesita',
-            '  leer datos de otra pestaña, mejor pedirlos por POST desde',
-            '  el content script. Bug en v1.5plugin.4: el helper',
-            '  `obtener_id_ultima_venta` navegaba a Vendidos y dejaba el',
-            '  croquis congelado. Fix en v1.5plugin.4f: pedir el id por',
-            '  POST.',
             '- **Para refrescar el croquis tras una cancelación, inyectar un',
             '  `<script>` en el page context.** El content script no puede',
             '  tocar las variables globales del page (`estados_asientos_actuales`,',
@@ -414,7 +410,18 @@ $cambios = [
             '  La forma más simple sin tocar el manifest es inyectar un',
             '  `<script>` en el DOM que corre en el page context, hace el',
             '  fetch y actualiza las variables y el croquis.',
-            '- **Cuando un clic puede perderse por condiciones de carrera**',
+        ],
+        'reemplazar' => [
+            '- **Para ejecutar código en el page context, usar',
+            '  `chrome.scripting.executeScript` con `world: "MAIN"`.**',
+            '  El content script no puede tocar las variables globales',
+            '  del page por el aislamiento de mundos. La opción de',
+            '  inyectar un `<script>` inline en el DOM falla si la página',
+            '  tiene CSP (bug en v1.5plugin.4f: "Executing inline script',
+            '  violates the following Content Security Policy directive").',
+            '  Fix en v1.5plugin.4g: `chrome.scripting.executeScript` con',
+            '  `world: "MAIN"` desde el service worker, que no pasa por',
+            '  el DOM. Requiere el permiso `scripting` en el manifest.',
         ],
     ],
 
