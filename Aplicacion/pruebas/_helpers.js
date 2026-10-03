@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4g
+ * @version 1.5plugin.4h
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -314,6 +314,23 @@ export async function obtener_id_ultima_venta(ctx) {
         throw new Error("No se pudo obtener el id de la ultima venta: " + (r && r.error ? r.error : "(sin detalle)"));
     }
     return r.id_venta;
+}
+
+// Pide el detalle de una venta por POST (`ventas/obtener`) y
+// devuelve el objeto `venta` del JSON. No depende del DOM,
+// asi que funciona aunque no estemos en la pestaña Vendidos.
+export async function obtener_venta_por_id(ctx, id_venta) {
+    const r = await ctx.pedir_post("index.php", {
+        accion: "ventas/obtener",
+        id_venta
+    });
+    if (!r || !r.exito) {
+        throw new Error("Error de red al obtener la venta: " + (r && r.error ? r.error : "(sin detalle)"));
+    }
+    if (!r.json || !r.json.exito) {
+        throw new Error("No se pudo obtener la venta: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));
+    }
+    return r.json.venta;
 }
 
 export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {

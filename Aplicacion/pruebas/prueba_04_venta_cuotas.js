@@ -1,20 +1,22 @@
 /**
  * Venta en cuotas: 1 asiento, efectivo, 2 cuotas, pago parcial.
- * @version 1.5plugin.4
+ * Verifica que la venta queda con cupones pendientes (por
+ * backend, no por DOM, porque no navegamos a Vendidos).
+ * @version 1.5plugin.4h
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
     abrir_modal_confirmacion, llenar_comprador, llenar_pasajero,
-    setear_metodo_y_cuotas, setear_monto_pagado, confirmar_venta,
-    obtener_id_ultima_venta, cancelar_venta,
+    setear_metodo_y_cuotas, confirmar_venta,
+    obtener_id_ultima_venta, obtener_venta_por_id, cancelar_venta,
     datos_comprador_aleatorio, datos_pasajero_aleatorio
 } from "./_helpers.js";
 
 export const prueba = {
     id: "venta_cuotas",
     nombre: "Venta: en cuotas (2 cuotas, pago parcial)",
-    descripcion: "Vende 1 asiento en efectivo a 2 cuotas con pago parcial. La venta queda con cupon pendiente.",
+    descripcion: "Vende 1 asiento en efectivo a 2 cuotas con pago parcial. Verifica que queden cupones pendientes y cancela.",
 
     async ejecutar(ctx) {
         await login_terminal(ctx);
@@ -33,10 +35,14 @@ export const prueba = {
         const id_venta = await obtener_id_ultima_venta(ctx);
         ctx.assert(id_venta, "No se obtuvo el id de la venta");
 
-        // Verificar que la tarjeta muestra cuotas pendientes
-        const texto = await ctx.texto(`.sale-card[data-id-venta="${id_venta}"]`);
-        ctx.assert(texto && (texto.includes("pendiente") || texto.includes("Cuotas")),
-            "La tarjeta no muestra info de cuotas: " + JSON.stringify(texto ? texto.substring(0, 200) : null));
+        // Verificar por backend que la venta tiene cupones pendientes.
+        const venta = await obtener_venta_por_id(ctx, id_venta);
+        ctx.assert(venta && Array.isArray(venta.cupones),
+            "La venta no trae cupones: " + JSON.stringify(venta ? Object.keys(venta) : null));
+
+        const pendientes = venta.cupones.filter(c => c.estado === "pendiente");
+        ctx.assert(pendientes.length > 0,
+            "La venta no tiene cupones pendientes. Cupones: " + JSON.stringify(venta.cupones));
 
         await cancelar_venta(ctx, id_venta);
     }

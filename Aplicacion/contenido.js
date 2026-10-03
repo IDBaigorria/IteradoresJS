@@ -9,7 +9,7 @@
  * basicas sobre el DOM de la pagina. Todas las respuestas
  * son objetos `{ exito, ... }`.
  *
- * @version 1.5plugin.4g
+ * @version 1.5plugin.4h
  */
 
 (function () {

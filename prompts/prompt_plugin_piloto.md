@@ -242,7 +242,14 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4g (cambio
+**Última actualización de este prompt:** v1.5plugin.4h (verificar
+cupones por backend, no por DOM. La prueba `venta_cuotas`
+leía la tarjeta de la venta en el DOM, pero como en v4f
+dejamos de navegar a Vendidos, la tarjeta ya no está en el
+DOM. Ahora se pide el detalle de la venta por POST
+(`ventas/obtener`) y se verifican los cupones en el JSON.
+Nuevo helper `obtener_venta_por_id(ctx, id_venta)`).
+Antes: v1.5plugin.4g (cambio
 de técnica para refrescar el croquis: el `<script>` inline
 chocaba con el CSP de la página. Ahora se usa
 `chrome.scripting.executeScript` con `world: "MAIN"` desde
@@ -427,6 +434,15 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **Preferir verificar por backend antes que por DOM.** Cuando
+  una prueba necesita confirmar algo del estado de la app
+  (por ejemplo, que una venta tiene cupones pendientes),
+  conviene pedir el detalle por POST (`ventas/obtener`, etc.)
+  en lugar de leer el DOM de otra pestaña. Evita depender de
+  la UI y de la navegación entre pestañas. Bug en
+  v1.5plugin.4g: la prueba `venta_cuotas` leía la tarjeta
+  de la venta en el DOM, pero ya no navegábamos a Vendidos.
+  Fix en v1.5plugin.4h: helper `obtener_venta_por_id`.
 - **No navegar de pestaña durante una prueba.** `activar_pestana`
   en el piloto llama a `ocultar_detalle_viaje`, que cierra el
   modal del viaje y mata el polling. Si una prueba necesita
