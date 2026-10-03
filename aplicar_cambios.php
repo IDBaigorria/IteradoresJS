@@ -2,13 +2,18 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4b — fix de apellidos en datos_pasajero_aleatorio.
+ * Tanda v1.5plugin.4c — fix de timing en seleccion de asientos.
  *
- * Problema: el helper generaba `apellido: "Pasajero" + index` (por
- * ejemplo "Pasajero0"), y el validador del piloto rechaza numeros en
- * apellidos: "Solo puede tener letras, espacios, apostrofes y guiones".
+ * Problema: `seleccionar_n_asientos` hacia clic y esperaba 300ms
+ * fijos. Entre el clic y la aparicion del boton Vender hay un fetch
+ * al backend (`seleccionar_asiento`), que a veces tarda mas. Con 2
+ * o mas asientos, el segundo clic podia pisar el primero. La prueba
+ * `venta_cuotas` fallaba intermitentemente con "No aparecio el boton
+ * Vender".
  *
- * Fix: usar apellidos reales sin tildes ni numeros, tomados de un array.
+ * Fix: despues de cada clic, esperar a que el asiento pase a
+ * `seat-seleccionado-propio` (con timeout). Recien al final esperar
+ * el boton Vender.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -34,55 +39,66 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4b',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4c',
         'buscar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4b',
+            ' * @version 1.5plugin.4c',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: apellidos sin numeros en datos_pasajero_aleatorio',
+        'descripcion' => '_helpers.js: seleccionar_n_asientos espera a que cada asiento este seleccionado',
         'buscar' => [
-            'export function datos_pasajero_aleatorio(index = 0) {',
-            '    const dni = dni_unico();',
-            '    return {',
-            '        dni,',
-            '        apellido: "Pasajero" + index,',
-            '        nombres: "Auto",',
-            '        email: "pas_" + dni + "@test.local",',
-            '        celular: "2983555" + String(dni).slice(-3),',
-            '        celular_emergencia: "2983111" + String(dni).slice(-3),',
-            '        fecha_nacimiento: "1990-01-15",',
-            '        direccion: "Calle Prueba 123",',
-            '        localidad: "Tres Arroyos"',
-            '    };',
+            'export async function seleccionar_n_asientos(ctx, n) {',
+            '    const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");',
+            '    if (libres.length < n) {',
+            '        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);',
+            '    }',
+            '    const elegidos = libres.slice(0, n);',
+            '    for (const numero of elegidos) {',
+            '        await ctx.clic(`.seat[data-numero="${numero}"]`);',
+            '        await ctx.pausa(300);',
+            '    }',
+            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
+            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
+            '    return elegidos;',
             '}',
         ],
         'reemplazar' => [
-            '// Apellidos validos para el piloto: solo letras, sin tildes,',
-            '// sin numeros. Se rotan por indice para que pasajeros distintos',
-            '// tengan apellidos distintos (util para debugear).',
-            'const _APELLIDOS = ["Gomez", "Fernandez", "Rodriguez", "Lopez", "Martinez", "Perez", "Sanchez", "Ramirez"];',
+            '// Espera a que un asiento tenga la clase "seat-seleccionado-propio".',
+            '// El piloto hace un fetch al backend por cada clic, que puede',
+            '// tardar mas de lo que dura un ciclo de UI. Sin esta espera,',
+            '// clics consecutivos pueden pisarse.',
+            'async function esperar_asiento_seleccionado(ctx, numero, timeout_ms = 5000) {',
+            '    const inicio = Date.now();',
+            '    while (Date.now() - inicio < timeout_ms) {',
+            '        const clases = await ctx.obtener_atributos(`.seat[data-numero="${numero}"]`, "class");',
+            '        if (clases.length > 0 && String(clases[0]).indexOf("seat-seleccionado-propio") !== -1) {',
+            '            return true;',
+            '        }',
+            '        await ctx.pausa(150);',
+            '    }',
+            '    return false;',
+            '}',
             '',
-            'export function datos_pasajero_aleatorio(index = 0) {',
-            '    const dni = dni_unico();',
-            '    const apellido = _APELLIDOS[index % _APELLIDOS.length];',
-            '    return {',
-            '        dni,',
-            '        apellido,',
-            '        nombres: "Auto",',
-            '        email: "pas_" + dni + "@test.local",',
-            '        celular: "2983555" + String(dni).slice(-3),',
-            '        celular_emergencia: "2983111" + String(dni).slice(-3),',
-            '        fecha_nacimiento: "1990-01-15",',
-            '        direccion: "Calle Prueba 123",',
-            '        localidad: "Tres Arroyos"',
-            '    };',
+            'export async function seleccionar_n_asientos(ctx, n) {',
+            '    const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");',
+            '    if (libres.length < n) {',
+            '        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);',
+            '    }',
+            '    const elegidos = libres.slice(0, n);',
+            '    for (const numero of elegidos) {',
+            '        await ctx.clic(`.seat[data-numero="${numero}"]`);',
+            '        const ok = await esperar_asiento_seleccionado(ctx, numero, 5000);',
+            '        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado");',
+            '    }',
+            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
+            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
+            '    return elegidos;',
             '}',
         ],
     ],
@@ -94,72 +110,72 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4b',
+        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4c',
         'buscar' => [
-            ' * @version 1.5plugin.4a',
-        ],
-        'reemplazar' => [
             ' * @version 1.5plugin.4b',
         ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4c',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4b',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4c',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4a";',
-        ],
-        'reemplazar' => [
             '    Conf.VERSION_APP = "1.5plugin.4b";',
         ],
+        'reemplazar' => [
+            '    Conf.VERSION_APP = "1.5plugin.4c";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4b',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4c',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4a";',
+            'export const VERSION_PLUGIN = "1.5plugin.4b";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4b";',
+            'export const VERSION_PLUGIN = "1.5plugin.4c";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4b',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4c',
         'buscar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4b',
+            ' * @version 1.5plugin.4c',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4b',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4c',
         'buscar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4b',
+            ' * @version 1.5plugin.4c',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4b',
+        'descripcion' => 'catalogo.js: bump a 1.5plugin.4c',
         'buscar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4b',
+            ' * @version 1.5plugin.4c',
         ],
     ],
 
@@ -170,36 +186,37 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4b',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4c',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4a (fix de',
+            '**Última actualización de este prompt:** v1.5plugin.4b (fix de',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4b (fix de',
-            'apellidos en `datos_pasajero_aleatorio`: el helper generaba',
-            '"Pasajero0", "Pasajero1", etc. y el validador del piloto',
-            'rechaza números en apellidos. Ahora usa apellidos reales sin',
-            'tildes ni números de un array rotativo). Antes: v1.5plugin.4a (fix de',
+            '**Última actualización de este prompt:** v1.5plugin.4c (fix de',
+            'timing en `seleccionar_n_asientos`: después de cada clic espera',
+            'a que el asiento pase a `seat-seleccionado-propio`. Antes',
+            'esperaba 300 ms fijos y con 2+ asientos el segundo clic podía',
+            'pisar el primero, fallando con "No apareció el botón Vender").',
+            'Antes: v1.5plugin.4b (fix de',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion de validaciones del piloto',
+        'descripcion' => 'prompt plugin: leccion de polling vs timeouts fijos',
         'buscar' => [
-            '- **Los helpers que llenan formularios con autocompletado por',
+            '- **Los datos generados por el plugin deben pasar los validadores',
         ],
         'reemplazar' => [
+            '- **Evitar timeouts fijos entre acciones del piloto.** El piloto',
+            '  hace un `fetch` por cada clic en un asiento. Los `pausa(300)`',
+            '  fijos no alcanzan cuando el fetch tarda más. En cambio,',
+            '  esperar a que el DOM refleje el cambio (polling de clase o',
+            '  atributo). Bug en v1.5plugin.4: `seleccionar_n_asientos`',
+            '  fallaba intermitentemente. Fix en v1.5plugin.4c:',
+            '  `esperar_asiento_seleccionado` hace polling de la clase',
+            '  `seat-seleccionado-propio` con timeout de 5 s.',
             '- **Los datos generados por el plugin deben pasar los validadores',
-            '  del piloto.** El piloto valida apellidos y nombres con',
-            '  `/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\'\\- \\t]+$/`: solo letras, espacios,',
-            '  apóstrofes y guiones. Nada de números, ni siquiera como sufijo',
-            '  ("Pasajero0" no pasa). Los helpers deben generar datos que',
-            '  pasen. Bug en v1.5plugin.4: `datos_pasajero_aleatorio` generaba',
-            '  `"Pasajero" + index`. Fix en v1.5plugin.4b: array rotativo de',
-            '  apellidos sin tildes.',
-            '- **Los helpers que llenan formularios con autocompletado por',
         ],
     ],
 

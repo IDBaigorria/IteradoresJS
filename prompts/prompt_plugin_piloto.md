@@ -242,7 +242,12 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4b (fix de
+**Última actualización de este prompt:** v1.5plugin.4c (fix de
+timing en `seleccionar_n_asientos`: después de cada clic espera
+a que el asiento pase a `seat-seleccionado-propio`. Antes
+esperaba 300 ms fijos y con 2+ asientos el segundo clic podía
+pisar el primero, fallando con "No apareció el botón Vender").
+Antes: v1.5plugin.4b (fix de
 apellidos en `datos_pasajero_aleatorio`: el helper generaba
 "Pasajero0", "Pasajero1", etc. y el validador del piloto
 rechaza números en apellidos. Ahora usa apellidos reales sin
@@ -396,6 +401,14 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **Evitar timeouts fijos entre acciones del piloto.** El piloto
+  hace un `fetch` por cada clic en un asiento. Los `pausa(300)`
+  fijos no alcanzan cuando el fetch tarda más. En cambio,
+  esperar a que el DOM refleje el cambio (polling de clase o
+  atributo). Bug en v1.5plugin.4: `seleccionar_n_asientos`
+  fallaba intermitentemente. Fix en v1.5plugin.4c:
+  `esperar_asiento_seleccionado` hace polling de la clase
+  `seat-seleccionado-propio` con timeout de 5 s.
 - **Los datos generados por el plugin deben pasar los validadores
   del piloto.** El piloto valida apellidos y nombres con
   `/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü'\- \t]+$/`: solo letras, espacios,

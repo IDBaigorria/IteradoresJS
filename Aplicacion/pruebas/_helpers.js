@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4b
+ * @version 1.5plugin.4c
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -100,6 +100,22 @@ export async function abrir_primer_micro_con_libres(ctx) {
     throw new Error("Ningun micro del viaje tiene asientos libres");
 }
 
+// Espera a que un asiento tenga la clase "seat-seleccionado-propio".
+// El piloto hace un fetch al backend por cada clic, que puede
+// tardar mas de lo que dura un ciclo de UI. Sin esta espera,
+// clics consecutivos pueden pisarse.
+async function esperar_asiento_seleccionado(ctx, numero, timeout_ms = 5000) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout_ms) {
+        const clases = await ctx.obtener_atributos(`.seat[data-numero="${numero}"]`, "class");
+        if (clases.length > 0 && String(clases[0]).indexOf("seat-seleccionado-propio") !== -1) {
+            return true;
+        }
+        await ctx.pausa(150);
+    }
+    return false;
+}
+
 export async function seleccionar_n_asientos(ctx, n) {
     const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
     if (libres.length < n) {
@@ -108,7 +124,8 @@ export async function seleccionar_n_asientos(ctx, n) {
     const elegidos = libres.slice(0, n);
     for (const numero of elegidos) {
         await ctx.clic(`.seat[data-numero="${numero}"]`);
-        await ctx.pausa(300);
+        const ok = await esperar_asiento_seleccionado(ctx, numero, 5000);
+        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado");
     }
     const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);
     if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");

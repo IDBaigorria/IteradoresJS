@@ -6,19 +6,19 @@
  * importar el Controlador, para que la persistencia tome el
  * nombre de la BD correcto.
  *
- * @version 1.5plugin.4b
+ * @version 1.5plugin.4c
  */
 
 export function configurar_conf(Conf) {
     Conf.NOMBRE_APP = "IteradoresPluginPruebas";
-    Conf.VERSION_APP = "1.5plugin.4b";
+    Conf.VERSION_APP = "1.5plugin.4c";
     Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";
     Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";
     Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";
 }
 
 export const NOMBRE_GRAFO = "plugin_pruebas";
-export const VERSION_PLUGIN = "1.5plugin.4b";
+export const VERSION_PLUGIN = "1.5plugin.4c";
 
 // URL del piloto PHP. Debe estar cubierta por host_permissions
 // y content_scripts.matches en manifest.json.
