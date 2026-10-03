@@ -6,26 +6,26 @@
  * importar el Controlador, para que la persistencia tome el
  * nombre de la BD correcto.
  *
- * @version 1.5plugin.3b
+ * @version 1.5plugin.3e
  */
 
 export function configurar_conf(Conf) {
     Conf.NOMBRE_APP = "IteradoresPluginPruebas";
-    Conf.VERSION_APP = "1.5plugin.3b";
+    Conf.VERSION_APP = "1.5plugin.3e";
     Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";
     Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";
     Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";
 }
 
 export const NOMBRE_GRAFO = "plugin_pruebas";
-export const VERSION_PLUGIN = "1.5plugin.3b";
+export const VERSION_PLUGIN = "1.5plugin.3e";
 
 // URL del piloto PHP. Debe estar cubierta por host_permissions
 // y content_scripts.matches en manifest.json.
 export const URL_PILOTO = "http://localhost/iteradores/codigo.worktrees/v1.5i/";
 
 // Codigos de acceso de los usuarios del piloto, para las pruebas.
-export const CODIGO_ADMIN     = "IBD";
+export const CODIGO_ADMIN     = "IDB";
 export const CODIGO_DUENO     = "carmen1";
 export const CODIGO_TERMINAL1 = "carmen2";
 export const CODIGO_TERMINAL2 = "lujan2";

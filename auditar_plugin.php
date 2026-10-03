@@ -10,13 +10,9 @@
  *    (`./` o `../`) resuelva a un archivo existente.
  * 3. Los paths declarados en manifest.json (service_worker,
  *    default_popup, content_scripts): verifica que existan.
- * 4. Referencias a nombres viejos del rename de v1.5plugin.2:
- *    bootstrap.js, background.js, content.js, popup.html, popup.js,
- *    prueba_01_smoke, y los strings "ping" / "pong" / "click" /
- *    "fetch_post".
+ * 4. Referencias a nombres viejos del rename de v1.5plugin.2.
  * 5. Archivos sospechosamente vacios: .js que despues de quitar
- *    comentarios quedan sin lineas de codigo. Es la causa del
- *    bug de v1.5plugin.2b (servicio.js comentado por error).
+ *    comentarios quedan sin lineas de codigo.
  * 6. URL_PILOTO de ConfPlugin.js contra host_permissions y
  *    content_scripts.matches del manifest.
  *

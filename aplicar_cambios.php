@@ -2,15 +2,14 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.3b — infra mínima + primera prueba real (login).
- * Corrección respecto de v1.5plugin.3a: bloques del prompt ajustados
- * al estado real del archivo, y bump de manifest.json pospuesto
- * (no se sabe la versión actual del archivo).
+ * Tanda v1.5plugin.3e — infra mínima + primera prueba real (login).
  *
- * Fix de la tanda:
- * - servicio.js: vuelve a imports estáticos. Chrome prohíbe
- *   `import()` dinámico en service workers por spec
- *   (w3c/ServiceWorker#1356).
+ * Correcciones sobre v1.5plugin.3d:
+ * - Los dos bloques del prompt ahora usan las anclas reales del
+ *   archivo actual (que dice v1.5plugin.3b, no v1.5plugin.3).
+ * - Se reemplaza la lección duplicada/desactualizada de
+ *   v1.5plugin.2c (listener primero con imports dinamicos) por la
+ *   lección correcta de v1.5plugin.3e (imports estaticos).
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -36,7 +35,7 @@ $cambios = [
     [
         'tipo' => 'crear',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js con URL_PILOTO y version 1.5plugin.3b',
+        'descripcion' => 'ConfPlugin.js con URL_PILOTO, codigos y version 1.5plugin.3e',
         'contenido' => [
             '/**',
             ' * Configuracion propia del plugin de pruebas.',
@@ -46,26 +45,26 @@ $cambios = [
             ' * importar el Controlador, para que la persistencia tome el',
             ' * nombre de la BD correcto.',
             ' *',
-            ' * @version 1.5plugin.3b',
+            ' * @version 1.5plugin.3e',
             ' */',
             '',
             'export function configurar_conf(Conf) {',
             '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.3b";',
+            '    Conf.VERSION_APP = "1.5plugin.3e";',
             '    Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
             '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
             '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
             '}',
             '',
             'export const NOMBRE_GRAFO = "plugin_pruebas";',
-            'export const VERSION_PLUGIN = "1.5plugin.3b";',
+            'export const VERSION_PLUGIN = "1.5plugin.3e";',
             '',
             '// URL del piloto PHP. Debe estar cubierta por host_permissions',
             '// y content_scripts.matches en manifest.json.',
             'export const URL_PILOTO = "http://localhost/iteradores/codigo.worktrees/v1.5i/";',
             '',
             '// Codigos de acceso de los usuarios del piloto, para las pruebas.',
-            'export const CODIGO_ADMIN     = "IBD";',
+            'export const CODIGO_ADMIN     = "IDB";',
             'export const CODIGO_DUENO     = "carmen1";',
             'export const CODIGO_TERMINAL1 = "carmen2";',
             'export const CODIGO_TERMINAL2 = "lujan2";',
@@ -93,7 +92,7 @@ $cambios = [
             ' * basicas sobre el DOM de la pagina. Todas las respuestas',
             ' * son objetos `{ exito, ... }`.',
             ' *',
-            ' * @version 1.5plugin.3b',
+            ' * @version 1.5plugin.3e',
             ' */',
             '',
             '(function () {',
@@ -228,7 +227,7 @@ $cambios = [
     ],
 
     // ============================================================
-    // Aplicacion/servicio.js — imports estáticos + ctx ampliado
+    // Aplicacion/servicio.js
     // ============================================================
 
     [
@@ -256,7 +255,7 @@ $cambios = [
             ' * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.',
             ' * - `listar_corridas` -> devuelve las ultimas corridas del grafo.',
             ' *',
-            ' * @version 1.5plugin.3b',
+            ' * @version 1.5plugin.3e',
             ' */',
             '',
             'import { URL_PILOTO } from "./ConfPlugin.js";',
@@ -444,7 +443,7 @@ $cambios = [
             ' * Prueba de login: entra con código de admin, verifica que',
             ' * la app está visible y que el nivel mostrado es correcto.',
             ' *',
-            ' * @version 1.5plugin.3b',
+            ' * @version 1.5plugin.3e',
             ' */',
             '',
             'import { CODIGO_ADMIN } from "../ConfPlugin.js";',
@@ -493,7 +492,7 @@ $cambios = [
             ' * Cada prueba exporta un objeto `{ id, nombre, descripcion,',
             ' * ejecutar(ctx) }`. Aca se importan y se listan.',
             ' *',
-            ' * @version 1.5plugin.3b',
+            ' * @version 1.5plugin.3e',
             ' */',
             '',
             'import { prueba as arranque } from "./prueba_01_arranque.js";',
@@ -507,7 +506,7 @@ $cambios = [
     ],
 
     // ============================================================
-    // auditar_plugin.php — reescritura completa
+    // auditar_plugin.php
     // ============================================================
 
     [
@@ -527,13 +526,9 @@ $cambios = [
             ' *    (`./` o `../`) resuelva a un archivo existente.',
             ' * 3. Los paths declarados en manifest.json (service_worker,',
             ' *    default_popup, content_scripts): verifica que existan.',
-            ' * 4. Referencias a nombres viejos del rename de v1.5plugin.2:',
-            ' *    bootstrap.js, background.js, content.js, popup.html, popup.js,',
-            ' *    prueba_01_smoke, y los strings "ping" / "pong" / "click" /',
-            ' *    "fetch_post".',
+            ' * 4. Referencias a nombres viejos del rename de v1.5plugin.2.',
             ' * 5. Archivos sospechosamente vacios: .js que despues de quitar',
-            ' *    comentarios quedan sin lineas de codigo. Es la causa del',
-            ' *    bug de v1.5plugin.2b (servicio.js comentado por error).',
+            ' *    comentarios quedan sin lineas de codigo.',
             ' * 6. URL_PILOTO de ConfPlugin.js contra host_permissions y',
             ' *    content_scripts.matches del manifest.',
             ' *',
@@ -805,104 +800,71 @@ $cambios = [
     ],
 
     // ============================================================
-    // prompts/prompt_plugin_piloto.md — ajustes
+    // prompts/prompt_plugin_piloto.md
+    // Anclas copiadas EXACTAMENTE del archivo que pasó el usuario.
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: ultima actualizacion a v1.5plugin.3b',
+        'descripcion' => 'prompt plugin: bump de ultima actualizacion',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.3 (infra',
-            'mínima del catálogo + primera prueba real: `ConfPlugin.js`',
-            'centraliza `URL_PILOTO` y los códigos de usuario; `contenido.js`',
-            'suma comandos de visibilidad; `ctx` gana `url_base`, `login`,',
-            '`cerrar_sesion`, `dni_unico`, `texto_unico`, `esta_visible`,',
-            '`esperar_visible`, `esperar_oculto`; nueva prueba `login_admin`.',
-            'La auditoría ahora chequea que `URL_PILOTO` esté cubierta por',
-            '`host_permissions` y `content_scripts.matches` del manifest.).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.3b (infra',
             'mínima del catálogo + primera prueba real `login_admin` + fix',
             'de `servicio.js`: había usado `import()` dinámico, prohibido',
             'en service workers por spec. Volvió a imports estáticos.).',
         ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.3e (infra',
+            'mínima del catálogo + primera prueba real `login_admin` +',
+            'fix de `servicio.js`: había usado `import()` dinámico,',
+            'prohibido en service workers por spec. Volvió a imports',
+            'estáticos. `CODIGO_ADMIN` corregido a "IDB". Regla nueva:',
+            'el manifest no se bumpea en cada letra.).',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: Estado actual a v1.5plugin.3b',
+        'descripcion' => 'prompt plugin: bump del Estado actual',
         'buscar' => [
-            '**Proyecto en v1.5plugin.2.** El esqueleto del plugin está',
-            'armado y funcional, con nombres en español. Archivos:',
-            '',
-            '- `manifest.json` — manifiesto MV3 en la raíz.',
-            '- `Aplicacion/servicio.js` — service worker (module).',
-            '- `Aplicacion/contenido.js` — script de contenido clásico.',
-            '- `Aplicacion/ventana.html` / `ventana.js` — interfaz de la',
-            '  ventana.',
-            '- `Aplicacion/arranque.js` — arranque del framework en el SW.',
-            '- `Aplicacion/ConfPlugin.js` — configuración propia.',
-            '- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.',
-            '- `Aplicacion/pruebas/catalogo.js` — catálogo de pruebas.',
-            '- `Aplicacion/pruebas/prueba_01_arranque.js` — primera prueba.',
-        ],
-        'reemplazar' => [
             '**Proyecto en v1.5plugin.3b.** El esqueleto del plugin está',
             'armado y funcional, y ya tiene la primera prueba real (login',
             'de admin). Archivos:',
-            '',
-            '- `manifest.json` — manifiesto MV3 en la raíz.',
-            '- `Aplicacion/servicio.js` — service worker (module, imports',
-            '  estáticos).',
-            '- `Aplicacion/contenido.js` — script de contenido clásico, con',
-            '  comandos de visibilidad.',
-            '- `Aplicacion/ventana.html` / `ventana.js` — interfaz de la',
-            '  ventana (con reintentos de `sendMessage`).',
-            '- `Aplicacion/arranque.js` — arranque del framework en el SW.',
-            '- `Aplicacion/ConfPlugin.js` — configuración propia, URL del',
-            '  piloto y códigos de usuario.',
-            '- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.',
-            '- `Aplicacion/pruebas/catalogo.js` — catálogo de pruebas.',
-            '- `Aplicacion/pruebas/prueba_01_arranque.js` — prueba de',
-            '  arranque.',
-            '- `Aplicacion/pruebas/prueba_02_login.js` — prueba de login.',
-            '- `auditar_plugin.php` — auditoría con 6 secciones.',
+        ],
+        'reemplazar' => [
+            '**Proyecto en v1.5plugin.3e.** El esqueleto del plugin está',
+            'armado y funcional, y ya tiene la primera prueba real (login',
+            'de admin). Archivos:',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: lecciones de v1.5plugin.3b',
+        'descripcion' => 'prompt plugin: reemplazar leccion vieja por la correcta',
         'buscar' => [
-            '- Si Chrome muestra "unknown error when fetching the script" al',
-            '  registrar un service worker module, casi siempre es un import',
-            '  que no se puede resolver en la cadena (nombre mal escrito,',
-            '  archivo faltante). Diagnóstico rápido: reducir `servicio.js`',
-            '  a un `console.log` y agregar imports de a uno hasta que',
-            '  rompa.',
+            '- **Regla de diseño (v1.5plugin.2c):** el service worker',
+            '  registra el listener de mensajes PRIMERO y carga los módulos',
+            '  del plugin con `await import()` después. Así el listener',
+            '  siempre está disponible y cualquier fallo de carga se',
+            '  reporta al popup en texto claro, en vez de morir con el',
+            '  "unknown error" genérico de Chrome.',
         ],
         'reemplazar' => [
-            '- Si Chrome muestra "unknown error when fetching the script" al',
-            '  registrar un service worker module, casi siempre es un import',
-            '  que no se puede resolver en la cadena (nombre mal escrito,',
-            '  archivo faltante). Diagnóstico rápido: reducir `servicio.js`',
-            '  a un `console.log` y agregar imports de a uno hasta que',
-            '  rompa.',
-            '- **Los service workers de Chrome (MV3) NO permiten `import()`**',
-            '  **dinámico.** La spec lo prohíbe: "import() is disallowed on',
-            '  ServiceWorkerGlobalScope by the HTML specification"',
-            '  (https://github.com/w3c/ServiceWorker/issues/1356). Se decidió',
-            '  "throw on dynamic imports" para prevenir que un SW funcione',
-            '  online y rompa offline. Los imports deben ser ESTÁTICOS.',
-            '- **Regla de diseño (v1.5plugin.3b):** el service worker usa',
-            '  imports estáticos. La defensa contra archivos comentados es',
-            '  la auditoría (sección 5: archivos sospechosamente vacíos).',
-            '  No hay forma de registrar el listener antes de los imports',
-            '  en un SW con módulos.',
+            '- **Regla del manifest (v1.5plugin.3e):** el `manifest.json`',
+            '  **no se bumpea en cada letra**. Chrome en modo desarrollador',
+            '  recarga siempre que se aprieta el botón de la tarjeta, sin',
+            '  importar la versión. Solo hace falta bumpear el manifest',
+            '  cuando:',
+            '  1. Se publica la extensión en la Chrome Web Store.',
+            '  2. Cambia `manifest_version` (raro).',
+            '  3. Hay que forzar una migración de IndexedDB en el usuario',
+            '     (se hace con `VERSION_BD` de IndexedDB, no con',
+            '     `manifest.version`).',
+            '  Mientras estemos en modo desarrollador, el manifest queda',
+            '  fijo en `1.5.6`.',
         ],
     ],
 

@@ -213,7 +213,7 @@ Cada corrida persiste un nodo en el grafo del plugin con:
 
 ## 5. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.3b.** El esqueleto del plugin está
+**Proyecto en v1.5plugin.3e.** El esqueleto del plugin está
 armado y funcional, y ya tiene la primera prueba real (login
 de admin). Archivos:
 
@@ -238,10 +238,12 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.3b (infra
-mínima del catálogo + primera prueba real `login_admin` + fix
-de `servicio.js`: había usado `import()` dinámico, prohibido
-en service workers por spec. Volvió a imports estáticos.).
+**Última actualización de este prompt:** v1.5plugin.3e (infra
+mínima del catálogo + primera prueba real `login_admin` +
+fix de `servicio.js`: había usado `import()` dinámico,
+prohibido en service workers por spec. Volvió a imports
+estáticos. `CODIGO_ADMIN` corregido a "IDB". Regla nueva:
+el manifest no se bumpea en cada letra.).
 
 **Decisiones tomadas:**
 
@@ -348,12 +350,18 @@ en service workers por spec. Volvió a imports estáticos.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
-- **Regla de diseño (v1.5plugin.2c):** el service worker
-  registra el listener de mensajes PRIMERO y carga los módulos
-  del plugin con `await import()` después. Así el listener
-  siempre está disponible y cualquier fallo de carga se
-  reporta al popup en texto claro, en vez de morir con el
-  "unknown error" genérico de Chrome.
+- **Regla del manifest (v1.5plugin.3e):** el `manifest.json`
+  **no se bumpea en cada letra**. Chrome en modo desarrollador
+  recarga siempre que se aprieta el botón de la tarjeta, sin
+  importar la versión. Solo hace falta bumpear el manifest
+  cuando:
+  1. Se publica la extensión en la Chrome Web Store.
+  2. Cambia `manifest_version` (raro).
+  3. Hay que forzar una migración de IndexedDB en el usuario
+     (se hace con `VERSION_BD` de IndexedDB, no con
+     `manifest.version`).
+  Mientras estemos en modo desarrollador, el manifest queda
+  fijo en `1.5.6`.
 - **`auditar_plugin.php` tiene una sección que detecta archivos
   sospechosamente vacíos** (sección 5). Después de quitar
   comentarios de línea y de bloque, si el archivo queda sin
