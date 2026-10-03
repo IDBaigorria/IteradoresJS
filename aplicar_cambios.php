@@ -2,19 +2,13 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4a — fix de timing en el llenado de pasajeros.
+ * Tanda v1.5plugin.4b — fix de apellidos en datos_pasajero_aleatorio.
  *
- * Problema: cuando se escribe el DNI del pasajero, se dispara
- * `_buscar_pasajero_por_dni` (fetch). Al volver, si el pasajero no
- * existe, el piloto hace `_limpiar_campos_pasajero(index)` y borra
- * todo lo que hayamos escrito. El helper `llenar_pasajero` escribía
- * el apellido a los 600ms y el fetch podía tardar más, así que el
- * apellido quedaba borrado y la venta fallaba con "Apellido: Este
- * campo es obligatorio".
+ * Problema: el helper generaba `apellido: "Pasajero" + index` (por
+ * ejemplo "Pasajero0"), y el validador del piloto rechaza numeros en
+ * apellidos: "Solo puede tener letras, espacios, apostrofes y guiones".
  *
- * Fix: `llenar_pasajero` y `llenar_comprador` esperan a que el aviso
- * del DNI se resuelva (a "no registrado" o a "Datos actualizados…")
- * antes de escribir el resto de los campos.
+ * Fix: usar apellidos reales sin tildes ni numeros, tomados de un array.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -34,223 +28,138 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ============================================================
-    // Aplicacion/pruebas/_helpers.js — reemplazo de llenar_pasajero
-    // y llenar_comprador + helper nuevo esperar_aviso_dni
+    // Aplicacion/pruebas/_helpers.js
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump de version a 1.5plugin.4a',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4b',
         'buscar' => [
-            ' * @version 1.5plugin.4',
-            ' */',
-            '',
-            'import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";',
-        ],
-        'reemplazar' => [
             ' * @version 1.5plugin.4a',
-            ' */',
-            '',
-            'import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4b',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: helper esperar_aviso_dni',
+        'descripcion' => '_helpers.js: apellidos sin numeros en datos_pasajero_aleatorio',
         'buscar' => [
-            'export async function llenar_comprador(ctx, datos) {',
-        ],
-        'reemplazar' => [
-            '// ============================================================',
-            '// Espera a que el aviso del DNI se resuelva',
-            '// ============================================================',
-            '',
-            '// Texto esperado en el aviso del pasajero/comprador cuando el',
-            '// DNI no esta registrado.',
-            'const _TEXTOS_NO_REGISTRADO = ["no registrado", "complete los datos"];',
-            '// Textos esperados cuando el DNI SI esta registrado (vienen de',
-            '// _calcular_antiguedad_datos: "Datos actualizados hoy / ayer /',
-            '// hace N dias / meses / anios").',
-            'const _TEXTOS_REGISTRADO = ["actualizados", "actualizado"];',
-            '',
-            'function _aviso_esta_resuelto(texto) {',
-            '    if (!texto) return false;',
-            '    const t = String(texto).toLowerCase();',
-            '    for (const frag of _TEXTOS_NO_REGISTRADO) {',
-            '        if (t.indexOf(frag) !== -1) return true;',
-            '    }',
-            '    for (const frag of _TEXTOS_REGISTRADO) {',
-            '        if (t.indexOf(frag) !== -1) return true;',
-            '    }',
-            '    return false;',
-            '}',
-            '',
-            '// Espera hasta que el aviso de un pasajero o del comprador',
-            '// deje de decir "Buscando..." y muestre una resolucion.',
-            'async function esperar_aviso_dni(ctx, selector_aviso, timeout_ms = 5000) {',
-            '    const inicio = Date.now();',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        const texto = await ctx.texto(selector_aviso);',
-            '        if (_aviso_esta_resuelto(texto)) return texto;',
-            '        await ctx.pausa(150);',
-            '    }',
-            '    return null;',
-            '}',
-            '',
-            'export async function llenar_comprador(ctx, datos) {',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: llenar_comprador espera aviso antes de escribir el resto',
-        'buscar' => [
-            'export async function llenar_comprador(ctx, datos) {',
-            '    if (datos.dni !== undefined) {',
-            '        await ctx.escribir("#comprador_dni", datos.dni);',
-            '        await ctx.pausa(600);',
-            '    }',
-            '    if (datos.apellido !== undefined) await ctx.escribir("#comprador_apellido", datos.apellido);',
-            '    if (datos.nombres !== undefined) await ctx.escribir("#comprador_nombres", datos.nombres);',
-            '    if (datos.email !== undefined) await ctx.escribir("#comprador_email", datos.email);',
-            '    if (datos.celular !== undefined) await ctx.escribir("#comprador_celular", datos.celular);',
+            'export function datos_pasajero_aleatorio(index = 0) {',
+            '    const dni = dni_unico();',
+            '    return {',
+            '        dni,',
+            '        apellido: "Pasajero" + index,',
+            '        nombres: "Auto",',
+            '        email: "pas_" + dni + "@test.local",',
+            '        celular: "2983555" + String(dni).slice(-3),',
+            '        celular_emergencia: "2983111" + String(dni).slice(-3),',
+            '        fecha_nacimiento: "1990-01-15",',
+            '        direccion: "Calle Prueba 123",',
+            '        localidad: "Tres Arroyos"',
+            '    };',
             '}',
         ],
         'reemplazar' => [
-            'export async function llenar_comprador(ctx, datos) {',
-            '    if (datos.dni !== undefined) {',
-            '        await ctx.escribir("#comprador_dni", datos.dni);',
-            '        // Esperar a que la busqueda del DNI termine antes de',
-            '        // escribir el resto, porque si el DNI no esta registrado',
-            '        // el piloto limpia los campos.',
-            '        await esperar_aviso_dni(ctx, "#comprador_aviso_autocompletado", 5000);',
-            '    }',
-            '    if (datos.apellido !== undefined) await ctx.escribir("#comprador_apellido", datos.apellido);',
-            '    if (datos.nombres !== undefined) await ctx.escribir("#comprador_nombres", datos.nombres);',
-            '    if (datos.email !== undefined) await ctx.escribir("#comprador_email", datos.email);',
-            '    if (datos.celular !== undefined) await ctx.escribir("#comprador_celular", datos.celular);',
-            '}',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: llenar_pasajero espera aviso antes de escribir el resto',
-        'buscar' => [
-            'export async function llenar_pasajero(ctx, index, datos) {',
-            '    if (datos.dni !== undefined) {',
-            '        await ctx.escribir(`#pasajero_dni_${index}`, datos.dni);',
-            '        await ctx.pausa(600);',
-            '    }',
-            '    if (datos.apellido !== undefined) await ctx.escribir(`#pasajero_apellido_${index}`, datos.apellido);',
-            '    if (datos.nombres !== undefined) await ctx.escribir(`#pasajero_nombres_${index}`, datos.nombres);',
-            '    if (datos.email !== undefined) await ctx.escribir(`#pasajero_email_${index}`, datos.email);',
-            '    if (datos.celular !== undefined) await ctx.escribir(`#pasajero_celular_${index}`, datos.celular);',
-            '    if (datos.celular_emergencia !== undefined) await ctx.escribir(`#pasajero_emergencia_${index}`, datos.celular_emergencia);',
-            '    if (datos.fecha_nacimiento !== undefined) await ctx.escribir(`#pasajero_fecha_nacimiento_${index}`, datos.fecha_nacimiento);',
-            '    if (datos.direccion !== undefined) await ctx.escribir(`#pasajero_direccion_${index}`, datos.direccion);',
-            '    if (datos.localidad !== undefined) await ctx.escribir(`#pasajero_localidad_${index}`, datos.localidad);',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function llenar_pasajero(ctx, index, datos) {',
-            '    if (datos.dni !== undefined) {',
-            '        await ctx.escribir(`#pasajero_dni_${index}`, datos.dni);',
-            '        // Esperar a que la busqueda del DNI termine antes de',
-            '        // escribir el resto, porque si el DNI no esta registrado',
-            '        // el piloto limpia los campos.',
-            '        await esperar_aviso_dni(ctx, `#pasajero_aviso_${index}`, 5000);',
-            '    }',
-            '    if (datos.apellido !== undefined) await ctx.escribir(`#pasajero_apellido_${index}`, datos.apellido);',
-            '    if (datos.nombres !== undefined) await ctx.escribir(`#pasajero_nombres_${index}`, datos.nombres);',
-            '    if (datos.email !== undefined) await ctx.escribir(`#pasajero_email_${index}`, datos.email);',
-            '    if (datos.celular !== undefined) await ctx.escribir(`#pasajero_celular_${index}`, datos.celular);',
-            '    if (datos.celular_emergencia !== undefined) await ctx.escribir(`#pasajero_emergencia_${index}`, datos.celular_emergencia);',
-            '    if (datos.fecha_nacimiento !== undefined) await ctx.escribir(`#pasajero_fecha_nacimiento_${index}`, datos.fecha_nacimiento);',
-            '    if (datos.direccion !== undefined) await ctx.escribir(`#pasajero_direccion_${index}`, datos.direccion);',
-            '    if (datos.localidad !== undefined) await ctx.escribir(`#pasajero_localidad_${index}`, datos.localidad);',
+            '// Apellidos validos para el piloto: solo letras, sin tildes,',
+            '// sin numeros. Se rotan por indice para que pasajeros distintos',
+            '// tengan apellidos distintos (util para debugear).',
+            'const _APELLIDOS = ["Gomez", "Fernandez", "Rodriguez", "Lopez", "Martinez", "Perez", "Sanchez", "Ramirez"];',
+            '',
+            'export function datos_pasajero_aleatorio(index = 0) {',
+            '    const dni = dni_unico();',
+            '    const apellido = _APELLIDOS[index % _APELLIDOS.length];',
+            '    return {',
+            '        dni,',
+            '        apellido,',
+            '        nombres: "Auto",',
+            '        email: "pas_" + dni + "@test.local",',
+            '        celular: "2983555" + String(dni).slice(-3),',
+            '        celular_emergencia: "2983111" + String(dni).slice(-3),',
+            '        fecha_nacimiento: "1990-01-15",',
+            '        direccion: "Calle Prueba 123",',
+            '        localidad: "Tres Arroyos"',
+            '    };',
             '}',
         ],
     ],
 
     // ============================================================
-    // Bump de version en los archivos tocados por v1.5plugin.4
+    // Bumps varios
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4a',
+        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4b',
         'buscar' => [
-            ' * @version 1.5plugin.4',
+            ' * @version 1.5plugin.4a',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4a',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4b',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4";',
-        ],
-        'reemplazar' => [
             '    Conf.VERSION_APP = "1.5plugin.4a";',
         ],
+        'reemplazar' => [
+            '    Conf.VERSION_APP = "1.5plugin.4b";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4a',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4b',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4";',
+            'export const VERSION_PLUGIN = "1.5plugin.4a";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4a";',
+            'export const VERSION_PLUGIN = "1.5plugin.4b";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4a',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4b',
         'buscar' => [
-            ' * @version 1.5plugin.4',
+            ' * @version 1.5plugin.4a',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4a',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4b',
         'buscar' => [
-            ' * @version 1.5plugin.4',
+            ' * @version 1.5plugin.4a',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4a',
+        'descripcion' => 'catalogo.js: bump a 1.5plugin.4b',
         'buscar' => [
-            ' * @version 1.5plugin.4',
+            ' * @version 1.5plugin.4a',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4a',
+            ' * @version 1.5plugin.4b',
         ],
     ],
 
@@ -261,40 +170,36 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4a',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4b',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4 (pruebas de',
+            '**Última actualización de este prompt:** v1.5plugin.4a (fix de',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4a (fix de',
-            'timing en `_helpers.js`: `llenar_pasajero` y `llenar_comprador`',
-            'ahora esperan a que la búsqueda del DNI se resuelva antes de',
-            'escribir el resto de los campos. Antes se escribían a los 600ms',
-            'y si el fetch tardaba más, el piloto limpiaba los campos al',
-            'recibir "no registrado", dejando apellido vacío y la venta',
-            'fallando con "Apellido: Este campo es obligatorio").',
-            'Antes: v1.5plugin.4 (pruebas de',
+            '**Última actualización de este prompt:** v1.5plugin.4b (fix de',
+            'apellidos en `datos_pasajero_aleatorio`: el helper generaba',
+            '"Pasajero0", "Pasajero1", etc. y el validador del piloto',
+            'rechaza números en apellidos. Ahora usa apellidos reales sin',
+            'tildes ni números de un array rotativo). Antes: v1.5plugin.4a (fix de',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion de timing',
+        'descripcion' => 'prompt plugin: leccion de validaciones del piloto',
         'buscar' => [
-            '- **`offsetParent` no sirve para chequear visibilidad de',
+            '- **Los helpers que llenan formularios con autocompletado por',
         ],
         'reemplazar' => [
+            '- **Los datos generados por el plugin deben pasar los validadores',
+            '  del piloto.** El piloto valida apellidos y nombres con',
+            '  `/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\'\\- \\t]+$/`: solo letras, espacios,',
+            '  apóstrofes y guiones. Nada de números, ni siquiera como sufijo',
+            '  ("Pasajero0" no pasa). Los helpers deben generar datos que',
+            '  pasen. Bug en v1.5plugin.4: `datos_pasajero_aleatorio` generaba',
+            '  `"Pasajero" + index`. Fix en v1.5plugin.4b: array rotativo de',
+            '  apellidos sin tildes.',
             '- **Los helpers que llenan formularios con autocompletado por',
-            '  DNI deben esperar a que la búsqueda se resuelva antes de',
-            '  escribir el resto.** El piloto limpia los campos del pasajero',
-            '  cuando el DNI no está registrado (`_limpiar_campos_pasajero`).',
-            '  Si el helper escribe el apellido antes de que vuelva el fetch,',
-            '  el piloto lo borra y la venta falla con "Apellido: Este campo',
-            '  es obligatorio". Fix en v1.5plugin.4a: helper',
-            '  `esperar_aviso_dni` que espera a que el aviso diga',
-            '  "no registrado" o "Datos actualizados...".',
-            '- **`offsetParent` no sirve para chequear visibilidad de',
         ],
     ],
 

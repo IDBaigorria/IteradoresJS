@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4a
+ * @version 1.5plugin.4b
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -32,11 +32,17 @@ export function datos_comprador_aleatorio() {
     };
 }
 
+// Apellidos validos para el piloto: solo letras, sin tildes,
+// sin numeros. Se rotan por indice para que pasajeros distintos
+// tengan apellidos distintos (util para debugear).
+const _APELLIDOS = ["Gomez", "Fernandez", "Rodriguez", "Lopez", "Martinez", "Perez", "Sanchez", "Ramirez"];
+
 export function datos_pasajero_aleatorio(index = 0) {
     const dni = dni_unico();
+    const apellido = _APELLIDOS[index % _APELLIDOS.length];
     return {
         dni,
-        apellido: "Pasajero" + index,
+        apellido,
         nombres: "Auto",
         email: "pas_" + dni + "@test.local",
         celular: "2983555" + String(dni).slice(-3),

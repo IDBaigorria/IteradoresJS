@@ -242,7 +242,11 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4a (fix de
+**Última actualización de este prompt:** v1.5plugin.4b (fix de
+apellidos en `datos_pasajero_aleatorio`: el helper generaba
+"Pasajero0", "Pasajero1", etc. y el validador del piloto
+rechaza números en apellidos. Ahora usa apellidos reales sin
+tildes ni números de un array rotativo). Antes: v1.5plugin.4a (fix de
 timing en `_helpers.js`: `llenar_pasajero` y `llenar_comprador`
 ahora esperan a que la búsqueda del DNI se resuelva antes de
 escribir el resto de los campos. Antes se escribían a los 600ms
@@ -392,6 +396,14 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **Los datos generados por el plugin deben pasar los validadores
+  del piloto.** El piloto valida apellidos y nombres con
+  `/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü'\- \t]+$/`: solo letras, espacios,
+  apóstrofes y guiones. Nada de números, ni siquiera como sufijo
+  ("Pasajero0" no pasa). Los helpers deben generar datos que
+  pasen. Bug en v1.5plugin.4: `datos_pasajero_aleatorio` generaba
+  `"Pasajero" + index`. Fix en v1.5plugin.4b: array rotativo de
+  apellidos sin tildes.
 - **Los helpers que llenan formularios con autocompletado por
   DNI deben esperar a que la búsqueda se resuelva antes de
   escribir el resto.** El piloto limpia los campos del pasajero
