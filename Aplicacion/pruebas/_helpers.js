@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4e
+ * @version 1.5plugin.4f
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -299,17 +299,21 @@ export async function confirmar_venta(ctx) {
 // ============================================================
 
 export async function obtener_id_ultima_venta(ctx) {
+    // Cerrar el panel de "Venta exitosa" si esta abierto.
     const visible = await ctx.esta_visible("#opciones_impresion");
     if (visible) {
         await ctx.clic("#btn_cerrar_opciones");
         await ctx.pausa(300);
     }
-    await ir_a_tab(ctx, "vendidos");
-    const hay = await ctx.esperar(".sale-card", 8000);
-    if (!hay || !hay.exito) throw new Error("No hay ventas en la pestana Vendidos");
-    const ids = await ctx.obtener_atributos(".sale-card", "data-id-venta");
-    if (ids.length === 0) throw new Error("No se pudo leer el id de la venta");
-    return ids[0];
+    // Pedir al backend el id de la ultima venta de la terminal.
+    // Antes navegabamos a la pestaña Vendidos, pero eso cerraba
+    // el modal del viaje y mataba el polling del croquis,
+    // dejandolo congelado tras la cancelacion.
+    const r = await ctx.enviar("obtener_id_ultima_venta_terminal", {});
+    if (!r || !r.exito) {
+        throw new Error("No se pudo obtener el id de la ultima venta: " + (r && r.error ? r.error : "(sin detalle)"));
+    }
+    return r.id_venta;
 }
 
 export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {
@@ -323,6 +327,14 @@ export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prue
     }
     if (!r.json || !r.json.exito) {
         throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));
+    }
+    // Refrescar el croquis del page para que no quede congelado
+    // mostrando el asiento como vendido. Es no bloqueante: si
+    // falla, la venta ya esta cancelada, solo se ve el croquis
+    // viejo hasta el proximo polling.
+    const rf = await ctx.enviar("refrescar_asientos_pagina", {});
+    if (!rf || !rf.exito) {
+        console.warn("No se pudo refrescar el croquis tras cancelar:", rf && rf.error ? rf.error : "(sin detalle)");
     }
     return r.json;
 }

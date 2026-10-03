@@ -2,15 +2,22 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4e — reintento defensivo en seleccion de asientos.
+ * Tanda v1.5plugin.4f — id de venta sin navegar + refresh del croquis.
  *
- * Problema: `seleccionar_n_asientos` fallaba intermitentemente con
- * "El asiento N no quedo seleccionado". Causa raiz: condicion de
- * carrera en el piloto entre el polling de asientos y el clic
- * (corregida en piloto v1.5piloto.74e). Igual, el plugin debe ser
- * robusto: si por algun motivo el asiento no queda seleccionado al
- * primer intento, reintentar (con verificacion de "ya esta
- * seleccionado" para no deseleccionar).
+ * Problema: el helper `obtener_id_ultima_venta` navegaba a la pestaña
+ * Vendidos para leer el id. Eso llamaba a `ocultar_detalle_viaje`,
+ * que mataba el polling del croquis. El modal del viaje quedaba
+ * abierto con el croquis congelado, y después de cancelar la venta
+ * el croquis no se actualizaba (bug de UX del piloto, mitigado por
+ * v1.5piloto.74f).
+ *
+ * Fix:
+ * - `obtener_id_ultima_venta` ahora pide el id por POST desde el
+ *   content script (accion `ventas/listar` tipo terminal) sin
+ *   cambiar de pestaña.
+ * - `cancelar_venta` ahora dispara un mensaje `refrescar_asientos_pagina`
+ *   que inyecta un script en el page context para actualizar
+ *   `estados_asientos_actuales` y los colores del croquis.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -30,93 +37,280 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ============================================================
+    // Aplicacion/contenido.js
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/contenido.js',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4f',
+        'buscar' => [
+            ' * @version 1.5plugin.4e',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4f',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/contenido.js',
+        'descripcion' => 'contenido.js: helper _refrescar_asientos_pagina',
+        'buscar' => [
+            '    async function _manejar(tipo, datos) {',
+            '        switch (tipo) {',
+        ],
+        'reemplazar' => [
+            '    // Refresca el croquis del page context tras una cancelacion.',
+            '    // No se puede tocar `window.viaje_seleccionado` ni',
+            '    // `window.estados_asientos_actuales` desde el content script',
+            '    // (estan aislados). Se inyecta un `<script>` en el DOM que',
+            '    // corre en el page context, hace el fetch y actualiza las',
+            '    // variables globales y el croquis.',
+            '    function _refrescar_asientos_pagina() {',
+            '        return new Promise((resolve) => {',
+            '            const id_evento = "refrescar_asientos_" + Date.now() + "_" + Math.random().toString(36).slice(2);',
+            '            const codigo = `(async function() {',
+            '                try {',
+            '                    if (!window.viaje_seleccionado || !window.micro_seleccionado) {',
+            '                        window.dispatchEvent(new CustomEvent("${id_evento}_err", { detail: "sin viaje o micro abierto" }));',
+            '                        return;',
+            '                    }',
+            '                    const viaje = window.viaje_seleccionado;',
+            '                    const micro = window.micro_seleccionado;',
+            '                    const resp = await fetch("index.php", {',
+            '                        method: "POST",',
+            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
+            '                        body: new URLSearchParams({',
+            '                            accion: "viajes/estado_asientos",',
+            '                            nombre_viaje: viaje.nombre_viaje,',
+            '                            nombre_micro: micro,',
+            '                            nombre_dueno: viaje.dueno',
+            '                        })',
+            '                    });',
+            '                    const datos = await resp.json();',
+            '                    if (datos.exito && Array.isArray(datos.asientos)) {',
+            '                        estados_asientos_actuales = datos.asientos;',
+            '                        actualizar_colores_asientos(datos.asientos);',
+            '                        if (typeof refrescar_info_asientos_propios === "function") {',
+            '                            refrescar_info_asientos_propios(true);',
+            '                        }',
+            '                        window.dispatchEvent(new CustomEvent("${id_evento}_ok"));',
+            '                    } else {',
+            '                        window.dispatchEvent(new CustomEvent("${id_evento}_err", { detail: "respuesta inesperada" }));',
+            '                    }',
+            '                } catch (e) {',
+            '                    window.dispatchEvent(new CustomEvent("${id_evento}_err", { detail: String(e) }));',
+            '                }',
+            '            })();`;',
+            '',
+            '            const script = document.createElement("script");',
+            '            script.textContent = codigo;',
+            '            document.documentElement.appendChild(script);',
+            '            script.remove();',
+            '',
+            '            let resuelto = false;',
+            '            const on_ok = () => { if (resuelto) return; resuelto = true; cleanup(); resolve({ exito: true }); };',
+            '            const on_err = (e) => { if (resuelto) return; resuelto = true; cleanup(); resolve({ exito: false, error: (e && e.detail) || "error" }); };',
+            '            function cleanup() {',
+            '                window.removeEventListener(id_evento + "_ok", on_ok);',
+            '                window.removeEventListener(id_evento + "_err", on_err);',
+            '            }',
+            '            window.addEventListener(id_evento + "_ok", on_ok);',
+            '            window.addEventListener(id_evento + "_err", on_err);',
+            '',
+            '            setTimeout(() => { if (resuelto) return; resuelto = true; cleanup(); resolve({ exito: false, error: "timeout" }); }, 8000);',
+            '        });',
+            '    }',
+            '',
+            '    async function _manejar(tipo, datos) {',
+            '        switch (tipo) {',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/contenido.js',
+        'descripcion' => 'contenido.js: casos obtener_id_ultima_venta_terminal y refrescar_asientos_pagina',
+        'buscar' => [
+            '            case "pedir_post": {',
+            '                try {',
+            '                    const resp = await fetch(datos.url, {',
+            '                        method: "POST",',
+            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
+            '                        body: new URLSearchParams(datos.body || {}).toString(),',
+            '                        credentials: "same-origin"',
+            '                    });',
+            '                    const texto = await resp.text();',
+            '                    let json = null;',
+            '                    try { json = JSON.parse(texto); } catch (e) { /* no era JSON */ }',
+            '                    return { exito: true, status: resp.status, texto, json };',
+            '                } catch (e) {',
+            '                    return { exito: false, error: e.message };',
+            '                }',
+            '            }',
+            '',
+            '            default:',
+        ],
+        'reemplazar' => [
+            '            case "pedir_post": {',
+            '                try {',
+            '                    const resp = await fetch(datos.url, {',
+            '                        method: "POST",',
+            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
+            '                        body: new URLSearchParams(datos.body || {}).toString(),',
+            '                        credentials: "same-origin"',
+            '                    });',
+            '                    const texto = await resp.text();',
+            '                    let json = null;',
+            '                    try { json = JSON.parse(texto); } catch (e) { /* no era JSON */ }',
+            '                    return { exito: true, status: resp.status, texto, json };',
+            '                } catch (e) {',
+            '                    return { exito: false, error: e.message };',
+            '                }',
+            '            }',
+            '',
+            '            case "obtener_id_ultima_venta_terminal": {',
+            '                const el_nombre = document.getElementById("nombre_usuario_actual");',
+            '                const nombre = el_nombre ? el_nombre.textContent.trim() : "";',
+            '                if (!nombre) return { exito: false, error: "sin usuario logueado" };',
+            '                try {',
+            '                    const resp = await fetch("index.php", {',
+            '                        method: "POST",',
+            '                        headers: { "Content-Type": "application/x-www-form-urlencoded" },',
+            '                        body: new URLSearchParams({ accion: "ventas/listar", tipo: "terminal", nombre })',
+            '                    });',
+            '                    const datos_v = await resp.json();',
+            '                    if (!datos_v.exito) return { exito: false, error: datos_v.error || "error al listar ventas" };',
+            '                    const ventas = Array.isArray(datos_v.ventas) ? datos_v.ventas : [];',
+            '                    if (ventas.length === 0) return { exito: false, error: "no hay ventas para la terminal" };',
+            '                    return { exito: true, id_venta: ventas[0].id_venta };',
+            '                } catch (e) {',
+            '                    return { exito: false, error: e.message };',
+            '                }',
+            '            }',
+            '',
+            '            case "refrescar_asientos_pagina":',
+            '                return await _refrescar_asientos_pagina();',
+            '',
+            '            default:',
+        ],
+    ],
+
+    // ============================================================
+    // Aplicacion/servicio.js
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4f',
+        'buscar' => [
+            ' * @version 1.5plugin.4e',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4f',
+        ],
+    ],
+
+    // ============================================================
     // Aplicacion/pruebas/_helpers.js
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4e',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4f',
         'buscar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4e',
+            ' * @version 1.5plugin.4f',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: seleccionar_n_asientos con reintentos',
+        'descripcion' => '_helpers.js: obtener_id_ultima_venta sin navegar',
         'buscar' => [
-            'export async function seleccionar_n_asientos(ctx, n) {',
-            '    // Esperar a que aparezcan N asientos libres (puede tardar si el',
-            '    // croquis no se actualizo tras una cancelacion previa).',
-            '    const libres = await esperar_n_asientos_libres(ctx, n, 10000);',
-            '    if (libres.length < n) {',
-            '        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);',
+            'export async function obtener_id_ultima_venta(ctx) {',
+            '    const visible = await ctx.esta_visible("#opciones_impresion");',
+            '    if (visible) {',
+            '        await ctx.clic("#btn_cerrar_opciones");',
+            '        await ctx.pausa(300);',
             '    }',
-            '    const elegidos = libres.slice(0, n);',
-            '    for (const numero of elegidos) {',
-            '        // Verificar que el asiento este efectivamente libre antes',
-            '        // de hacer clic. Si no, esperar a que el croquis se',
-            '        // actualice (por ejemplo, por el polling del piloto o',
-            '        // por un refresh manual).',
-            '        const libre = await esperar_asiento_libre(ctx, numero, 8000);',
-            '        if (!libre) throw new Error("El asiento " + numero + " no aparece como libre en el croquis");',
-            '        await ctx.clic(`.seat[data-numero="${numero}"]`);',
-            '        const ok = await esperar_asiento_seleccionado(ctx, numero, 5000);',
-            '        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado");',
-            '    }',
-            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
-            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
-            '    return elegidos;',
+            '    await ir_a_tab(ctx, "vendidos");',
+            '    const hay = await ctx.esperar(".sale-card", 8000);',
+            '    if (!hay || !hay.exito) throw new Error("No hay ventas en la pestana Vendidos");',
+            '    const ids = await ctx.obtener_atributos(".sale-card", "data-id-venta");',
+            '    if (ids.length === 0) throw new Error("No se pudo leer el id de la venta");',
+            '    return ids[0];',
             '}',
         ],
         'reemplazar' => [
-            '// Selecciona un asiento con reintentos. A veces el primer clic no',
-            '// queda registrado en el DOM (condicion de carrera con el polling',
-            '// del piloto, corregida en piloto v1.5piloto.74e, pero igual el',
-            '// plugin debe ser robusto). Reintenta hasta `max_intentos` veces.',
-            '// Verifica primero si ya esta seleccionado para no deseleccionarlo.',
-            'async function seleccionar_un_asiento_con_reintentos(ctx, numero, max_intentos = 3) {',
-            '    for (let intento = 0; intento < max_intentos; intento++) {',
-            '        // Si ya quedo seleccionado de un intento anterior, listo.',
-            '        const ya_seleccionado = await esperar_asiento_seleccionado(ctx, numero, 500);',
-            '        if (ya_seleccionado) return true;',
-            '',
-            '        // Verificar que el asiento este libre antes de hacer clic.',
-            '        const libre = await esperar_asiento_libre(ctx, numero, 5000);',
-            '        if (!libre) {',
-            '            // El croquis todavia no se actualizo o el asiento esta en',
-            '            // otro estado. Esperar un poco y reintentar.',
-            '            await ctx.pausa(600);',
-            '            continue;',
-            '        }',
-            '',
-            '        await ctx.clic(`.seat[data-numero="${numero}"]`);',
-            '        const ok = await esperar_asiento_seleccionado(ctx, numero, 4000);',
-            '        if (ok) return true;',
+            'export async function obtener_id_ultima_venta(ctx) {',
+            '    // Cerrar el panel de "Venta exitosa" si esta abierto.',
+            '    const visible = await ctx.esta_visible("#opciones_impresion");',
+            '    if (visible) {',
+            '        await ctx.clic("#btn_cerrar_opciones");',
+            '        await ctx.pausa(300);',
             '    }',
-            '    return false;',
+            '    // Pedir al backend el id de la ultima venta de la terminal.',
+            '    // Antes navegabamos a la pestaña Vendidos, pero eso cerraba',
+            '    // el modal del viaje y mataba el polling del croquis,',
+            '    // dejandolo congelado tras la cancelacion.',
+            '    const r = await ctx.enviar("obtener_id_ultima_venta_terminal", {});',
+            '    if (!r || !r.exito) {',
+            '        throw new Error("No se pudo obtener el id de la ultima venta: " + (r && r.error ? r.error : "(sin detalle)"));',
+            '    }',
+            '    return r.id_venta;',
             '}',
-            '',
-            'export async function seleccionar_n_asientos(ctx, n) {',
-            '    // Esperar a que aparezcan N asientos libres (puede tardar si el',
-            '    // croquis no se actualizo tras una cancelacion previa).',
-            '    const libres = await esperar_n_asientos_libres(ctx, n, 10000);',
-            '    if (libres.length < n) {',
-            '        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => '_helpers.js: cancelar_venta refresca el croquis',
+        'buscar' => [
+            'export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/cancelar",',
+            '        id_venta,',
+            '        motivo',
+            '    });',
+            '    if (!r || !r.exito) {',
+            '        throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));',
             '    }',
-            '    const elegidos = libres.slice(0, n);',
-            '    for (const numero of elegidos) {',
-            '        const ok = await seleccionar_un_asiento_con_reintentos(ctx, numero, 3);',
-            '        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado tras 3 intentos");',
+            '    if (!r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));',
             '    }',
-            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
-            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
-            '    return elegidos;',
+            '    return r.json;',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/cancelar",',
+            '        id_venta,',
+            '        motivo',
+            '    });',
+            '    if (!r || !r.exito) {',
+            '        throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));',
+            '    }',
+            '    if (!r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '    // Refrescar el croquis del page para que no quede congelado',
+            '    // mostrando el asiento como vendido. Es no bloqueante: si',
+            '    // falla, la venta ya esta cancelada, solo se ve el croquis',
+            '    // viejo hasta el proximo polling.',
+            '    const rf = await ctx.enviar("refrescar_asientos_pagina", {});',
+            '    if (!rf || !rf.exito) {',
+            '        console.warn("No se pudo refrescar el croquis tras cancelar:", rf && rf.error ? rf.error : "(sin detalle)");',
+            '    }',
+            '    return r.json;',
             '}',
         ],
     ],
@@ -128,72 +322,48 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4e',
+        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4f',
         'buscar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4e',
+            ' * @version 1.5plugin.4f',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4e',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4f',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4d";',
-        ],
-        'reemplazar' => [
             '    Conf.VERSION_APP = "1.5plugin.4e";',
         ],
+        'reemplazar' => [
+            '    Conf.VERSION_APP = "1.5plugin.4f";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4e',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4f',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4d";',
-        ],
-        'reemplazar' => [
             'export const VERSION_PLUGIN = "1.5plugin.4e";',
         ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4e',
-        'buscar' => [
-            ' * @version 1.5plugin.4d',
-        ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4e',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4e',
-        'buscar' => [
-            ' * @version 1.5plugin.4d',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4e',
+            'export const VERSION_PLUGIN = "1.5plugin.4f";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4e',
+        'descripcion' => 'catalogo.js: bump a 1.5plugin.4f',
         'buscar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4e',
+            ' * @version 1.5plugin.4f',
         ],
     ],
 
@@ -204,36 +374,47 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4e',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4f',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4d (robustez',
+            '**Última actualización de este prompt:** v1.5plugin.4e (reintento',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4e (reintento',
-            'defensivo en `seleccionar_un_asiento_con_reintentos`: si un',
-            'clic no queda registrado en el DOM al primer intento,',
-            'reintenta hasta 3 veces. Verifica primero si ya está',
-            'seleccionado, para no deseleccionar. Causa raíz del fallo:',
-            'condición de carrera en el piloto entre el polling de asientos',
-            'y el clic (corregida en piloto v1.5piloto.74e). Antes: v1.5plugin.4d (robustez',
+            '**Última actualización de este prompt:** v1.5plugin.4f (no',
+            'navegar a la pestaña Vendidos desde el helper',
+            '`obtener_id_ultima_venta`: ahora pide el id por POST. Antes',
+            'navegar cerraba el modal del viaje y mataba el polling,',
+            'dejando el croquis congelado tras cancelar. Además,',
+            '`cancelar_venta` ahora dispara un mensaje',
+            '`refrescar_asientos_pagina` que inyecta un script en el',
+            'page context para actualizar los colores del croquis).',
+            'Antes: v1.5plugin.4e (reintento',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion de reintentos',
+        'descripcion' => 'prompt plugin: leccion sobre no navegar de pestaña',
         'buscar' => [
-            '- **El plugin debe ser robusto ante bugs del piloto.** Cuando',
+            '- **Cuando un clic puede perderse por condiciones de carrera**',
         ],
         'reemplazar' => [
+            '- **No navegar de pestaña durante una prueba.** `activar_pestana`',
+            '  en el piloto llama a `ocultar_detalle_viaje`, que cierra el',
+            '  modal del viaje y mata el polling. Si una prueba necesita',
+            '  leer datos de otra pestaña, mejor pedirlos por POST desde',
+            '  el content script. Bug en v1.5plugin.4: el helper',
+            '  `obtener_id_ultima_venta` navegaba a Vendidos y dejaba el',
+            '  croquis congelado. Fix en v1.5plugin.4f: pedir el id por',
+            '  POST.',
+            '- **Para refrescar el croquis tras una cancelación, inyectar un',
+            '  `<script>` en el page context.** El content script no puede',
+            '  tocar las variables globales del page (`estados_asientos_actuales`,',
+            '  `viaje_seleccionado`, etc.) por el aislamiento de mundos.',
+            '  La forma más simple sin tocar el manifest es inyectar un',
+            '  `<script>` en el DOM que corre en el page context, hace el',
+            '  fetch y actualiza las variables y el croquis.',
             '- **Cuando un clic puede perderse por condiciones de carrera**',
-            '  **del piloto, usar reintentos con verificación previa.** El',
-            '  bug del polling de asientos (v1.5piloto.74e) hacía que un',
-            '  asiento recién seleccionado volviera a verse libre. Si el',
-            '  clic se da por perdido, reintentar; pero antes verificar si',
-            '  ya está seleccionado, para no deseleccionar por accidente.',
-            '- **El plugin debe ser robusto ante bugs del piloto.** Cuando',
         ],
     ],
 

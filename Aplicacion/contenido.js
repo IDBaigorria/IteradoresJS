@@ -9,7 +9,7 @@
  * basicas sobre el DOM de la pagina. Todas las respuestas
  * son objetos `{ exito, ... }`.
  *
- * @version 1.5plugin.4e
+ * @version 1.5plugin.4f
  */
 
 (function () {
@@ -54,6 +54,68 @@
                     resolve({ exito: false, error: "timeout" });
                 }
             }, 100);
+        });
+    }
+
+    // Refresca el croquis del page context tras una cancelacion.
+    // No se puede tocar `window.viaje_seleccionado` ni
+    // `window.estados_asientos_actuales` desde el content script
+    // (estan aislados). Se inyecta un `<script>` en el DOM que
+    // corre en el page context, hace el fetch y actualiza las
+    // variables globales y el croquis.
+    function _refrescar_asientos_pagina() {
+        return new Promise((resolve) => {
+            const id_evento = "refrescar_asientos_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+            const codigo = `(async function() {
+                try {
+                    if (!window.viaje_seleccionado || !window.micro_seleccionado) {
+                        window.dispatchEvent(new CustomEvent("${id_evento}_err", { detail: "sin viaje o micro abierto" }));
+                        return;
+                    }
+                    const viaje = window.viaje_seleccionado;
+                    const micro = window.micro_seleccionado;
+                    const resp = await fetch("index.php", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: new URLSearchParams({
+                            accion: "viajes/estado_asientos",
+                            nombre_viaje: viaje.nombre_viaje,
+                            nombre_micro: micro,
+                            nombre_dueno: viaje.dueno
+                        })
+                    });
+                    const datos = await resp.json();
+                    if (datos.exito && Array.isArray(datos.asientos)) {
+                        estados_asientos_actuales = datos.asientos;
+                        actualizar_colores_asientos(datos.asientos);
+                        if (typeof refrescar_info_asientos_propios === "function") {
+                            refrescar_info_asientos_propios(true);
+                        }
+                        window.dispatchEvent(new CustomEvent("${id_evento}_ok"));
+                    } else {
+                        window.dispatchEvent(new CustomEvent("${id_evento}_err", { detail: "respuesta inesperada" }));
+                    }
+                } catch (e) {
+                    window.dispatchEvent(new CustomEvent("${id_evento}_err", { detail: String(e) }));
+                }
+            })();`;
+
+            const script = document.createElement("script");
+            script.textContent = codigo;
+            document.documentElement.appendChild(script);
+            script.remove();
+
+            let resuelto = false;
+            const on_ok = () => { if (resuelto) return; resuelto = true; cleanup(); resolve({ exito: true }); };
+            const on_err = (e) => { if (resuelto) return; resuelto = true; cleanup(); resolve({ exito: false, error: (e && e.detail) || "error" }); };
+            function cleanup() {
+                window.removeEventListener(id_evento + "_ok", on_ok);
+                window.removeEventListener(id_evento + "_err", on_err);
+            }
+            window.addEventListener(id_evento + "_ok", on_ok);
+            window.addEventListener(id_evento + "_err", on_err);
+
+            setTimeout(() => { if (resuelto) return; resuelto = true; cleanup(); resolve({ exito: false, error: "timeout" }); }, 8000);
         });
     }
 
@@ -154,6 +216,29 @@
                     return { exito: false, error: e.message };
                 }
             }
+
+            case "obtener_id_ultima_venta_terminal": {
+                const el_nombre = document.getElementById("nombre_usuario_actual");
+                const nombre = el_nombre ? el_nombre.textContent.trim() : "";
+                if (!nombre) return { exito: false, error: "sin usuario logueado" };
+                try {
+                    const resp = await fetch("index.php", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: new URLSearchParams({ accion: "ventas/listar", tipo: "terminal", nombre })
+                    });
+                    const datos_v = await resp.json();
+                    if (!datos_v.exito) return { exito: false, error: datos_v.error || "error al listar ventas" };
+                    const ventas = Array.isArray(datos_v.ventas) ? datos_v.ventas : [];
+                    if (ventas.length === 0) return { exito: false, error: "no hay ventas para la terminal" };
+                    return { exito: true, id_venta: ventas[0].id_venta };
+                } catch (e) {
+                    return { exito: false, error: e.message };
+                }
+            }
+
+            case "refrescar_asientos_pagina":
+                return await _refrescar_asientos_pagina();
 
             default:
                 return { exito: false, error: "Tipo desconocido: " + tipo };
