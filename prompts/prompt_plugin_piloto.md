@@ -231,9 +231,15 @@ armado y funcional, con nombres en español. Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.2 (limpieza
-de anglicismos: archivos, mensajes internos y ctx renombrados
-al español).
+**Última actualización de este prompt:** v1.5plugin.2a (fix del
+import de `GrafoPlugin.js`: apuntaba a `./bootstrap.js`, que en
+v1.5plugin.2 se había renombrado a `./arranque.js`. Chrome no
+podía resolver el árbol del service worker y abortaba con el
+error genérico "unknown error when fetching the script".
+Regla aprendida: cuando se renombra un archivo del plugin, hay
+que buscar **todas** las referencias al nombre viejo, no solo
+en los archivos que se tocan en la tanda. Un grep del nombre
+viejo en todo `Aplicacion/` debería ser parte del checklist.).
 
 **Decisiones tomadas:**
 
@@ -281,6 +287,19 @@ al español).
 - Definir la convención de nombres de prueba y de aserciones.
 - Revisar los permisos del manifest cuando se pruebe contra
   un dominio real (hoy solo `localhost` / `127.0.0.1`).
+
+**Lecciones aprendidas:**
+
+- Al renombrar un archivo del plugin, hacer un grep del nombre
+  viejo en todo `Aplicacion/` y actualizar **todas** las
+  referencias, no solo las de los archivos que se tocan en la
+  tanda. `GrafoPlugin.js` quedó apuntando a `./bootstrap.js`
+  tras el rename de v1.5plugin.2.
+- Si Chrome muestra "unknown error when fetching the script" al
+  registrar un service worker module, casi siempre es un import
+  que no se puede resolver en la cadena. Diagnóstico rápido:
+  reducir `servicio.js` a un `console.log` y agregar imports
+  de a uno hasta que rompa.
 
 ---
 
