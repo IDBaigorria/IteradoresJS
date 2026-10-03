@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Iteradores Plugin Pruebas",
+  "version": "1.5.2",
+  "description": "Plugin de pruebas automatizadas para el piloto PHP.",
+  "action": {
+    "default_popup": "Aplicacion/ventana.html",
+    "default_title": "Iteradores Pruebas"
+  },
+  "background": {
+    "service_worker": "Aplicacion/servicio.js",
+    "type": "module"
+  },
+  "permissions": ["tabs", "activeTab"],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["Aplicacion/contenido.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

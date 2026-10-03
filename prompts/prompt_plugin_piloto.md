@@ -28,21 +28,19 @@ PHP).
 
 Extensión de Chrome que permite correr pruebas automatizadas
 sobre la página del piloto PHP (agencia de viajes). El usuario
-abre el popup de la extensión, ve una lista de pruebas
+abre la ventana del plugin (popup), ve una lista de pruebas
 disponibles, y aprieta un botón play en la que quiere correr.
-La extensión ejecuta la prueba contra la pestaña activa (o
-contra una pestaña del piloto que se abra al efecto), y guarda
-el resultado en su propio grafo.
+La extensión ejecuta la prueba contra la pestaña activa del
+piloto, y guarda el resultado en su propio grafo.
 
 ### 1.2 Objetivos secundarios
 
 - Servir de ejercicio real del framework Iteradores JS
-  (indexado por IndexedDB del contexto de la extensión).
+  (persistido en IndexedDB del contexto de la extensión).
 - Aprovechar el sistema de comandos y el motor (comandos +
   péndulo) cuando haga falta ejecución por fases.
 - Ser la base de una herramienta más amplia: inspeccionar el
-  grafo del piloto, generar reportes, correr tandas completas,
-  etc.
+  grafo del piloto, generar reportes, correr tandas completas.
 
 ### 1.3 Relación con el piloto PHP
 
@@ -50,11 +48,11 @@ El plugin **no modifica** el piloto PHP. Solo lo observa y lo
 maneja como un usuario. Puede:
 
 - Leer el DOM de la página.
-- Hacer clicks, escribir, esperar.
+- Hacer clics, escribir, esperar.
 - Hacer `fetch` a `index.php` con la sesión del usuario actual
   (las cookies viajan por estar en el mismo origen que la
-  pestaña, siempre que el `fetch` se haga desde el content
-  script).
+  pestaña, siempre que el `fetch` se haga desde el script de
+  contenido).
 
 ---
 
@@ -78,19 +76,19 @@ maneja como un usuario. Puede:
 
 **`Aplicacion/`:**
 
-- `background.js` — service worker. **Module** (`type: "module"`
-  en el manifest). Bootstrap-ea el framework, importa el
-  catálogo de pruebas y las corre por pedido del popup.
-- `content.js` — content script clásico. Se inyecta en la
-  página del piloto. Expone funciones vía mensajes de Chrome
-  (`chrome.runtime.onMessage`).
-- `popup.html` / `popup.js` — interfaz del popup. Lista las
-  pruebas, muestra el resultado de la última corrida.
-- `bootstrap.js` — arranque del framework en el service worker.
+- `servicio.js` — service worker. **Module** (`type: "module"`
+  en el manifest). Arranca el framework, importa el catálogo
+  de pruebas y las corre por pedido de la ventana.
+- `contenido.js` — script de contenido clásico. Se inyecta en
+  la página del piloto. Expone funciones vía mensajería.
+- `ventana.html` / `ventana.js` — interfaz de la ventana
+  (popup de Chrome). Lista las pruebas, muestra el resultado
+  de la última corrida.
+- `arranque.js` — arranque del framework en el service worker.
   Fuerza `Entorno` a modo consola y `salida=consola`, y
   configura `ConfPlugin`.
-- `ConfPlugin.js` — subclase de `Conf` con valores propios del
-  plugin (nombre de app, nombre de la BD IndexedDB).
+- `ConfPlugin.js` — configuración propia del plugin (nombre de
+  app, nombre de la BD IndexedDB).
 - `GrafoPlugin.js` — capa fina sobre el framework: persistir
   corridas, leer historial, etc.
 - `pruebas/` — catálogo de pruebas. Cada prueba es un módulo ES
@@ -111,9 +109,9 @@ esto es, en la raíz del proyecto `iteradoresJS/`.
 
 Los paths del manifest son relativos a esa raíz:
 
-    "background": { "service_worker": "Aplicacion/background.js", "type": "module" }
-    "action":     { "default_popup":    "Aplicacion/popup.html" }
-    "content_scripts": [{ "js": ["Aplicacion/content.js"] }]
+    "background": { "service_worker": "Aplicacion/servicio.js", "type": "module" }
+    "action":     { "default_popup":    "Aplicacion/ventana.html" }
+    "content_scripts": [{ "js": ["Aplicacion/contenido.js"] }]
 
 ### 3.2 Service worker en modo consola
 
@@ -122,21 +120,18 @@ framework (`_imprimir_errores_html`, `html_errores`,
 `_imprimir_alertas_html`, `html_alertas`, `Nodo._imprimir_html`,
 `Controlador.imprimir_superestructura`) tocan `document` y
 romperían. Se evitan asegurando que `Entorno.es_consola()`
-devuelva `true` en el arranque del SW:
+devuelva `true` en el arranque del SW.
 
-    import { Entorno } from "../Configuracion/index.js";
-    Entorno.establecer_salida(Entorno.SALIDA_CONSOLA);
+### 3.3 Script de contenido clásico
 
-### 3.3 Content script clásico
-
-Los content scripts de MV3 no pueden ser módulos ES. Se
+Los scripts de contenido de MV3 no pueden ser módulos ES. Se
 comunican con el service worker por mensajería:
 
-- SW → content: `chrome.tabs.sendMessage(tabId, { tipo, datos })`.
-- Content → SW: `chrome.runtime.sendMessage({ tipo, datos })`.
+- SW → contenido: `chrome.tabs.sendMessage(pestana_id, { tipo, datos })`.
+- Contenido → SW: `chrome.runtime.sendMessage({ tipo, datos })`.
 
 El SW hace de orquestador: importa las pruebas, coordina las
-llamadas al content script, persiste resultados.
+llamadas al script de contenido, persiste resultados.
 
 ### 3.4 Token de seguridad
 
@@ -167,6 +162,17 @@ por fases. Recordatorio sobre la config:
 fallback a coordenadas predeterminadas en `Conf`, así que no
 es bloqueante.
 
+### 3.7 Vocabulario
+
+Preferimos español para todo lo propio del plugin. Las palabras
+que Chrome impone (`manifest.json`, claves del manifest, API de
+`chrome.*`) quedan como están. En comentarios se aceptan los
+términos técnicos del ecosistema: "service worker", "script de
+contenido" (o "content script"), "popup" (o "ventana"),
+"plugin". Los archivos propios llevan nombres en español:
+`arranque.js`, `servicio.js`, `contenido.js`, `ventana.html`,
+`ventana.js`.
+
 ---
 
 ## 4. FORMATO DE PRUEBA
@@ -174,14 +180,19 @@ es bloqueante.
 Cada prueba es un módulo ES con un objeto exportado:
 
     export const prueba = {
-        id: "smoke_login",
-        nombre: "Smoke: login",
-        descripcion: "Verifica que la pantalla de login carga y acepta credenciales",
+        id: "arranque",
+        nombre: "Arranque: plugin y script de contenido",
+        descripcion: "Verifica que el script de contenido responde...",
         async ejecutar(ctx) {
-            // ctx.tab       → API del content script (click, escribir, esperar)
-            // ctx.fetch     → fetch a la página del piloto (con cookies)
-            // ctx.assert    → helper de aserción
-            // ctx.persistir → guarda el resultado en el grafo del plugin
+            // ctx.pestana_id  -> id de la pestaña del piloto
+            // ctx.enviar      -> envía un mensaje crudo al script de contenido
+            // ctx.clic        -> click sobre un selector
+            // ctx.escribir    -> escribe en un input
+            // ctx.esperar     -> espera a que exista un selector
+            // ctx.texto       -> devuelve el textContent de un selector
+            // ctx.html        -> devuelve el outerHTML de un selector
+            // ctx.pedir_post  -> POST urlencoded a index.php
+            // ctx.assert      -> aserción simple
         }
     };
 
@@ -197,35 +208,32 @@ Cada corrida persiste un nodo en el grafo del plugin con:
 - `resultado` (`"ok"` / `"fallo"` / `"error"`)
 - `duracion_ms`
 - `detalle` (texto libre)
-- `captura_dom` (opcional, fragmento del DOM como string)
 
 ---
 
 ## 5. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.0.** La estructura de carpetas está
-creada. El prompt del plugin está asentado. Todavía no hay
-código ejecutable.
+**Proyecto en v1.5plugin.2.** El esqueleto del plugin está
+armado y funcional, con nombres en español. Archivos:
 
-Los archivos que se van a crear en la próxima tanda:
-
-- `manifest.json`
-- `Aplicacion/background.js`
-- `Aplicacion/content.js`
-- `Aplicacion/popup.html`
-- `Aplicacion/popup.js`
-- `Aplicacion/bootstrap.js`
-- `Aplicacion/ConfPlugin.js`
-- `Aplicacion/GrafoPlugin.js`
-- `Aplicacion/pruebas/catalogo.js`
-- `Aplicacion/pruebas/prueba_01_smoke.js`
+- `manifest.json` — manifiesto MV3 en la raíz.
+- `Aplicacion/servicio.js` — service worker (module).
+- `Aplicacion/contenido.js` — script de contenido clásico.
+- `Aplicacion/ventana.html` / `ventana.js` — interfaz de la
+  ventana.
+- `Aplicacion/arranque.js` — arranque del framework en el SW.
+- `Aplicacion/ConfPlugin.js` — configuración propia.
+- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.
+- `Aplicacion/pruebas/catalogo.js` — catálogo de pruebas.
+- `Aplicacion/pruebas/prueba_01_arranque.js` — primera prueba.
 
 ---
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.0 (creación
-de la estructura, prompt inicial).
+**Última actualización de este prompt:** v1.5plugin.2 (limpieza
+de anglicismos: archivos, mensajes internos y ctx renombrados
+al español).
 
 **Decisiones tomadas:**
 
@@ -233,26 +241,46 @@ de la estructura, prompt inicial).
 - Código del plugin en `Aplicacion/`.
 - Persistencia con `PerdurarSuperestructuraStringIndexedDB`.
 - Salida en modo consola dentro del service worker.
-- Content script clásico, comunicación por mensajería.
+- Script de contenido clásico, comunicación por mensajería.
 - Formato de prueba declarativo con objeto `{id, nombre,
   ejecutar(ctx)}`.
 - El motor y los comandos no se usan en la primera versión.
 - Nombre de app del plugin: `IteradoresPluginPruebas`.
 - Prefijo de versión del plugin: `v1.5plugin.*`.
+- Español para nombres propios del plugin. "Plugin" se mantiene
+  (nombre muy conocido). Las palabras del ecosistema Chrome
+  (`manifest`, `service worker`, `content script`, `popup`)
+  se aceptan en comentarios y en el manifest.
 
 **Permisos del manifest (borrador):**
 
 - `host_permissions`: `http://localhost/*` y
   `http://127.0.0.1/*`. Si se prueba contra producción, se
   agrega el dominio.
-- `permissions`: `activeTab`, `scripting`, `tabs`.
+- `permissions`: `activeTab`, `tabs`.
+
+**Vocabulario consolidado (v1.5plugin.2):**
+
+| Concepto | Nombre en el proyecto |
+|---|---|
+| Archivo de arranque | `arranque.js` |
+| Service worker | archivo `servicio.js` |
+| Content script | archivo `contenido.js` |
+| Popup | archivo `ventana.html` / `ventana.js` |
+| Mensaje de saludo SW→contenido | `"saludo"` (respuesta `respuesta`) |
+| Clic desde ctx | `ctx.clic(sel)` |
+| POST desde ctx | `ctx.pedir_post(url, body)` |
+| Prueba inicial | id `"arranque"` |
 
 **Pendiente:**
 
-- Escribir el código del plugin (v1.5plugin.1).
-- Definir el catálogo inicial de pruebas.
-- Definir el comportamiento del popup (layout, selección de
-  pestaña, ver resultado).
+- Escribir más pruebas en `Aplicacion/pruebas/` (más allá de la
+  de arranque).
+- Implementar el historial de corridas en la ventana (hoy solo
+  muestra el resultado de la corrida actual).
+- Definir la convención de nombres de prueba y de aserciones.
+- Revisar los permisos del manifest cuando se pruebe contra
+  un dominio real (hoy solo `localhost` / `127.0.0.1`).
 
 ---
 
