@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4
+ * @version 1.5plugin.4a
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -119,10 +119,49 @@ export async function abrir_modal_confirmacion(ctx) {
 // Llenado de formularios
 // ============================================================
 
+// ============================================================
+// Espera a que el aviso del DNI se resuelva
+// ============================================================
+
+// Texto esperado en el aviso del pasajero/comprador cuando el
+// DNI no esta registrado.
+const _TEXTOS_NO_REGISTRADO = ["no registrado", "complete los datos"];
+// Textos esperados cuando el DNI SI esta registrado (vienen de
+// _calcular_antiguedad_datos: "Datos actualizados hoy / ayer /
+// hace N dias / meses / anios").
+const _TEXTOS_REGISTRADO = ["actualizados", "actualizado"];
+
+function _aviso_esta_resuelto(texto) {
+    if (!texto) return false;
+    const t = String(texto).toLowerCase();
+    for (const frag of _TEXTOS_NO_REGISTRADO) {
+        if (t.indexOf(frag) !== -1) return true;
+    }
+    for (const frag of _TEXTOS_REGISTRADO) {
+        if (t.indexOf(frag) !== -1) return true;
+    }
+    return false;
+}
+
+// Espera hasta que el aviso de un pasajero o del comprador
+// deje de decir "Buscando..." y muestre una resolucion.
+async function esperar_aviso_dni(ctx, selector_aviso, timeout_ms = 5000) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout_ms) {
+        const texto = await ctx.texto(selector_aviso);
+        if (_aviso_esta_resuelto(texto)) return texto;
+        await ctx.pausa(150);
+    }
+    return null;
+}
+
 export async function llenar_comprador(ctx, datos) {
     if (datos.dni !== undefined) {
         await ctx.escribir("#comprador_dni", datos.dni);
-        await ctx.pausa(600);
+        // Esperar a que la busqueda del DNI termine antes de
+        // escribir el resto, porque si el DNI no esta registrado
+        // el piloto limpia los campos.
+        await esperar_aviso_dni(ctx, "#comprador_aviso_autocompletado", 5000);
     }
     if (datos.apellido !== undefined) await ctx.escribir("#comprador_apellido", datos.apellido);
     if (datos.nombres !== undefined) await ctx.escribir("#comprador_nombres", datos.nombres);
@@ -133,7 +172,10 @@ export async function llenar_comprador(ctx, datos) {
 export async function llenar_pasajero(ctx, index, datos) {
     if (datos.dni !== undefined) {
         await ctx.escribir(`#pasajero_dni_${index}`, datos.dni);
-        await ctx.pausa(600);
+        // Esperar a que la busqueda del DNI termine antes de
+        // escribir el resto, porque si el DNI no esta registrado
+        // el piloto limpia los campos.
+        await esperar_aviso_dni(ctx, `#pasajero_aviso_${index}`, 5000);
     }
     if (datos.apellido !== undefined) await ctx.escribir(`#pasajero_apellido_${index}`, datos.apellido);
     if (datos.nombres !== undefined) await ctx.escribir(`#pasajero_nombres_${index}`, datos.nombres);

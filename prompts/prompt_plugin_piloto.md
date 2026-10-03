@@ -242,7 +242,14 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4 (pruebas de
+**Última actualización de este prompt:** v1.5plugin.4a (fix de
+timing en `_helpers.js`: `llenar_pasajero` y `llenar_comprador`
+ahora esperan a que la búsqueda del DNI se resuelva antes de
+escribir el resto de los campos. Antes se escribían a los 600ms
+y si el fetch tardaba más, el piloto limpiaba los campos al
+recibir "no registrado", dejando apellido vacío y la venta
+fallando con "Apellido: Este campo es obligatorio").
+Antes: v1.5plugin.4 (pruebas de
 venta: 15 pruebas nuevas que cubren ventas básicas, cuotas,
 transferencia, múltiples asientos, ligaduras comprador-pasajero,
 DNI duplicado, corrección de DNI, montos inválidos, cancelar y
@@ -385,6 +392,15 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **Los helpers que llenan formularios con autocompletado por
+  DNI deben esperar a que la búsqueda se resuelva antes de
+  escribir el resto.** El piloto limpia los campos del pasajero
+  cuando el DNI no está registrado (`_limpiar_campos_pasajero`).
+  Si el helper escribe el apellido antes de que vuelva el fetch,
+  el piloto lo borra y la venta falla con "Apellido: Este campo
+  es obligatorio". Fix en v1.5plugin.4a: helper
+  `esperar_aviso_dni` que espera a que el aviso diga
+  "no registrado" o "Datos actualizados...".
 - **`offsetParent` no sirve para chequear visibilidad de
   elementos `position:fixed`.** Un elemento con
   `position: fixed` tiene `offsetParent === null` aunque
