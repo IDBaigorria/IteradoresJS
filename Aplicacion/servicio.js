@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.3e
+ * @version 1.5plugin.3f
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";

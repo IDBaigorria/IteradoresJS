@@ -9,7 +9,7 @@
  * basicas sobre el DOM de la pagina. Todas las respuestas
  * son objetos `{ exito, ... }`.
  *
- * @version 1.5plugin.3e
+ * @version 1.5plugin.3f
  */
 
 (function () {
@@ -21,11 +21,15 @@
 
     function _es_visible(el) {
         if (!el) return false;
-        if (el.offsetParent === null && el.tagName !== "BODY") return false;
         const estilo = window.getComputedStyle(el);
         if (estilo.display === "none") return false;
         if (estilo.visibility === "hidden") return false;
         if (parseFloat(estilo.opacity) === 0) return false;
+        // getBoundingClientRect funciona tambien para elementos
+        // con position:fixed (en los que offsetParent es null
+        // aunque esten visibles).
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return false;
         return true;
     }
 

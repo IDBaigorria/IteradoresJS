@@ -238,7 +238,11 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.3e (infra
+**Última actualización de este prompt:** v1.5plugin.3f (fix de
+`_es_visible` para elementos `position:fixed`. La prueba de
+login fallaba con "No se pudo cerrar la sesión" porque el
+overlay de login tiene `position:fixed` y `offsetParent`
+devuelve `null` aunque esté visible). Infra de v1.5plugin.3e:
 mínima del catálogo + primera prueba real `login_admin` +
 fix de `servicio.js`: había usado `import()` dinámico,
 prohibido en service workers por spec. Volvió a imports
@@ -350,6 +354,14 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **`offsetParent` no sirve para chequear visibilidad de
+  elementos `position:fixed`.** Un elemento con
+  `position: fixed` tiene `offsetParent === null` aunque
+  esté perfectamente visible. El helper `_es_visible` no debe
+  usar `offsetParent`; usar `getComputedStyle` (display,
+  visibility, opacity) + `getBoundingClientRect` (width/height
+  > 0). Los overlays tipo login casi siempre son
+  `position: fixed`.
 - **Regla del manifest (v1.5plugin.3e):** el `manifest.json`
   **no se bumpea en cada letra**. Chrome en modo desarrollador
   recarga siempre que se aprieta el botón de la tarjeta, sin
