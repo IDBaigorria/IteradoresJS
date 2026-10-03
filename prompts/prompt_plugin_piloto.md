@@ -232,13 +232,21 @@ de admin). Archivos:
 - `Aplicacion/pruebas/prueba_01_arranque.js` — prueba de
   arranque.
 - `Aplicacion/pruebas/prueba_02_login.js` — prueba de login.
+- `Aplicacion/pruebas/_helpers.js` — helpers compartidos de
+  las pruebas de venta.
+- `Aplicacion/pruebas/prueba_03..17_venta_*.js` — 15 pruebas
+  de venta y casos borde.
 - `auditar_plugin.php` — auditoría con 6 secciones.
 
 ---
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.3f (fix de
+**Última actualización de este prompt:** v1.5plugin.4 (pruebas de
+venta: 15 pruebas nuevas que cubren ventas básicas, cuotas,
+transferencia, múltiples asientos, ligaduras comprador-pasajero,
+DNI duplicado, corrección de DNI, montos inválidos, cancelar y
+reabrir. Antes: v1.5plugin.3f (fix de
 `_es_visible` para elementos `position:fixed`. La prueba de
 login fallaba con "No se pudo cerrar la sesión" porque el
 overlay de login tiene `position:fixed` y `offsetParent`
@@ -298,19 +306,42 @@ el manifest no se bumpea en cada letra.).
 
 - `arranque` — verifica SW ↔ contenido ↔ página.
 - `login_admin` — entra con código del admin, verifica nivel.
+- `venta_basica` — 1 asiento, efectivo, pago total.
+- `venta_cuotas` — 1 asiento, efectivo, 2 cuotas, pago parcial.
+- `venta_transferencia` — 1 asiento por transferencia.
+- `venta_dos_asientos` — 2 asientos, 2 pasajeros.
+- `venta_tres_asientos` — 3 asientos, 3 pasajeros.
+- `venta_ligadura_dni_igual` — comprador y pasajero mismo DNI.
+- `venta_comprador_lleno_pasajero_vacio` — pasajero primero.
+- `venta_dni_duplicado` — dos pasajeros mismo DNI.
+- `venta_correccion_dni_pasajero` — DNI registrado → no registrado.
+- `venta_correccion_dni_comprador` — idem comprador.
+- `venta_monto_mayor_total` — rechazo por monto.
+- `venta_monto_cero` — rechazo por monto cero.
+- `venta_sin_comprador` — rechazo por falta de datos.
+- `venta_cancelar_reabrir` — cancelar y reabrir el form.
+- `venta_sin_asientos` — botón Vender oculto.
 
 **Pendiente:**
 
-- **v1.5plugin.4:** pruebas de altas (pasajero, viaje, micro,
-  terminal autorizada) con datos únicos. Cada prueba limpia lo
-  que crea.
-- **v1.5plugin.5:** pruebas de ventas y casos borde (ligaduras
-  comprador↔pasajero, DNI duplicado, cupones, deshabilitar
-  método). Es el objetivo que motivó el plugin.
+- **v1.5plugin.5 (opcional):** pruebas de altas (pasajero, viaje,
+  micro, terminal autorizada). Menos críticas ahora que las de
+  venta están.
 - **v1.5plugin.6 (opcional):** historial de corridas en la
   ventana del plugin.
 - Revisar los permisos del manifest cuando se pruebe contra
   un dominio real (hoy solo `localhost` / `127.0.0.1`).
+
+**Notas sobre las pruebas de venta:**
+
+- Usan el terminal `carmen2` (código `carmen2`).
+- El dueño de las terminales de prueba debe ser `carmen1`.
+  Si el nombre de usuario del dueño es distinto, ajustar
+  `NOMBRE_DUENO_PRUEBA` en `Aplicacion/ConfPlugin.js`.
+- Todas las ventas se cancelan al final (Opción B).
+- La prueba `venta_correccion_dni_pasajero` crea un pasajero
+  de prueba antes de empezar. La prueba `venta_correccion_dni_comprador`
+  también.
 
 **Lecciones aprendidas:**
 

@@ -1,0 +1,229 @@
+/**
+ * Helpers compartidos por las pruebas de venta.
+ *
+ * Todas las funciones reciben el `ctx` del service worker.
+ *
+ * @version 1.5plugin.4
+ */
+
+import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
+
+// ============================================================
+// Generadores de datos unicos
+// ============================================================
+
+let _contador_dni = 0;
+
+export function dni_unico() {
+    _contador_dni++;
+    const ts = String(Date.now()).slice(-3);
+    const cnt = String(_contador_dni % 100000).padStart(5, "0");
+    return ts + cnt;
+}
+
+export function datos_comprador_aleatorio() {
+    const dni = dni_unico();
+    return {
+        dni,
+        apellido: "Prueba",
+        nombres: "Auto",
+        email: "auto_" + dni + "@test.local",
+        celular: "2983555" + String(dni).slice(-3)
+    };
+}
+
+export function datos_pasajero_aleatorio(index = 0) {
+    const dni = dni_unico();
+    return {
+        dni,
+        apellido: "Pasajero" + index,
+        nombres: "Auto",
+        email: "pas_" + dni + "@test.local",
+        celular: "2983555" + String(dni).slice(-3),
+        celular_emergencia: "2983111" + String(dni).slice(-3),
+        fecha_nacimiento: "1990-01-15",
+        direccion: "Calle Prueba 123",
+        localidad: "Tres Arroyos"
+    };
+}
+
+// ============================================================
+// Navegacion
+// ============================================================
+
+export async function login_terminal(ctx) {
+    await ctx.asegurar_login(CODIGO_TERMINAL1);
+}
+
+export async function ir_a_tab(ctx, id_tab) {
+    const selector = `.tab[data-tab="${id_tab}"]`;
+    const existe = await ctx.esperar(selector, 3000);
+    if (!existe || !existe.exito) throw new Error("No existe el tab " + id_tab);
+    await ctx.clic(selector);
+    const seccion = await ctx.esperar_visible("#" + id_tab, 5000);
+    if (!seccion || !seccion.exito) throw new Error("El tab " + id_tab + " no quedo visible");
+    await ctx.pausa(300);
+}
+
+export async function ir_a_viajes_y_abrir_primero(ctx) {
+    await ir_a_tab(ctx, "viajes");
+    const hay = await ctx.esperar(".btn-detalle-viaje", 8000);
+    if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");
+
+    await ctx.clic(".btn-detalle-viaje");
+    const modal = await ctx.esperar_visible("#modal_generico", 8000);
+    if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");
+    const micros = await ctx.esperar(".btn-ver-pasaje", 8000);
+    if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");
+}
+
+export async function abrir_primer_micro_con_libres(ctx) {
+    const nombres = await ctx.obtener_atributos(".btn-ver-pasaje", "data-micro");
+    if (nombres.length === 0) throw new Error("No hay micros en el viaje");
+
+    for (const nombre of nombres) {
+        await ctx.clic(`.btn-ver-pasaje[data-micro="${nombre}"]`);
+        const asientos = await ctx.esperar("#croquis_pasaje_micro .seat", 8000);
+        if (!asientos || !asientos.exito) continue;
+
+        const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
+        if (libres.length > 0) {
+            return { micro: nombre, libres };
+        }
+    }
+    throw new Error("Ningun micro del viaje tiene asientos libres");
+}
+
+export async function seleccionar_n_asientos(ctx, n) {
+    const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
+    if (libres.length < n) {
+        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);
+    }
+    const elegidos = libres.slice(0, n);
+    for (const numero of elegidos) {
+        await ctx.clic(`.seat[data-numero="${numero}"]`);
+        await ctx.pausa(300);
+    }
+    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);
+    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");
+    return elegidos;
+}
+
+export async function abrir_modal_confirmacion(ctx) {
+    await ctx.clic("#boton_confirmar_venta");
+    const form = await ctx.esperar_visible("#formulario_confirmacion_venta", 8000);
+    if (!form || !form.exito) throw new Error("No se abrio el formulario de confirmacion");
+}
+
+// ============================================================
+// Llenado de formularios
+// ============================================================
+
+export async function llenar_comprador(ctx, datos) {
+    if (datos.dni !== undefined) {
+        await ctx.escribir("#comprador_dni", datos.dni);
+        await ctx.pausa(600);
+    }
+    if (datos.apellido !== undefined) await ctx.escribir("#comprador_apellido", datos.apellido);
+    if (datos.nombres !== undefined) await ctx.escribir("#comprador_nombres", datos.nombres);
+    if (datos.email !== undefined) await ctx.escribir("#comprador_email", datos.email);
+    if (datos.celular !== undefined) await ctx.escribir("#comprador_celular", datos.celular);
+}
+
+export async function llenar_pasajero(ctx, index, datos) {
+    if (datos.dni !== undefined) {
+        await ctx.escribir(`#pasajero_dni_${index}`, datos.dni);
+        await ctx.pausa(600);
+    }
+    if (datos.apellido !== undefined) await ctx.escribir(`#pasajero_apellido_${index}`, datos.apellido);
+    if (datos.nombres !== undefined) await ctx.escribir(`#pasajero_nombres_${index}`, datos.nombres);
+    if (datos.email !== undefined) await ctx.escribir(`#pasajero_email_${index}`, datos.email);
+    if (datos.celular !== undefined) await ctx.escribir(`#pasajero_celular_${index}`, datos.celular);
+    if (datos.celular_emergencia !== undefined) await ctx.escribir(`#pasajero_emergencia_${index}`, datos.celular_emergencia);
+    if (datos.fecha_nacimiento !== undefined) await ctx.escribir(`#pasajero_fecha_nacimiento_${index}`, datos.fecha_nacimiento);
+    if (datos.direccion !== undefined) await ctx.escribir(`#pasajero_direccion_${index}`, datos.direccion);
+    if (datos.localidad !== undefined) await ctx.escribir(`#pasajero_localidad_${index}`, datos.localidad);
+}
+
+// ============================================================
+// Metodos y montos
+// ============================================================
+
+export async function setear_metodo_y_cuotas(ctx, metodo, cuotas) {
+    await ctx.escribir("#metodo_pago", metodo);
+    await ctx.pausa(400);
+    if (cuotas !== undefined) {
+        await ctx.escribir("#cuotas_venta", String(cuotas));
+        await ctx.pausa(400);
+    }
+}
+
+export async function setear_monto_pagado(ctx, monto) {
+    await ctx.escribir("#monto_pagado", String(monto));
+}
+
+export async function confirmar_venta(ctx) {
+    await ctx.clic("#confirmar_venta");
+    const ok = await ctx.esperar_visible("#opciones_impresion", 8000);
+    if (!ok || !ok.exito) {
+        const aviso = await ctx.leer_aviso();
+        throw new Error("No se confirmo la venta. Aviso: " + (aviso || "(sin aviso)"));
+    }
+}
+
+// ============================================================
+// Cierre y cancelacion
+// ============================================================
+
+export async function obtener_id_ultima_venta(ctx) {
+    const visible = await ctx.esta_visible("#opciones_impresion");
+    if (visible) {
+        await ctx.clic("#btn_cerrar_opciones");
+        await ctx.pausa(300);
+    }
+    await ir_a_tab(ctx, "vendidos");
+    const hay = await ctx.esperar(".sale-card", 8000);
+    if (!hay || !hay.exito) throw new Error("No hay ventas en la pestana Vendidos");
+    const ids = await ctx.obtener_atributos(".sale-card", "data-id-venta");
+    if (ids.length === 0) throw new Error("No se pudo leer el id de la venta");
+    return ids[0];
+}
+
+export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {
+    const r = await ctx.pedir_post("index.php", {
+        accion: "ventas/cancelar",
+        id_venta,
+        motivo
+    });
+    if (!r || !r.exito) {
+        throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));
+    }
+    if (!r.json || !r.json.exito) {
+        throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));
+    }
+    return r.json;
+}
+
+export async function crear_pasajero_de_prueba(ctx, dni, datos = {}) {
+    const r = await ctx.pedir_post("index.php", {
+        accion: "pasajeros/crear",
+        nombre_dueno: NOMBRE_DUENO_PRUEBA,
+        dni,
+        apellido: datos.apellido || "Correccion",
+        nombres: datos.nombres || "Auto",
+        email: datos.email || "",
+        celular: datos.celular || "2983555123",
+        celular_emergencia: datos.celular_emergencia || "2983555222",
+        fecha_nacimiento: datos.fecha_nacimiento || "1990-06-15",
+        direccion: datos.direccion || "Calle Correccion 1",
+        localidad: datos.localidad || "Tres Arroyos"
+    });
+    if (!r || !r.exito) throw new Error("Error de red al crear pasajero: " + (r && r.error ? r.error : ""));
+    if (!r.json || !r.json.exito) {
+        const msg = r.json && r.json.error ? r.json.error : "";
+        if (!/ya existe/i.test(msg)) {
+            throw new Error("No se pudo crear el pasajero: " + msg);
+        }
+    }
+    return r.json;
+}

@@ -9,7 +9,7 @@
  * basicas sobre el DOM de la pagina. Todas las respuestas
  * son objetos `{ exito, ... }`.
  *
- * @version 1.5plugin.3f
+ * @version 1.5plugin.4
  */
 
 (function () {
@@ -108,6 +108,28 @@
                 const el = _query(datos.selector);
                 if (!el) return { exito: false, error: "No existe: " + datos.selector };
                 return { exito: true, valor: el.textContent || "" };
+            }
+
+            case "obtener_valor": {
+                const el = _query(datos.selector);
+                if (!el) return { exito: false, error: "No existe: " + datos.selector };
+                return { exito: true, valor: el.value !== undefined ? String(el.value) : (el.textContent || "") };
+            }
+
+            case "obtener_atributos": {
+                const elementos = document.querySelectorAll(datos.selector);
+                const valores = [];
+                elementos.forEach(el => valores.push(el.getAttribute(datos.atributo) || ""));
+                return { exito: true, valores };
+            }
+
+            case "leer_toast": {
+                const el = document.getElementById("toast");
+                return {
+                    exito: true,
+                    texto: el ? (el.textContent || "") : "",
+                    visible: el ? el.classList.contains("show") : false
+                };
             }
 
             case "obtener_html": {

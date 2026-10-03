@@ -6,19 +6,19 @@
  * importar el Controlador, para que la persistencia tome el
  * nombre de la BD correcto.
  *
- * @version 1.5plugin.3f
+ * @version 1.5plugin.4
  */
 
 export function configurar_conf(Conf) {
     Conf.NOMBRE_APP = "IteradoresPluginPruebas";
-    Conf.VERSION_APP = "1.5plugin.3f";
+    Conf.VERSION_APP = "1.5plugin.4";
     Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";
     Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";
     Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";
 }
 
 export const NOMBRE_GRAFO = "plugin_pruebas";
-export const VERSION_PLUGIN = "1.5plugin.3f";
+export const VERSION_PLUGIN = "1.5plugin.4";
 
 // URL del piloto PHP. Debe estar cubierta por host_permissions
 // y content_scripts.matches en manifest.json.
@@ -30,3 +30,9 @@ export const CODIGO_DUENO     = "carmen1";
 export const CODIGO_TERMINAL1 = "carmen2";
 export const CODIGO_TERMINAL2 = "lujan2";
 export const CODIGO_SOPORTE   = "manolo3";
+
+// Nombre de usuario del dueno de las terminales de prueba.
+// Se usa para crear pasajeros de prueba antes de las ventas.
+// Si el nombre de usuario del dueno es distinto del codigo,
+// cambiá este valor.
+export const NOMBRE_DUENO_PRUEBA = "carmen1";

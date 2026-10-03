@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.3f
+ * @version 1.5plugin.4
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -71,6 +71,19 @@ function _crear_ctx(pestana_id) {
             const r = await enviar("obtener_texto", { selector: sel });
             return r && r.exito ? r.valor : null;
         },
+        valor: async (sel) => {
+            const r = await enviar("obtener_valor", { selector: sel });
+            return r && r.exito ? r.valor : null;
+        },
+        obtener_atributos: async (sel, attr) => {
+            const r = await enviar("obtener_atributos", { selector: sel, atributo: attr });
+            return r && r.exito ? r.valores : [];
+        },
+        leer_aviso: async () => {
+            const r = await enviar("leer_toast", {});
+            return r && r.exito ? r.texto : "";
+        },
+        pausa: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
         html: async (sel) => {
             const r = await enviar("obtener_html", { selector: sel });
             return r && r.exito ? r.valor : null;
