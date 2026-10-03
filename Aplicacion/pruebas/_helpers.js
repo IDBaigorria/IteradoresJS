@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4c
+ * @version 1.5plugin.4d
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -116,13 +116,51 @@ async function esperar_asiento_seleccionado(ctx, numero, timeout_ms = 5000) {
     return false;
 }
 
+// Espera a que un asiento tenga la clase "seat-libre". Se usa antes
+// de hacer clic: si el croquis del piloto quedo desactualizado
+// (por ejemplo, tras una cancelacion reciente), el asiento puede
+// aparecer como "seleccionado" o "vendido" aunque en el backend
+// ya este libre.
+async function esperar_asiento_libre(ctx, numero, timeout_ms = 8000) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout_ms) {
+        const clases = await ctx.obtener_atributos(`.seat[data-numero="${numero}"]`, "class");
+        if (clases.length > 0 && String(clases[0]).indexOf("seat-libre") !== -1) {
+            return true;
+        }
+        await ctx.pausa(200);
+    }
+    return false;
+}
+
+// Espera a que la grilla tenga al menos N asientos con la clase
+// "seat-libre". Tolerante a que el croquis se este actualizando.
+async function esperar_n_asientos_libres(ctx, n, timeout_ms = 10000) {
+    const inicio = Date.now();
+    let libres = [];
+    while (Date.now() - inicio < timeout_ms) {
+        libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
+        if (libres.length >= n) return libres;
+        await ctx.pausa(300);
+    }
+    return libres;
+}
+
 export async function seleccionar_n_asientos(ctx, n) {
-    const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
+    // Esperar a que aparezcan N asientos libres (puede tardar si el
+    // croquis no se actualizo tras una cancelacion previa).
+    const libres = await esperar_n_asientos_libres(ctx, n, 10000);
     if (libres.length < n) {
         throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);
     }
     const elegidos = libres.slice(0, n);
     for (const numero of elegidos) {
+        // Verificar que el asiento este efectivamente libre antes
+        // de hacer clic. Si no, esperar a que el croquis se
+        // actualice (por ejemplo, por el polling del piloto o
+        // por un refresh manual).
+        const libre = await esperar_asiento_libre(ctx, numero, 8000);
+        if (!libre) throw new Error("El asiento " + numero + " no aparece como libre en el croquis");
         await ctx.clic(`.seat[data-numero="${numero}"]`);
         const ok = await esperar_asiento_seleccionado(ctx, numero, 5000);
         if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado");

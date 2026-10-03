@@ -242,7 +242,13 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4c (fix de
+**Última actualización de este prompt:** v1.5plugin.4d (robustez
+de `seleccionar_n_asientos`: espera a que aparezcan N asientos
+con `seat-libre` antes de elegir, y verifica que cada asiento
+esté libre antes de hacer clic. Tolerante al bug del piloto
+donde el croquis tarda en actualizarse tras cancelar una venta
+— corregido en piloto v1.5piloto.74d, pero el plugin debe ser
+robusto igual). Antes: v1.5plugin.4c (fix de
 timing en `seleccionar_n_asientos`: después de cada clic espera
 a que el asiento pase a `seat-seleccionado-propio`. Antes
 esperaba 300 ms fijos y con 2+ asientos el segundo clic podía
@@ -401,6 +407,13 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **El plugin debe ser robusto ante bugs del piloto.** Cuando
+  el piloto tiene un bug (por ejemplo, el croquis no se
+  actualiza tras cancelar una venta — corregido en
+  piloto v1.5piloto.74d), las pruebas igual deben poder
+  esperar a que el estado se estabilice antes de fallar.
+  Los helpers usan polling de clases del DOM con timeouts
+  largos (5-10s) en lugar de timeouts fijos cortos.
 - **Evitar timeouts fijos entre acciones del piloto.** El piloto
   hace un `fetch` por cada clic en un asiento. Los `pausa(300)`
   fijos no alcanzan cuando el fetch tarda más. En cambio,
