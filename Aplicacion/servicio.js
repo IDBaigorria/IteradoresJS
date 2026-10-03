@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4i
+ * @version 1.5plugin.4k
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -130,6 +130,74 @@ function _crear_ctx(pestana_id) {
             return r && r.exito ? r.valor : null;
         },
         pedir_post: (url, body) => enviar("pedir_post", { url, body }),
+        crear_pasajero_de_prueba: async (datos) => {
+            // Crea un pasajero de prueba. El dueño lo resuelve el
+            // page (`window.usuario_actual.dueno` para terminal).
+            // Necesario porque el plugin no conoce el nombre de
+            // usuario del dueño de las terminales de prueba.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (args) => {
+                        return (async () => {
+                            try {
+                                const usuario = window.usuario_actual;
+                                if (!usuario) return { exito: false, error: "sin usuario_actual en el page" };
+                                const dueno = usuario.dueno || usuario.nombre_usuario;
+                                if (!dueno) return { exito: false, error: "sin dueno en el usuario del page" };
+                                const body = Object.assign({}, args, {
+                                    accion: "pasajeros/crear",
+                                    nombre_dueno: dueno
+                                });
+                                const resp = await fetch("index.php", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                                    body: new URLSearchParams(body)
+                                });
+                                const datos = await resp.json();
+                                return datos;
+                            } catch (e) {
+                                return { exito: false, error: String(e) };
+                            }
+                        })();
+                    },
+                    args: [datos]
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        liberar_asientos_propios: async () => {
+            // Aprieta "Reiniciar seleccion" en el piloto. El boton
+            // llama a `reiniciar_seleccion_propia`, que usa
+            // `confirm()` nativo. Las extensiones no pueden manejar
+            // dialogs nativos, asi que sobrescribimos `window.confirm`
+            // con `() => true` por el tiempo del click.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        const confirm_orig = window.confirm;
+                        window.confirm = () => true;
+                        try {
+                            const btn = document.getElementById("boton_reiniciar_seleccion");
+                            if (!btn) return { exito: false, error: "boton reiniciar no existe" };
+                            if (btn.offsetParent === null) return { exito: false, error: "boton reiniciar no visible" };
+                            btn.click();
+                        } finally {
+                            window.confirm = confirm_orig;
+                        }
+                        return { exito: true };
+                    }
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
         refrescar_asientos_pagina: async () => {
             try {
                 const r = await chrome.scripting.executeScript({

@@ -2,17 +2,16 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4i — esperar valor en lugar de leer tras pausa fija.
+ * Tanda v1.5plugin.4k — crear pasajero de prueba sin nombre de dueño fijo.
  *
- * Problema: las pruebas de ligadura y de correccion de DNI leian
- * `ctx.valor(...)` una sola vez despues de una pausa fija de 800 ms.
- * Si el fetch del DNI tardaba mas, la copia todavia no habia ocurrido
- * y la prueba leia "" (aunque el usuario, mirando despues, ve el
- * valor).
+ * Problema: `NOMBRE_DUENO_PRUEBA = "carmen1"` estaba mal: es el codigo
+ * de acceso, no el nombre de usuario del dueño. El backend devolvia
+ * "Dueno no encontrado" al crear el pasajero de prueba. El nombre de
+ * usuario del dueño lo conoce el page (esta en `window.usuario_actual.dueno`
+ * despues del login de terminal).
  *
- * Fix: agregar helpers `esperar_valor` y `esperar_valor_vacio` que
- * hacen polling hasta que el valor sea el esperado o se agote el
- * timeout. Usarlos en las 4 pruebas afectadas.
+ * Fix: crear el pasajero de prueba via `chrome.scripting.executeScript`
+ * en MAIN world. El page resuelve el dueño y hace el POST.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -32,326 +31,190 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ============================================================
-    // Aplicacion/pruebas/_helpers.js — nuevos helpers
+    // Aplicacion/servicio.js — nuevo ctx.crear_pasajero_de_prueba
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: ctx.crear_pasajero_de_prueba via MAIN world',
+        'buscar' => [
+            '        liberar_asientos_propios: async () => {',
+        ],
+        'reemplazar' => [
+            '        crear_pasajero_de_prueba: async (datos) => {',
+            '            // Crea un pasajero de prueba. El dueño lo resuelve el',
+            '            // page (`window.usuario_actual.dueno` para terminal).',
+            '            // Necesario porque el plugin no conoce el nombre de',
+            '            // usuario del dueño de las terminales de prueba.',
+            '            try {',
+            '                const r = await chrome.scripting.executeScript({',
+            '                    target: { tabId: pestana_id },',
+            '                    world: "MAIN",',
+            '                    func: (args) => {',
+            '                        return (async () => {',
+            '                            try {',
+            '                                const usuario = window.usuario_actual;',
+            '                                if (!usuario) return { exito: false, error: "sin usuario_actual en el page" };',
+            '                                const dueno = usuario.dueno || usuario.nombre_usuario;',
+            '                                if (!dueno) return { exito: false, error: "sin dueno en el usuario del page" };',
+            '                                const body = Object.assign({}, args, {',
+            '                                    accion: "pasajeros/crear",',
+            '                                    nombre_dueno: dueno',
+            '                                });',
+            '                                const resp = await fetch("index.php", {',
+            '                                    method: "POST",',
+            '                                    headers: { "Content-Type": "application/x-www-form-urlencoded" },',
+            '                                    body: new URLSearchParams(body)',
+            '                                });',
+            '                                const datos = await resp.json();',
+            '                                return datos;',
+            '                            } catch (e) {',
+            '                                return { exito: false, error: String(e) };',
+            '                            }',
+            '                        })();',
+            '                    },',
+            '                    args: [datos]',
+            '                });',
+            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
+            '            } catch (e) {',
+            '                return { exito: false, error: e.message };',
+            '            }',
+            '        },',
+            '        liberar_asientos_propios: async () => {',
+        ],
+    ],
+
+    // ============================================================
+    // Aplicacion/pruebas/_helpers.js
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4i',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4k',
         'buscar' => [
-            ' * @version 1.5plugin.4h',
+            ' * @version 1.5plugin.4j',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4i',
+            ' * @version 1.5plugin.4k',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: helpers esperar_valor y esperar_valor_vacio',
+        'descripcion' => '_helpers.js: quitar import de NOMBRE_DUENO_PRUEBA',
         'buscar' => [
-            'const _TEXTOS_REGISTRADO = ["actualizados", "actualizado"];',
-            '',
-            'function _aviso_esta_resuelto(texto) {',
+            'import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";',
         ],
         'reemplazar' => [
-            'const _TEXTOS_REGISTRADO = ["actualizados", "actualizado"];',
-            '',
-            '// Espera a que el valor de un input sea exactamente el esperado.',
-            '// Util cuando el valor se completa por un fetch asincrono y no',
-            '// sabemos cuanto va a tardar.',
-            'export async function esperar_valor(ctx, sel, valor_esperado, timeout_ms = 5000) {',
-            '    const inicio = Date.now();',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        const v = await ctx.valor(sel);',
-            '        if (v === valor_esperado) return true;',
-            '        await ctx.pausa(150);',
+            'import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => '_helpers.js: crear_pasajero_de_prueba usa ctx',
+        'buscar' => [
+            'export async function crear_pasajero_de_prueba(ctx, dni, datos = {}) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "pasajeros/crear",',
+            '        nombre_dueno: NOMBRE_DUENO_PRUEBA,',
+            '        dni,',
+            '        apellido: datos.apellido || "Correccion",',
+            '        nombres: datos.nombres || "Auto",',
+            '        email: datos.email || "",',
+            '        celular: datos.celular || "2983555123",',
+            '        celular_emergencia: datos.celular_emergencia || "2983555222",',
+            '        fecha_nacimiento: datos.fecha_nacimiento || "1990-06-15",',
+            '        direccion: datos.direccion || "Calle Correccion 1",',
+            '        localidad: datos.localidad || "Tres Arroyos"',
+            '    });',
+            '    if (!r || !r.exito) throw new Error("Error de red al crear pasajero: " + (r && r.error ? r.error : ""));',
+            '    if (!r.json || !r.json.exito) {',
+            '        const msg = r.json && r.json.error ? r.json.error : "";',
+            '        if (!/ya existe/i.test(msg)) {',
+            '            throw new Error("No se pudo crear el pasajero: " + msg);',
+            '        }',
             '    }',
-            '    return false;',
+            '    return r.json;',
             '}',
-            '',
-            '// Espera a que el valor de un input quede vacio (o null).',
-            'export async function esperar_valor_vacio(ctx, sel, timeout_ms = 5000) {',
-            '    const inicio = Date.now();',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        const v = await ctx.valor(sel);',
-            '        if (v === "" || v === null) return true;',
-            '        await ctx.pausa(150);',
+        ],
+        'reemplazar' => [
+            'export async function crear_pasajero_de_prueba(ctx, dni, datos = {}) {',
+            '    // El dueño lo resuelve el page (`window.usuario_actual.dueno`',
+            '    // para terminal). El plugin no conoce el nombre de usuario',
+            '    // del dueño de las terminales de prueba.',
+            '    const datos_envio = {',
+            '        dni,',
+            '        apellido: datos.apellido || "Correccion",',
+            '        nombres: datos.nombres || "Auto",',
+            '        email: datos.email || "",',
+            '        celular: datos.celular || "2983555123",',
+            '        celular_emergencia: datos.celular_emergencia || "2983555222",',
+            '        fecha_nacimiento: datos.fecha_nacimiento || "1990-06-15",',
+            '        direccion: datos.direccion || "Calle Correccion 1",',
+            '        localidad: datos.localidad || "Tres Arroyos"',
+            '    };',
+            '    const r = await ctx.crear_pasajero_de_prueba(datos_envio);',
+            '    if (!r) throw new Error("Sin respuesta al crear pasajero");',
+            '    if (!r.exito) {',
+            '        const msg = r.error || "";',
+            '        if (!/ya existe/i.test(msg)) {',
+            '            throw new Error("No se pudo crear el pasajero: " + msg);',
+            '        }',
             '    }',
-            '    return false;',
+            '    return r;',
             '}',
-            '',
-            'function _aviso_esta_resuelto(texto) {',
         ],
     ],
 
     // ============================================================
-    // prueba_08: usar esperar_valor
+    // Aplicacion/ConfPlugin.js — quitar NOMBRE_DUENO_PRUEBA
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_08_venta_ligadura_dni_igual.js',
-        'descripcion' => 'prueba_08: bump a 1.5plugin.4i',
+        'archivo' => 'Aplicacion/ConfPlugin.js',
+        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4k',
         'buscar' => [
-            ' * @version 1.5plugin.4',
+            ' * @version 1.5plugin.4j',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4i',
+            ' * @version 1.5plugin.4k',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_08_venta_ligadura_dni_igual.js',
-        'descripcion' => 'prueba_08: importar esperar_valor',
+        'archivo' => 'Aplicacion/ConfPlugin.js',
+        'descripcion' => 'ConfPlugin.js: eliminar NOMBRE_DUENO_PRUEBA',
         'buscar' => [
-            '    abrir_modal_confirmacion, llenar_comprador, dni_unico',
-            '} from "./_helpers.js";',
+            '// Nombre de usuario del dueno de las terminales de prueba.',
+            '// Se usa para crear pasajeros de prueba antes de las ventas.',
+            '// Si el nombre de usuario del dueno es distinto del codigo,',
+            '// cambiá este valor.',
+            'export const NOMBRE_DUENO_PRUEBA = "carmen1";',
         ],
         'reemplazar' => [
-            '    abrir_modal_confirmacion, llenar_comprador, dni_unico,',
-            '    esperar_valor',
-            '} from "./_helpers.js";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_08_venta_ligadura_dni_igual.js',
-        'descripcion' => 'prueba_08: usar esperar_valor en lugar de leer una sola vez',
-        'buscar' => [
-            '        // Ahora el pasajero con el mismo DNI',
-            '        await ctx.escribir("#pasajero_dni_0", dni_compartido);',
-            '        await ctx.pausa(800);',
-            '',
-            '        const apellido_pas = await ctx.valor("#pasajero_apellido_0");',
-            '        const nombres_pas = await ctx.valor("#pasajero_nombres_0");',
-            '        const email_pas = await ctx.valor("#pasajero_email_0");',
-            '        const celular_pas = await ctx.valor("#pasajero_celular_0");',
-            '',
-            '        ctx.assert(apellido_pas === "Garcia", "Apellido no se copio: " + JSON.stringify(apellido_pas));',
-            '        ctx.assert(nombres_pas === "Maria", "Nombres no se copiaron: " + JSON.stringify(nombres_pas));',
-            '        ctx.assert(email_pas === "maria@test.local", "Email no se copio: " + JSON.stringify(email_pas));',
-            '        ctx.assert(celular_pas === "2983555111", "Celular no se copio: " + JSON.stringify(celular_pas));',
-        ],
-        'reemplazar' => [
-            '        // Ahora el pasajero con el mismo DNI. La copia ocurre cuando',
-            '        // vuelve el fetch del DNI del pasajero, que puede tardar.',
-            '        await ctx.escribir("#pasajero_dni_0", dni_compartido);',
-            '',
-            '        ctx.assert(await esperar_valor(ctx, "#pasajero_apellido_0", "Garcia", 5000),',
-            '            "Apellido no se copio");',
-            '        ctx.assert(await esperar_valor(ctx, "#pasajero_nombres_0", "Maria", 5000),',
-            '            "Nombres no se copiaron");',
-            '        ctx.assert(await esperar_valor(ctx, "#pasajero_email_0", "maria@test.local", 5000),',
-            '            "Email no se copio");',
-            '        ctx.assert(await esperar_valor(ctx, "#pasajero_celular_0", "2983555111", 5000),',
-            '            "Celular no se copio");',
-        ],
-    ],
-
-    // ============================================================
-    // prueba_09: usar esperar_valor
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_09_venta_comprador_lleno_pasajero_vacio.js',
-        'descripcion' => 'prueba_09: bump a 1.5plugin.4i',
-        'buscar' => [
-            ' * @version 1.5plugin.4',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4i',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_09_venta_comprador_lleno_pasajero_vacio.js',
-        'descripcion' => 'prueba_09: importar esperar_valor',
-        'buscar' => [
-            '    abrir_modal_confirmacion, llenar_pasajero, dni_unico',
-            '} from "./_helpers.js";',
-        ],
-        'reemplazar' => [
-            '    abrir_modal_confirmacion, llenar_pasajero, dni_unico,',
-            '    esperar_valor',
-            '} from "./_helpers.js";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_09_venta_comprador_lleno_pasajero_vacio.js',
-        'descripcion' => 'prueba_09: usar esperar_valor',
-        'buscar' => [
-            '        // Ahora el comprador con el mismo DNI',
-            '        await ctx.escribir("#comprador_dni", dni_compartido);',
-            '        await ctx.pausa(800);',
-            '',
-            '        const apellido_comp = await ctx.valor("#comprador_apellido");',
-            '        const nombres_comp = await ctx.valor("#comprador_nombres");',
-            '        const email_comp = await ctx.valor("#comprador_email");',
-            '        const celular_comp = await ctx.valor("#comprador_celular");',
-            '',
-            '        ctx.assert(apellido_comp === "Lopez", "Apellido no se copio: " + JSON.stringify(apellido_comp));',
-            '        ctx.assert(nombres_comp === "Juan", "Nombres no se copiaron: " + JSON.stringify(nombres_comp));',
-            '        ctx.assert(email_comp === "juan@test.local", "Email no se copio: " + JSON.stringify(email_comp));',
-            '        ctx.assert(celular_comp === "2983555222", "Celular no se copio: " + JSON.stringify(celular_comp));',
-        ],
-        'reemplazar' => [
-            '        // Ahora el comprador con el mismo DNI. La copia ocurre cuando',
-            '        // vuelve el fetch del DNI del comprador, que puede tardar.',
-            '        await ctx.escribir("#comprador_dni", dni_compartido);',
-            '',
-            '        ctx.assert(await esperar_valor(ctx, "#comprador_apellido", "Lopez", 5000),',
-            '            "Apellido no se copio");',
-            '        ctx.assert(await esperar_valor(ctx, "#comprador_nombres", "Juan", 5000),',
-            '            "Nombres no se copiaron");',
-            '        ctx.assert(await esperar_valor(ctx, "#comprador_email", "juan@test.local", 5000),',
-            '            "Email no se copio");',
-            '        ctx.assert(await esperar_valor(ctx, "#comprador_celular", "2983555222", 5000),',
-            '            "Celular no se copio");',
-        ],
-    ],
-
-    // ============================================================
-    // prueba_11: usar esperar_valor y esperar_valor_vacio
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_11_venta_correccion_dni_pasajero.js',
-        'descripcion' => 'prueba_11: bump a 1.5plugin.4i',
-        'buscar' => [
-            ' * @version 1.5plugin.4',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4i',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_11_venta_correccion_dni_pasajero.js',
-        'descripcion' => 'prueba_11: importar esperar_valor y esperar_valor_vacio',
-        'buscar' => [
-            '    abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico',
-            '} from "./_helpers.js";',
-        ],
-        'reemplazar' => [
-            '    abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico,',
-            '    esperar_valor, esperar_valor_vacio',
-            '} from "./_helpers.js";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_11_venta_correccion_dni_pasajero.js',
-        'descripcion' => 'prueba_11: usar esperar_valor y esperar_valor_vacio',
-        'buscar' => [
-            '        // Escribir el DNI registrado',
-            '        await ctx.escribir("#pasajero_dni_0", dni_registrado);',
-            '        await ctx.pausa(800);',
-            '',
-            '        const apellido = await ctx.valor("#pasajero_apellido_0");',
-            '        ctx.assert(apellido === "Correccion", "No se autocompleto: " + JSON.stringify(apellido));',
-            '',
-            '        // Cambiar por un DNI no registrado',
-            '        const dni_nuevo = dni_unico();',
-            '        await ctx.escribir("#pasajero_dni_0", dni_nuevo);',
-            '        await ctx.pausa(800);',
-            '',
-            '        const apellido_limpiado = await ctx.valor("#pasajero_apellido_0");',
-            '        ctx.assert(apellido_limpiado === "" || apellido_limpiado === null,',
-            '            "El apellido no se limpio: " + JSON.stringify(apellido_limpiado));',
-        ],
-        'reemplazar' => [
-            '        // Escribir el DNI registrado. La autocompletada ocurre cuando',
-            '        // vuelve el fetch, que puede tardar.',
-            '        await ctx.escribir("#pasajero_dni_0", dni_registrado);',
-            '        ctx.assert(await esperar_valor(ctx, "#pasajero_apellido_0", "Correccion", 5000),',
-            '            "No se autocompleto el apellido del pasajero");',
-            '',
-            '        // Cambiar por un DNI no registrado. El piloto limpia los',
-            '        // campos cuando vuelve el fetch del DNI nuevo.',
-            '        const dni_nuevo = dni_unico();',
-            '        await ctx.escribir("#pasajero_dni_0", dni_nuevo);',
-            '        ctx.assert(await esperar_valor_vacio(ctx, "#pasajero_apellido_0", 5000),',
-            '            "El apellido del pasajero no se limpio");',
-        ],
-    ],
-
-    // ============================================================
-    // prueba_12: usar esperar_valor y esperar_valor_vacio
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_12_venta_correccion_dni_comprador.js',
-        'descripcion' => 'prueba_12: bump a 1.5plugin.4i',
-        'buscar' => [
-            ' * @version 1.5plugin.4',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4i',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_12_venta_correccion_dni_comprador.js',
-        'descripcion' => 'prueba_12: importar esperar_valor y esperar_valor_vacio',
-        'buscar' => [
-            '    abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico',
-            '} from "./_helpers.js";',
-        ],
-        'reemplazar' => [
-            '    abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico,',
-            '    esperar_valor, esperar_valor_vacio',
-            '} from "./_helpers.js";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_12_venta_correccion_dni_comprador.js',
-        'descripcion' => 'prueba_12: usar esperar_valor y esperar_valor_vacio',
-        'buscar' => [
-            '        // Escribir el DNI registrado en el comprador',
-            '        await ctx.escribir("#comprador_dni", dni_registrado);',
-            '        await ctx.pausa(800);',
-            '',
-            '        const apellido = await ctx.valor("#comprador_apellido");',
-            '        ctx.assert(apellido === "CompradorPrueba", "No se autocompleto: " + JSON.stringify(apellido));',
-            '',
-            '        // Cambiar por uno no registrado',
-            '        const dni_nuevo = dni_unico();',
-            '        await ctx.escribir("#comprador_dni", dni_nuevo);',
-            '        await ctx.pausa(800);',
-            '',
-            '        const apellido_limpiado = await ctx.valor("#comprador_apellido");',
-            '        ctx.assert(apellido_limpiado === "" || apellido_limpiado === null,',
-            '            "El apellido del comprador no se limpio: " + JSON.stringify(apellido_limpiado));',
-        ],
-        'reemplazar' => [
-            '        // Escribir el DNI registrado en el comprador. La',
-            '        // autocompletada ocurre cuando vuelve el fetch.',
-            '        await ctx.escribir("#comprador_dni", dni_registrado);',
-            '        ctx.assert(await esperar_valor(ctx, "#comprador_apellido", "CompradorPrueba", 5000),',
-            '            "No se autocompleto el apellido del comprador");',
-            '',
-            '        // Cambiar por uno no registrado. El piloto limpia los',
-            '        // campos cuando vuelve el fetch del DNI nuevo.',
-            '        const dni_nuevo = dni_unico();',
-            '        await ctx.escribir("#comprador_dni", dni_nuevo);',
-            '        ctx.assert(await esperar_valor_vacio(ctx, "#comprador_apellido", 5000),',
-            '            "El apellido del comprador no se limpio");',
+            '// El nombre de usuario del dueño de las terminales de prueba',
+            '// no se conoce de antemano. Para crear pasajeros de prueba se',
+            '// resuelve desde el page (`window.usuario_actual.dueno`), ver',
+            '// `ctx.crear_pasajero_de_prueba` en `servicio.js`.',
         ],
     ],
 
@@ -362,84 +225,168 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4i',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4k',
         'buscar' => [
-            ' * @version 1.5plugin.4h',
+            '    Conf.VERSION_APP = "1.5plugin.4j";',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4i',
+            '    Conf.VERSION_APP = "1.5plugin.4k";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4i',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4k',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4h";',
+            'export const VERSION_PLUGIN = "1.5plugin.4j";',
         ],
         'reemplazar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4i";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4i',
-        'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4h";',
-        ],
-        'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4i";',
+            'export const VERSION_PLUGIN = "1.5plugin.4k";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4i',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4k',
         'buscar' => [
-            ' * @version 1.5plugin.4h',
+            ' * @version 1.5plugin.4j',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4i',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4i',
-        'buscar' => [
-            ' * @version 1.5plugin.4h',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4i',
+            ' * @version 1.5plugin.4k',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4i',
+        'descripcion' => 'catalogo.js: bump a 1.5plugin.4k',
         'buscar' => [
-            ' * @version 1.5plugin.4h',
+            ' * @version 1.5plugin.4j',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4i',
+            ' * @version 1.5plugin.4k',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_04_venta_cuotas.js',
-        'descripcion' => 'prueba_04: bump a 1.5plugin.4i',
+        'descripcion' => 'prueba_04: bump a 1.5plugin.4k',
         'buscar' => [
-            ' * @version 1.5plugin.4h',
+            ' * @version 1.5plugin.4j',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4i',
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_08_venta_ligadura_dni_igual.js',
+        'descripcion' => 'prueba_08: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_09_venta_comprador_lleno_pasajero_vacio.js',
+        'descripcion' => 'prueba_09: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_10_venta_dni_duplicado.js',
+        'descripcion' => 'prueba_10: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_11_venta_correccion_dni_pasajero.js',
+        'descripcion' => 'prueba_11: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_12_venta_correccion_dni_comprador.js',
+        'descripcion' => 'prueba_12: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_13_venta_monto_mayor_total.js',
+        'descripcion' => 'prueba_13: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_14_venta_monto_cero.js',
+        'descripcion' => 'prueba_14: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_15_venta_sin_comprador.js',
+        'descripcion' => 'prueba_15: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_16_venta_cancelar_reabrir.js',
+        'descripcion' => 'prueba_16: bump a 1.5plugin.4k',
+        'buscar' => [
+            ' * @version 1.5plugin.4j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4k',
         ],
     ],
 
@@ -450,40 +397,42 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4i',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4k',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4h (verificar',
+            '**Última actualización de este prompt:** v1.5plugin.4j (limpieza',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4i (helpers',
-            '`esperar_valor` y `esperar_valor_vacio` que hacen polling',
-            'hasta que el valor del input sea el esperado. Usados en las',
-            '4 pruebas que dependen del fetch del DNI (ligadura x2,',
-            'corrección de DNI x2). Antes leían `ctx.valor` una sola vez',
-            'tras una pausa fija de 800 ms, y fallaban intermitentemente',
-            'cuando el fetch tardaba más).',
-            'Antes: v1.5plugin.4h (verificar',
+            '**Última actualización de este prompt:** v1.5plugin.4k (crear',
+            'pasajero de prueba sin nombre de dueño fijo:',
+            '`NOMBRE_DUENO_PRUEBA = "carmen1"` estaba mal, era el código',
+            'de acceso, no el nombre de usuario. El backend devolvía',
+            '"Dueño no encontrado". Ahora el dueño lo resuelve el page',
+            '(`window.usuario_actual.dueno`) vía `chrome.scripting.executeScript`',
+            'en MAIN world. Se eliminó `NOMBRE_DUENO_PRUEBA` de',
+            '`ConfPlugin.js`).',
+            'Antes: v1.5plugin.4j (limpieza',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion sobre polling de valores',
+        'descripcion' => 'prompt plugin: leccion sobre no adivinar datos',
         'buscar' => [
-            '- **Preferir verificar por backend antes que por DOM.** Cuando',
+            '- **Las pruebas que cancelan el formulario de venta deben',
         ],
         'reemplazar' => [
-            '- **Nunca leer un valor después de un fetch con una pausa',
-            '  fija.** El fetch del DNI en el piloto tarda un tiempo',
-            '  variable (JIT, carga del servidor, red). Leer después de',
-            '  una pausa de 800 ms falla intermitentemente. Usar polling',
-            '  (`esperar_valor`, `esperar_valor_vacio`) hasta que el valor',
-            '  sea el esperado, con timeout de 5 s. Bug en v1.5plugin.4h:',
-            '  las pruebas de ligadura y de corrección de DNI leían',
-            '  `ctx.valor` una sola vez y fallaban intermitentemente.',
-            '  Fix en v1.5plugin.4i.',
-            '- **Preferir verificar por backend antes que por DOM.** Cuando',
+            '- **No adivinar nombres de usuario ni datos del entorno.** El',
+            '  plugin no conoce el nombre de usuario del dueño de las',
+            '  terminales de prueba. Lo que el usuario pasa son los',
+            '  **códigos de acceso**, no los nombres de usuario. Si un',
+            '  helper necesita un dato del page, pedirlo desde el page',
+            '  (`window.usuario_actual`, `window.viaje_seleccionado`,',
+            '  etc.) vía `chrome.scripting.executeScript` en MAIN world,',
+            '  no hardcodearlo en `ConfPlugin.js`. Bug en v1.5plugin.4j:',
+            '  `NOMBRE_DUENO_PRUEBA = "carmen1"` (código de acceso, no',
+            '  nombre de usuario). Fix en v1.5plugin.4k.',
+            '- **Las pruebas que cancelan el formulario de venta deben',
         ],
     ],
 

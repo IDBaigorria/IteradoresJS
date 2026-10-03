@@ -1,12 +1,12 @@
 /**
  * Cancelar el form de venta y reabrir. Los campos deben estar limpios.
- * @version 1.5plugin.4
+ * @version 1.5plugin.4k
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
     abrir_modal_confirmacion, llenar_comprador,
-    datos_comprador_aleatorio
+    datos_comprador_aleatorio, cerrar_form_venta_y_liberar
 } from "./_helpers.js";
 
 export const prueba = {
@@ -37,7 +37,7 @@ export const prueba = {
         ctx.assert(dni_comp === "" || dni_comp === null,
             "El DNI del comprador no se limpio: " + JSON.stringify(dni_comp));
 
-        // Cerrar
-        await ctx.clic("#cancelar_venta_modal");
+        // Cerrar y liberar los asientos.
+        await cerrar_form_venta_y_liberar(ctx);
     }
 };

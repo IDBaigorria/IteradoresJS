@@ -242,7 +242,22 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4i (helpers
+**Última actualización de este prompt:** v1.5plugin.4k (crear
+pasajero de prueba sin nombre de dueño fijo:
+`NOMBRE_DUENO_PRUEBA = "carmen1"` estaba mal, era el código
+de acceso, no el nombre de usuario. El backend devolvía
+"Dueño no encontrado". Ahora el dueño lo resuelve el page
+(`window.usuario_actual.dueno`) vía `chrome.scripting.executeScript`
+en MAIN world. Se eliminó `NOMBRE_DUENO_PRUEBA` de
+`ConfPlugin.js`).
+Antes: v1.5plugin.4j (limpieza
+al final de las pruebas: helper `cerrar_form_venta_y_liberar`
+que cierra el formulario de venta y libera los asientos
+seleccionados con el botón "Reiniciar selección". El botón
+usa `confirm()` nativo; se sobrescribe con
+`chrome.scripting.executeScript` en MAIN world por el tiempo
+del click).
+Antes: v1.5plugin.4i (helpers
 `esperar_valor` y `esperar_valor_vacio` que hacen polling
 hasta que el valor del input sea el esperado. Usados en las
 4 pruebas que dependen del fetch del DNI (ligadura x2,
@@ -441,6 +456,26 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **No adivinar nombres de usuario ni datos del entorno.** El
+  plugin no conoce el nombre de usuario del dueño de las
+  terminales de prueba. Lo que el usuario pasa son los
+  **códigos de acceso**, no los nombres de usuario. Si un
+  helper necesita un dato del page, pedirlo desde el page
+  (`window.usuario_actual`, `window.viaje_seleccionado`,
+  etc.) vía `chrome.scripting.executeScript` en MAIN world,
+  no hardcodearlo en `ConfPlugin.js`. Bug en v1.5plugin.4j:
+  `NOMBRE_DUENO_PRUEBA = "carmen1"` (código de acceso, no
+  nombre de usuario). Fix en v1.5plugin.4k.
+- **Las pruebas que cancelan el formulario de venta deben
+  liberar los asientos.** El botón "Cancelar" del piloto
+  oculta el form pero no deselecciona; los asientos quedan
+  seleccionados. Después de cerrar, apretar "Reiniciar
+  selección". Ese botón usa `confirm()` nativo, que las
+  extensiones no manejan: sobrescribir `window.confirm` con
+  `() => true` por el tiempo del click usando
+  `chrome.scripting.executeScript` en MAIN world. Bug en
+  v1.5plugin.4i: las pruebas 08-16 dejaban asientos
+  seleccionados al terminar. Fix en v1.5plugin.4j.
 - **Nunca leer un valor después de un fetch con una pausa
   fija.** El fetch del DNI en el piloto tarda un tiempo
   variable (JIT, carga del servidor, red). Leer después de

@@ -2,13 +2,13 @@
  * Ligadura comprador-pasajero: mismo DNI.
  * El comprador tiene datos; al poner el mismo DNI en el pasajero,
  * los campos comunes deben copiarse. Caso reportado del bug 2.
- * @version 1.5plugin.4i
+ * @version 1.5plugin.4k
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
     abrir_modal_confirmacion, llenar_comprador, dni_unico,
-    esperar_valor
+    esperar_valor, cerrar_form_venta_y_liberar
 } from "./_helpers.js";
 
 export const prueba = {
@@ -45,7 +45,7 @@ export const prueba = {
         ctx.assert(await esperar_valor(ctx, "#pasajero_celular_0", "2983555111", 5000),
             "Celular no se copio");
 
-        // Cerrar sin confirmar
-        await ctx.clic("#cancelar_venta_modal");
+        // Cerrar sin confirmar y liberar los asientos seleccionados.
+        await cerrar_form_venta_y_liberar(ctx);
     }
 };

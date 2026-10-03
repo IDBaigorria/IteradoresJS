@@ -2,13 +2,13 @@
  * Correccion de DNI del pasajero:
  * DNI registrado -> se autocompleta. Despues se cambia por uno
  * no registrado -> se limpian los campos.
- * @version 1.5plugin.4i
+ * @version 1.5plugin.4k
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
     abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico,
-    esperar_valor, esperar_valor_vacio
+    esperar_valor, esperar_valor_vacio, cerrar_form_venta_y_liberar
 } from "./_helpers.js";
 
 export const prueba = {
@@ -41,6 +41,6 @@ export const prueba = {
         ctx.assert(await esperar_valor_vacio(ctx, "#pasajero_apellido_0", 5000),
             "El apellido del pasajero no se limpio");
 
-        await ctx.clic("#cancelar_venta_modal");
+        await cerrar_form_venta_y_liberar(ctx);
     }
 };

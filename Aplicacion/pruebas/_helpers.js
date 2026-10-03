@@ -3,10 +3,10 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4i
+ * @version 1.5plugin.4k
  */
 
-import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
+import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
 
 // ============================================================
 // Generadores de datos unicos
@@ -340,6 +340,44 @@ export async function obtener_id_ultima_venta(ctx) {
     return r.id_venta;
 }
 
+// Espera a que no haya asientos con la clase
+// `seat-seleccionado-propio` en el croquis.
+export async function esperar_sin_asientos_propios(ctx, timeout_ms = 8000) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout_ms) {
+        const propios = await ctx.obtener_atributos(".seat.seat-seleccionado-propio", "data-numero");
+        if (propios.length === 0) return true;
+        await ctx.pausa(200);
+    }
+    return false;
+}
+
+// Cierra el formulario de confirmacion de venta y libera los
+// asientos que quedaron seleccionados. El boton "Cancelar"
+// del piloto solo oculta el form; no deselecciona. Este
+// helper aprieta "Reiniciar seleccion" para dejar el croquis
+// limpio, como haria el usuario a mano.
+export async function cerrar_form_venta_y_liberar(ctx) {
+    // Cerrar el formulario.
+    await ctx.clic("#cancelar_venta_modal");
+    await ctx.pausa(400);
+
+    // Si no hay asientos propios, listo.
+    const propios = await ctx.obtener_atributos(".seat.seat-seleccionado-propio", "data-numero");
+    if (propios.length === 0) return;
+
+    // Apretar "Reiniciar seleccion" via main world (sobrescribe
+    // confirm, que el piloto usa).
+    const r = await ctx.liberar_asientos_propios();
+    if (!r || !r.exito) {
+        console.warn("No se pudieron liberar los asientos propios:", r && r.error ? r.error : "(sin detalle)");
+        return;
+    }
+
+    // Esperar a que el croquis se actualice.
+    await esperar_sin_asientos_propios(ctx, 8000);
+}
+
 // Pide el detalle de una venta por POST (`ventas/obtener`) y
 // devuelve el objeto `venta` del JSON. No depende del DOM,
 // asi que funciona aunque no estemos en la pestaña Vendidos.
@@ -381,9 +419,10 @@ export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prue
 }
 
 export async function crear_pasajero_de_prueba(ctx, dni, datos = {}) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "pasajeros/crear",
-        nombre_dueno: NOMBRE_DUENO_PRUEBA,
+    // El dueño lo resuelve el page (`window.usuario_actual.dueno`
+    // para terminal). El plugin no conoce el nombre de usuario
+    // del dueño de las terminales de prueba.
+    const datos_envio = {
         dni,
         apellido: datos.apellido || "Correccion",
         nombres: datos.nombres || "Auto",
@@ -393,13 +432,14 @@ export async function crear_pasajero_de_prueba(ctx, dni, datos = {}) {
         fecha_nacimiento: datos.fecha_nacimiento || "1990-06-15",
         direccion: datos.direccion || "Calle Correccion 1",
         localidad: datos.localidad || "Tres Arroyos"
-    });
-    if (!r || !r.exito) throw new Error("Error de red al crear pasajero: " + (r && r.error ? r.error : ""));
-    if (!r.json || !r.json.exito) {
-        const msg = r.json && r.json.error ? r.json.error : "";
+    };
+    const r = await ctx.crear_pasajero_de_prueba(datos_envio);
+    if (!r) throw new Error("Sin respuesta al crear pasajero");
+    if (!r.exito) {
+        const msg = r.error || "";
         if (!/ya existe/i.test(msg)) {
             throw new Error("No se pudo crear el pasajero: " + msg);
         }
     }
-    return r.json;
+    return r;
 }

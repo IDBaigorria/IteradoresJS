@@ -1,13 +1,14 @@
 /**
  * Monto cero.
- * @version 1.5plugin.4
+ * @version 1.5plugin.4k
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
     abrir_modal_confirmacion, llenar_comprador, llenar_pasajero,
     setear_metodo_y_cuotas, setear_monto_pagado,
-    datos_comprador_aleatorio, datos_pasajero_aleatorio
+    datos_comprador_aleatorio, datos_pasajero_aleatorio,
+    cerrar_form_venta_y_liberar
 } from "./_helpers.js";
 
 export const prueba = {
@@ -35,6 +36,6 @@ export const prueba = {
         ctx.assert(aviso && (aviso.includes("valido") || aviso.includes("mayor") || aviso.includes("monto")),
             "No se detecto el rechazo por monto cero: " + JSON.stringify(aviso));
 
-        await ctx.clic("#cancelar_venta_modal");
+        await cerrar_form_venta_y_liberar(ctx);
     }
 };
