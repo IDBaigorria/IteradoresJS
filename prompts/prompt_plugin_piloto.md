@@ -242,7 +242,14 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4h (verificar
+**Última actualización de este prompt:** v1.5plugin.4i (helpers
+`esperar_valor` y `esperar_valor_vacio` que hacen polling
+hasta que el valor del input sea el esperado. Usados en las
+4 pruebas que dependen del fetch del DNI (ligadura x2,
+corrección de DNI x2). Antes leían `ctx.valor` una sola vez
+tras una pausa fija de 800 ms, y fallaban intermitentemente
+cuando el fetch tardaba más).
+Antes: v1.5plugin.4h (verificar
 cupones por backend, no por DOM. La prueba `venta_cuotas`
 leía la tarjeta de la venta en el DOM, pero como en v4f
 dejamos de navegar a Vendidos, la tarjeta ya no está en el
@@ -434,6 +441,15 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **Nunca leer un valor después de un fetch con una pausa
+  fija.** El fetch del DNI en el piloto tarda un tiempo
+  variable (JIT, carga del servidor, red). Leer después de
+  una pausa de 800 ms falla intermitentemente. Usar polling
+  (`esperar_valor`, `esperar_valor_vacio`) hasta que el valor
+  sea el esperado, con timeout de 5 s. Bug en v1.5plugin.4h:
+  las pruebas de ligadura y de corrección de DNI leían
+  `ctx.valor` una sola vez y fallaban intermitentemente.
+  Fix en v1.5plugin.4i.
 - **Preferir verificar por backend antes que por DOM.** Cuando
   una prueba necesita confirmar algo del estado de la app
   (por ejemplo, que una venta tiene cupones pendientes),

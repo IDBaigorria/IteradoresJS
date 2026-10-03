@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4h
+ * @version 1.5plugin.4i
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -211,6 +211,30 @@ const _TEXTOS_NO_REGISTRADO = ["no registrado", "complete los datos"];
 // _calcular_antiguedad_datos: "Datos actualizados hoy / ayer /
 // hace N dias / meses / anios").
 const _TEXTOS_REGISTRADO = ["actualizados", "actualizado"];
+
+// Espera a que el valor de un input sea exactamente el esperado.
+// Util cuando el valor se completa por un fetch asincrono y no
+// sabemos cuanto va a tardar.
+export async function esperar_valor(ctx, sel, valor_esperado, timeout_ms = 5000) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout_ms) {
+        const v = await ctx.valor(sel);
+        if (v === valor_esperado) return true;
+        await ctx.pausa(150);
+    }
+    return false;
+}
+
+// Espera a que el valor de un input quede vacio (o null).
+export async function esperar_valor_vacio(ctx, sel, timeout_ms = 5000) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout_ms) {
+        const v = await ctx.valor(sel);
+        if (v === "" || v === null) return true;
+        await ctx.pausa(150);
+    }
+    return false;
+}
 
 function _aviso_esta_resuelto(texto) {
     if (!texto) return false;

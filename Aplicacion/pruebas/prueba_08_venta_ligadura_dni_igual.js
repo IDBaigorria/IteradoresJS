@@ -2,12 +2,13 @@
  * Ligadura comprador-pasajero: mismo DNI.
  * El comprador tiene datos; al poner el mismo DNI en el pasajero,
  * los campos comunes deben copiarse. Caso reportado del bug 2.
- * @version 1.5plugin.4
+ * @version 1.5plugin.4i
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
-    abrir_modal_confirmacion, llenar_comprador, dni_unico
+    abrir_modal_confirmacion, llenar_comprador, dni_unico,
+    esperar_valor
 } from "./_helpers.js";
 
 export const prueba = {
@@ -31,19 +32,18 @@ export const prueba = {
             celular: "2983555111"
         });
 
-        // Ahora el pasajero con el mismo DNI
+        // Ahora el pasajero con el mismo DNI. La copia ocurre cuando
+        // vuelve el fetch del DNI del pasajero, que puede tardar.
         await ctx.escribir("#pasajero_dni_0", dni_compartido);
-        await ctx.pausa(800);
 
-        const apellido_pas = await ctx.valor("#pasajero_apellido_0");
-        const nombres_pas = await ctx.valor("#pasajero_nombres_0");
-        const email_pas = await ctx.valor("#pasajero_email_0");
-        const celular_pas = await ctx.valor("#pasajero_celular_0");
-
-        ctx.assert(apellido_pas === "Garcia", "Apellido no se copio: " + JSON.stringify(apellido_pas));
-        ctx.assert(nombres_pas === "Maria", "Nombres no se copiaron: " + JSON.stringify(nombres_pas));
-        ctx.assert(email_pas === "maria@test.local", "Email no se copio: " + JSON.stringify(email_pas));
-        ctx.assert(celular_pas === "2983555111", "Celular no se copio: " + JSON.stringify(celular_pas));
+        ctx.assert(await esperar_valor(ctx, "#pasajero_apellido_0", "Garcia", 5000),
+            "Apellido no se copio");
+        ctx.assert(await esperar_valor(ctx, "#pasajero_nombres_0", "Maria", 5000),
+            "Nombres no se copiaron");
+        ctx.assert(await esperar_valor(ctx, "#pasajero_email_0", "maria@test.local", 5000),
+            "Email no se copio");
+        ctx.assert(await esperar_valor(ctx, "#pasajero_celular_0", "2983555111", 5000),
+            "Celular no se copio");
 
         // Cerrar sin confirmar
         await ctx.clic("#cancelar_venta_modal");

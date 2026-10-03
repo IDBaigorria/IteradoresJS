@@ -2,12 +2,13 @@
  * Correccion de DNI del pasajero:
  * DNI registrado -> se autocompleta. Despues se cambia por uno
  * no registrado -> se limpian los campos.
- * @version 1.5plugin.4
+ * @version 1.5plugin.4i
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
-    abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico
+    abrir_modal_confirmacion, crear_pasajero_de_prueba, dni_unico,
+    esperar_valor, esperar_valor_vacio
 } from "./_helpers.js";
 
 export const prueba = {
@@ -27,21 +28,18 @@ export const prueba = {
         await seleccionar_n_asientos(ctx, 1);
         await abrir_modal_confirmacion(ctx);
 
-        // Escribir el DNI registrado
+        // Escribir el DNI registrado. La autocompletada ocurre cuando
+        // vuelve el fetch, que puede tardar.
         await ctx.escribir("#pasajero_dni_0", dni_registrado);
-        await ctx.pausa(800);
+        ctx.assert(await esperar_valor(ctx, "#pasajero_apellido_0", "Correccion", 5000),
+            "No se autocompleto el apellido del pasajero");
 
-        const apellido = await ctx.valor("#pasajero_apellido_0");
-        ctx.assert(apellido === "Correccion", "No se autocompleto: " + JSON.stringify(apellido));
-
-        // Cambiar por un DNI no registrado
+        // Cambiar por un DNI no registrado. El piloto limpia los
+        // campos cuando vuelve el fetch del DNI nuevo.
         const dni_nuevo = dni_unico();
         await ctx.escribir("#pasajero_dni_0", dni_nuevo);
-        await ctx.pausa(800);
-
-        const apellido_limpiado = await ctx.valor("#pasajero_apellido_0");
-        ctx.assert(apellido_limpiado === "" || apellido_limpiado === null,
-            "El apellido no se limpio: " + JSON.stringify(apellido_limpiado));
+        ctx.assert(await esperar_valor_vacio(ctx, "#pasajero_apellido_0", 5000),
+            "El apellido del pasajero no se limpio");
 
         await ctx.clic("#cancelar_venta_modal");
     }

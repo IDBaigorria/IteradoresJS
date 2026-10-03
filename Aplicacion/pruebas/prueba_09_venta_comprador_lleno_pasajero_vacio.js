@@ -2,12 +2,13 @@
  * Ligadura inversa: el pasajero se llena primero.
  * Al poner el mismo DNI en el comprador, los datos comunes
  * deben copiarse pasajero -> comprador.
- * @version 1.5plugin.4
+ * @version 1.5plugin.4i
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,
     abrir_primer_micro_con_libres, seleccionar_n_asientos,
-    abrir_modal_confirmacion, llenar_pasajero, dni_unico
+    abrir_modal_confirmacion, llenar_pasajero, dni_unico,
+    esperar_valor
 } from "./_helpers.js";
 
 export const prueba = {
@@ -35,19 +36,18 @@ export const prueba = {
             localidad: "Tres Arroyos"
         });
 
-        // Ahora el comprador con el mismo DNI
+        // Ahora el comprador con el mismo DNI. La copia ocurre cuando
+        // vuelve el fetch del DNI del comprador, que puede tardar.
         await ctx.escribir("#comprador_dni", dni_compartido);
-        await ctx.pausa(800);
 
-        const apellido_comp = await ctx.valor("#comprador_apellido");
-        const nombres_comp = await ctx.valor("#comprador_nombres");
-        const email_comp = await ctx.valor("#comprador_email");
-        const celular_comp = await ctx.valor("#comprador_celular");
-
-        ctx.assert(apellido_comp === "Lopez", "Apellido no se copio: " + JSON.stringify(apellido_comp));
-        ctx.assert(nombres_comp === "Juan", "Nombres no se copiaron: " + JSON.stringify(nombres_comp));
-        ctx.assert(email_comp === "juan@test.local", "Email no se copio: " + JSON.stringify(email_comp));
-        ctx.assert(celular_comp === "2983555222", "Celular no se copio: " + JSON.stringify(celular_comp));
+        ctx.assert(await esperar_valor(ctx, "#comprador_apellido", "Lopez", 5000),
+            "Apellido no se copio");
+        ctx.assert(await esperar_valor(ctx, "#comprador_nombres", "Juan", 5000),
+            "Nombres no se copiaron");
+        ctx.assert(await esperar_valor(ctx, "#comprador_email", "juan@test.local", 5000),
+            "Email no se copio");
+        ctx.assert(await esperar_valor(ctx, "#comprador_celular", "2983555222", 5000),
+            "Celular no se copio");
 
         await ctx.clic("#cancelar_venta_modal");
     }
