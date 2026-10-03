@@ -2,17 +2,15 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4d — robustez de seleccion de asientos.
+ * Tanda v1.5plugin.4e — reintento defensivo en seleccion de asientos.
  *
- * Problema: si el croquis del piloto no se actualizo (bug del piloto,
- * corregido en v1.5piloto.74d), `seleccionar_n_asientos` elegia
- * asientos que el frontend mostraba como "seleccionado" o "vendido"
- * aunque en el backend ya estuvieran libres. El clic no hacia nada y
- * la prueba fallaba con "No aparecio el boton Vender".
- *
- * Fix: `seleccionar_n_asientos` espera a que aparezcan N asientos con
- * la clase `seat-libre` (polling con timeout de 10s), y antes de cada
- * clic verifica que el asiento este libre. Si no, espera hasta 8s mas.
+ * Problema: `seleccionar_n_asientos` fallaba intermitentemente con
+ * "El asiento N no quedo seleccionado". Causa raiz: condicion de
+ * carrera en el piloto entre el polling de asientos y el clic
+ * (corregida en piloto v1.5piloto.74e). Igual, el plugin debe ser
+ * robusto: si por algun motivo el asiento no queda seleccionado al
+ * primer intento, reintentar (con verificacion de "ya esta
+ * seleccionado" para no deseleccionar).
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -38,99 +36,20 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4d',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4e',
         'buscar' => [
-            ' * @version 1.5plugin.4c',
+            ' * @version 1.5plugin.4d',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: seleccionar_n_asientos con polling de seat-libre',
+        'descripcion' => '_helpers.js: seleccionar_n_asientos con reintentos',
         'buscar' => [
-            '// Espera a que un asiento tenga la clase "seat-seleccionado-propio".',
-            '// El piloto hace un fetch al backend por cada clic, que puede',
-            '// tardar mas de lo que dura un ciclo de UI. Sin esta espera,',
-            '// clics consecutivos pueden pisarse.',
-            'async function esperar_asiento_seleccionado(ctx, numero, timeout_ms = 5000) {',
-            '    const inicio = Date.now();',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        const clases = await ctx.obtener_atributos(`.seat[data-numero="${numero}"]`, "class");',
-            '        if (clases.length > 0 && String(clases[0]).indexOf("seat-seleccionado-propio") !== -1) {',
-            '            return true;',
-            '        }',
-            '        await ctx.pausa(150);',
-            '    }',
-            '    return false;',
-            '}',
-            '',
-            'export async function seleccionar_n_asientos(ctx, n) {',
-            '    const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");',
-            '    if (libres.length < n) {',
-            '        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);',
-            '    }',
-            '    const elegidos = libres.slice(0, n);',
-            '    for (const numero of elegidos) {',
-            '        await ctx.clic(`.seat[data-numero="${numero}"]`);',
-            '        const ok = await esperar_asiento_seleccionado(ctx, numero, 5000);',
-            '        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado");',
-            '    }',
-            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
-            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
-            '    return elegidos;',
-            '}',
-        ],
-        'reemplazar' => [
-            '// Espera a que un asiento tenga la clase "seat-seleccionado-propio".',
-            '// El piloto hace un fetch al backend por cada clic, que puede',
-            '// tardar mas de lo que dura un ciclo de UI. Sin esta espera,',
-            '// clics consecutivos pueden pisarse.',
-            'async function esperar_asiento_seleccionado(ctx, numero, timeout_ms = 5000) {',
-            '    const inicio = Date.now();',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        const clases = await ctx.obtener_atributos(`.seat[data-numero="${numero}"]`, "class");',
-            '        if (clases.length > 0 && String(clases[0]).indexOf("seat-seleccionado-propio") !== -1) {',
-            '            return true;',
-            '        }',
-            '        await ctx.pausa(150);',
-            '    }',
-            '    return false;',
-            '}',
-            '',
-            '// Espera a que un asiento tenga la clase "seat-libre". Se usa antes',
-            '// de hacer clic: si el croquis del piloto quedo desactualizado',
-            '// (por ejemplo, tras una cancelacion reciente), el asiento puede',
-            '// aparecer como "seleccionado" o "vendido" aunque en el backend',
-            '// ya este libre.',
-            'async function esperar_asiento_libre(ctx, numero, timeout_ms = 8000) {',
-            '    const inicio = Date.now();',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        const clases = await ctx.obtener_atributos(`.seat[data-numero="${numero}"]`, "class");',
-            '        if (clases.length > 0 && String(clases[0]).indexOf("seat-libre") !== -1) {',
-            '            return true;',
-            '        }',
-            '        await ctx.pausa(200);',
-            '    }',
-            '    return false;',
-            '}',
-            '',
-            '// Espera a que la grilla tenga al menos N asientos con la clase',
-            '// "seat-libre". Tolerante a que el croquis se este actualizando.',
-            'async function esperar_n_asientos_libres(ctx, n, timeout_ms = 10000) {',
-            '    const inicio = Date.now();',
-            '    let libres = [];',
-            '    while (Date.now() - inicio < timeout_ms) {',
-            '        libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");',
-            '        if (libres.length >= n) return libres;',
-            '        await ctx.pausa(300);',
-            '    }',
-            '    return libres;',
-            '}',
-            '',
             'export async function seleccionar_n_asientos(ctx, n) {',
             '    // Esperar a que aparezcan N asientos libres (puede tardar si el',
             '    // croquis no se actualizo tras una cancelacion previa).',
@@ -155,6 +74,51 @@ $cambios = [
             '    return elegidos;',
             '}',
         ],
+        'reemplazar' => [
+            '// Selecciona un asiento con reintentos. A veces el primer clic no',
+            '// queda registrado en el DOM (condicion de carrera con el polling',
+            '// del piloto, corregida en piloto v1.5piloto.74e, pero igual el',
+            '// plugin debe ser robusto). Reintenta hasta `max_intentos` veces.',
+            '// Verifica primero si ya esta seleccionado para no deseleccionarlo.',
+            'async function seleccionar_un_asiento_con_reintentos(ctx, numero, max_intentos = 3) {',
+            '    for (let intento = 0; intento < max_intentos; intento++) {',
+            '        // Si ya quedo seleccionado de un intento anterior, listo.',
+            '        const ya_seleccionado = await esperar_asiento_seleccionado(ctx, numero, 500);',
+            '        if (ya_seleccionado) return true;',
+            '',
+            '        // Verificar que el asiento este libre antes de hacer clic.',
+            '        const libre = await esperar_asiento_libre(ctx, numero, 5000);',
+            '        if (!libre) {',
+            '            // El croquis todavia no se actualizo o el asiento esta en',
+            '            // otro estado. Esperar un poco y reintentar.',
+            '            await ctx.pausa(600);',
+            '            continue;',
+            '        }',
+            '',
+            '        await ctx.clic(`.seat[data-numero="${numero}"]`);',
+            '        const ok = await esperar_asiento_seleccionado(ctx, numero, 4000);',
+            '        if (ok) return true;',
+            '    }',
+            '    return false;',
+            '}',
+            '',
+            'export async function seleccionar_n_asientos(ctx, n) {',
+            '    // Esperar a que aparezcan N asientos libres (puede tardar si el',
+            '    // croquis no se actualizo tras una cancelacion previa).',
+            '    const libres = await esperar_n_asientos_libres(ctx, n, 10000);',
+            '    if (libres.length < n) {',
+            '        throw new Error("Solo hay " + libres.length + " asientos libres, se necesitan " + n);',
+            '    }',
+            '    const elegidos = libres.slice(0, n);',
+            '    for (const numero of elegidos) {',
+            '        const ok = await seleccionar_un_asiento_con_reintentos(ctx, numero, 3);',
+            '        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado tras 3 intentos");',
+            '    }',
+            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
+            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
+            '    return elegidos;',
+            '}',
+        ],
     ],
 
     // ============================================================
@@ -164,72 +128,72 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4d',
+        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4e',
         'buscar' => [
-            ' * @version 1.5plugin.4c',
-        ],
-        'reemplazar' => [
             ' * @version 1.5plugin.4d',
         ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4e',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4d',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4e',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4c";',
-        ],
-        'reemplazar' => [
             '    Conf.VERSION_APP = "1.5plugin.4d";',
         ],
+        'reemplazar' => [
+            '    Conf.VERSION_APP = "1.5plugin.4e";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4d',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4e',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4c";',
+            'export const VERSION_PLUGIN = "1.5plugin.4d";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4d";',
+            'export const VERSION_PLUGIN = "1.5plugin.4e";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4d',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4e',
         'buscar' => [
-            ' * @version 1.5plugin.4c',
+            ' * @version 1.5plugin.4d',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4d',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4e',
         'buscar' => [
-            ' * @version 1.5plugin.4c',
+            ' * @version 1.5plugin.4d',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4d',
+        'descripcion' => 'catalogo.js: bump a 1.5plugin.4e',
         'buscar' => [
-            ' * @version 1.5plugin.4c',
+            ' * @version 1.5plugin.4d',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4d',
+            ' * @version 1.5plugin.4e',
         ],
     ],
 
@@ -240,37 +204,36 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4d',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4e',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4c (fix de',
+            '**Última actualización de este prompt:** v1.5plugin.4d (robustez',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4d (robustez',
-            'de `seleccionar_n_asientos`: espera a que aparezcan N asientos',
-            'con `seat-libre` antes de elegir, y verifica que cada asiento',
-            'esté libre antes de hacer clic. Tolerante al bug del piloto',
-            'donde el croquis tarda en actualizarse tras cancelar una venta',
-            '— corregido en piloto v1.5piloto.74d, pero el plugin debe ser',
-            'robusto igual). Antes: v1.5plugin.4c (fix de',
+            '**Última actualización de este prompt:** v1.5plugin.4e (reintento',
+            'defensivo en `seleccionar_un_asiento_con_reintentos`: si un',
+            'clic no queda registrado en el DOM al primer intento,',
+            'reintenta hasta 3 veces. Verifica primero si ya está',
+            'seleccionado, para no deseleccionar. Causa raíz del fallo:',
+            'condición de carrera en el piloto entre el polling de asientos',
+            'y el clic (corregida en piloto v1.5piloto.74e). Antes: v1.5plugin.4d (robustez',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion de robustez vs bug del piloto',
+        'descripcion' => 'prompt plugin: leccion de reintentos',
         'buscar' => [
-            '- **Evitar timeouts fijos entre acciones del piloto.** El piloto',
+            '- **El plugin debe ser robusto ante bugs del piloto.** Cuando',
         ],
         'reemplazar' => [
+            '- **Cuando un clic puede perderse por condiciones de carrera**',
+            '  **del piloto, usar reintentos con verificación previa.** El',
+            '  bug del polling de asientos (v1.5piloto.74e) hacía que un',
+            '  asiento recién seleccionado volviera a verse libre. Si el',
+            '  clic se da por perdido, reintentar; pero antes verificar si',
+            '  ya está seleccionado, para no deseleccionar por accidente.',
             '- **El plugin debe ser robusto ante bugs del piloto.** Cuando',
-            '  el piloto tiene un bug (por ejemplo, el croquis no se',
-            '  actualiza tras cancelar una venta — corregido en',
-            '  piloto v1.5piloto.74d), las pruebas igual deben poder',
-            '  esperar a que el estado se estabilice antes de fallar.',
-            '  Los helpers usan polling de clases del DOM con timeouts',
-            '  largos (5-10s) en lugar de timeouts fijos cortos.',
-            '- **Evitar timeouts fijos entre acciones del piloto.** El piloto',
         ],
     ],
 

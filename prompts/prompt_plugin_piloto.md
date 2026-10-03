@@ -242,7 +242,13 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4d (robustez
+**Última actualización de este prompt:** v1.5plugin.4e (reintento
+defensivo en `seleccionar_un_asiento_con_reintentos`: si un
+clic no queda registrado en el DOM al primer intento,
+reintenta hasta 3 veces. Verifica primero si ya está
+seleccionado, para no deseleccionar. Causa raíz del fallo:
+condición de carrera en el piloto entre el polling de asientos
+y el clic (corregida en piloto v1.5piloto.74e). Antes: v1.5plugin.4d (robustez
 de `seleccionar_n_asientos`: espera a que aparezcan N asientos
 con `seat-libre` antes de elegir, y verifica que cada asiento
 esté libre antes de hacer clic. Tolerante al bug del piloto
@@ -407,6 +413,12 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **Cuando un clic puede perderse por condiciones de carrera**
+  **del piloto, usar reintentos con verificación previa.** El
+  bug del polling de asientos (v1.5piloto.74e) hacía que un
+  asiento recién seleccionado volviera a verse libre. Si el
+  clic se da por perdido, reintentar; pero antes verificar si
+  ya está seleccionado, para no deseleccionar por accidente.
 - **El plugin debe ser robusto ante bugs del piloto.** Cuando
   el piloto tiene un bug (por ejemplo, el croquis no se
   actualiza tras cancelar una venta — corregido en

@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4d
+ * @version 1.5plugin.4e
  */
 
 import { CODIGO_TERMINAL1, NOMBRE_DUENO_PRUEBA } from "../ConfPlugin.js";
@@ -146,6 +146,33 @@ async function esperar_n_asientos_libres(ctx, n, timeout_ms = 10000) {
     return libres;
 }
 
+// Selecciona un asiento con reintentos. A veces el primer clic no
+// queda registrado en el DOM (condicion de carrera con el polling
+// del piloto, corregida en piloto v1.5piloto.74e, pero igual el
+// plugin debe ser robusto). Reintenta hasta `max_intentos` veces.
+// Verifica primero si ya esta seleccionado para no deseleccionarlo.
+async function seleccionar_un_asiento_con_reintentos(ctx, numero, max_intentos = 3) {
+    for (let intento = 0; intento < max_intentos; intento++) {
+        // Si ya quedo seleccionado de un intento anterior, listo.
+        const ya_seleccionado = await esperar_asiento_seleccionado(ctx, numero, 500);
+        if (ya_seleccionado) return true;
+
+        // Verificar que el asiento este libre antes de hacer clic.
+        const libre = await esperar_asiento_libre(ctx, numero, 5000);
+        if (!libre) {
+            // El croquis todavia no se actualizo o el asiento esta en
+            // otro estado. Esperar un poco y reintentar.
+            await ctx.pausa(600);
+            continue;
+        }
+
+        await ctx.clic(`.seat[data-numero="${numero}"]`);
+        const ok = await esperar_asiento_seleccionado(ctx, numero, 4000);
+        if (ok) return true;
+    }
+    return false;
+}
+
 export async function seleccionar_n_asientos(ctx, n) {
     // Esperar a que aparezcan N asientos libres (puede tardar si el
     // croquis no se actualizo tras una cancelacion previa).
@@ -155,15 +182,8 @@ export async function seleccionar_n_asientos(ctx, n) {
     }
     const elegidos = libres.slice(0, n);
     for (const numero of elegidos) {
-        // Verificar que el asiento este efectivamente libre antes
-        // de hacer clic. Si no, esperar a que el croquis se
-        // actualice (por ejemplo, por el polling del piloto o
-        // por un refresh manual).
-        const libre = await esperar_asiento_libre(ctx, numero, 8000);
-        if (!libre) throw new Error("El asiento " + numero + " no aparece como libre en el croquis");
-        await ctx.clic(`.seat[data-numero="${numero}"]`);
-        const ok = await esperar_asiento_seleccionado(ctx, numero, 5000);
-        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado");
+        const ok = await seleccionar_un_asiento_con_reintentos(ctx, numero, 3);
+        if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado tras 3 intentos");
     }
     const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);
     if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");
