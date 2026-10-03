@@ -2,12 +2,16 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.2a — fix del import en GrafoPlugin.js.
+ * Tanda v1.5plugin.2b — fix del nombre de arranque.js.
  *
- * En v1.5plugin.2 renombramos bootstrap.js -> arranque.js pero
- * olvidamos actualizar el import en GrafoPlugin.js. Chrome no podia
- * resolver el arbol del service worker y abortaba con el error
- * generico "unknown error when fetching the script".
+ * El archivo se creó como `arranqu.js` (sin la "e") pero todos los
+ * imports apuntaban a `arranque.js`. Chrome no podía resolver el
+ * árbol del service worker y abortaba con el error genérico
+ * "unknown error when fetching the script".
+ *
+ * Se crea el archivo con el nombre correcto, se elimina el mal
+ * nombrado, se corrige el import en servicio.js y se limpian
+ * referencias residuales.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -30,33 +34,89 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ============================================================
-    // Aplicacion/GrafoPlugin.js — fix del import y bump
+    // Aplicacion/arranque.js — crear con el nombre correcto
+    // ============================================================
+
+    [
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/arranque.js',
+        'descripcion' => 'arranque.js (nombre correcto, era arranqu.js)',
+        'contenido' => [
+            '/**',
+            ' * Arranque del framework Iteradores en el service worker.',
+            ' *',
+            ' * Responsabilidades:',
+            ' * - Forzar salida en modo consola (el SW no tiene document).',
+            ' * - Fijar modo desarrollo (habilita `permite_pruebas`).',
+            ' * - Configurar `Conf` con valores propios del plugin.',
+            ' * - Cargar el Controlador dinamicamente despues de configurar',
+            ' *   Conf, para que la persistencia tome el nombre correcto',
+            ' *   de la BD IndexedDB.',
+            ' *',
+            ' * @version 1.5plugin.2b',
+            ' */',
+            '',
+            'import { Conf, Entorno } from "../Configuracion/index.js";',
+            'import { configurar_conf } from "./ConfPlugin.js";',
+            '',
+            '// Salida consola: los caminos HTML del framework tocan document,',
+            '// que no existe en el service worker.',
+            'Entorno.establecer_salida(Entorno.SALIDA_CONSOLA);',
+            'Entorno.establecer_modo(Entorno.MODO_DESARROLLO);',
+            '',
+            '// Config propia del plugin.',
+            'configurar_conf(Conf);',
+            '',
+            'let _controlador = null;',
+            '',
+            '/**',
+            ' * Devuelve el Controlador ya inicializado. La primera llamada',
+            ' * dispara el import dinamico del modulo `Controlador`, que',
+            ' * a su vez llama a `Controlador.inicializar()` al final de su',
+            ' * evaluacion.',
+            ' *',
+            ' * Espera activamente a que `clase_actual` quede seteada como',
+            ' * senal de que la inicializacion termino. Despues fuerza el',
+            ' * metodo de persistencia a `IndexedDB` (el framework por',
+            ' * defecto usa `EIndexedDB`).',
+            ' *',
+            ' * @returns {Promise<typeof Controlador>}',
+            ' */',
+            'export async function obtener_controlador() {',
+            '    if (_controlador && _controlador.clase_actual) return _controlador;',
+            '',
+            '    const mod = await import("../Controlador/index.js");',
+            '    _controlador = mod.Controlador;',
+            '',
+            '    const inicio = Date.now();',
+            '    while (!_controlador.clase_actual) {',
+            '        if (Date.now() - inicio > 5000) {',
+            '            throw new Error("El Controlador no termino de inicializar en 5s");',
+            '        }',
+            '        await new Promise((r) => setTimeout(r, 20));',
+            '    }',
+            '',
+            '    try {',
+            '        _controlador.establecer_metodo("IndexedDB");',
+            '    } catch (e) {',
+            '        console.warn("No se pudo forzar IndexedDB:", e);',
+            '    }',
+            '',
+            '    return _controlador;',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // Aplicacion/servicio.js — corregir el import
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/GrafoPlugin.js',
-        'descripcion' => 'GrafoPlugin.js: bump de version a 1.5plugin.2a',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio.js: import de arranque.js (no arranqu.js)',
         'buscar' => [
-            ' * @version 1.5plugin.1',
-            ' */',
-            '',
-            'import { Nodo } from "../Nodos/index.js";',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.2a',
-            ' */',
-            '',
-            'import { Nodo } from "../Nodos/index.js";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/GrafoPlugin.js',
-        'descripcion' => 'GrafoPlugin.js: import de arranque.js en vez de bootstrap.js',
-        'buscar' => [
-            'import { obtener_controlador } from "./bootstrap.js";',
+            'import { obtener_controlador } from "./arranqu.js";',
         ],
         'reemplazar' => [
             'import { obtener_controlador } from "./arranque.js";',
@@ -64,19 +124,51 @@ $cambios = [
     ],
 
     // ============================================================
-    // manifest.json — bump
+    // Aplicacion/ConfPlugin.js — corregir comentario
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ConfPlugin.js',
+        'descripcion' => 'ConfPlugin.js: comentario apunta a arranque.js',
+        'buscar' => [
+            ' * por el framework. Se llama desde `bootstrap.js` *antes* de',
+        ],
+        'reemplazar' => [
+            ' * por el framework. Se llama desde `arranque.js` *antes* de',
+        ],
+    ],
+
+    // ============================================================
+    // manifest.json — bump de version
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'manifest.json',
-        'descripcion' => 'manifest.json: version 1.5.3',
+        'descripcion' => 'manifest.json: version 1.5.4',
         'buscar' => [
-            '  "version": "1.5.2",',
-        ],
-        'reemplazar' => [
             '  "version": "1.5.3",',
         ],
+        'reemplazar' => [
+            '  "version": "1.5.4",',
+        ],
+    ],
+
+    // ============================================================
+    // Eliminaciones
+    // ============================================================
+
+    [
+        'tipo' => 'eliminar',
+        'archivo' => 'Aplicacion/arranqu.js',
+        'descripcion' => 'Nombre mal escrito, reemplazado por arranque.js',
+    ],
+
+    [
+        'tipo' => 'eliminar',
+        'archivo' => 'Aplicacion/prueba_import.js',
+        'descripcion' => 'Archivo de diagnostico temporal',
     ],
 
     // ============================================================
@@ -86,13 +178,8 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: ultima actualizacion a v1.5plugin.2a',
+        'descripcion' => 'prompt plugin: ultima actualizacion a v1.5plugin.2b',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.2 (limpieza',
-            'de anglicismos: archivos, mensajes internos y ctx renombrados',
-            'al español).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.2a (fix del',
             'import de `GrafoPlugin.js`: apuntaba a `./bootstrap.js`, que en',
             'v1.5plugin.2 se había renombrado a `./arranque.js`. Chrome no',
@@ -103,34 +190,22 @@ $cambios = [
             'en los archivos que se tocan en la tanda. Un grep del nombre',
             'viejo en todo `Aplicacion/` debería ser parte del checklist.).',
         ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.2b (fix del',
+            'nombre de `arranque.js`: el archivo se había creado como',
+            '`arranqu.js`, sin la "e". Chrome no podía resolver el árbol',
+            'del service worker y abortaba con el error genérico "unknown',
+            'error when fetching the script". Se creó el archivo con el',
+            'nombre correcto, se eliminó el mal nombrado, y se corrigió',
+            'el import en `servicio.js`.).',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: pendientes actualizados con leccion',
+        'descripcion' => 'prompt plugin: lecciones ampliadas',
         'buscar' => [
-            '**Pendiente:**',
-            '',
-            '- Escribir más pruebas en `Aplicacion/pruebas/` (más allá de la',
-            '  de arranque).',
-            '- Implementar el historial de corridas en la ventana (hoy solo',
-            '  muestra el resultado de la corrida actual).',
-            '- Definir la convención de nombres de prueba y de aserciones.',
-            '- Revisar los permisos del manifest cuando se pruebe contra',
-            '  un dominio real (hoy solo `localhost` / `127.0.0.1`).',
-        ],
-        'reemplazar' => [
-            '**Pendiente:**',
-            '',
-            '- Escribir más pruebas en `Aplicacion/pruebas/` (más allá de la',
-            '  de arranque).',
-            '- Implementar el historial de corridas en la ventana (hoy solo',
-            '  muestra el resultado de la corrida actual).',
-            '- Definir la convención de nombres de prueba y de aserciones.',
-            '- Revisar los permisos del manifest cuando se pruebe contra',
-            '  un dominio real (hoy solo `localhost` / `127.0.0.1`).',
-            '',
             '**Lecciones aprendidas:**',
             '',
             '- Al renombrar un archivo del plugin, hacer un grep del nombre',
@@ -141,6 +216,32 @@ $cambios = [
             '- Si Chrome muestra "unknown error when fetching the script" al',
             '  registrar un service worker module, casi siempre es un import',
             '  que no se puede resolver en la cadena. Diagnóstico rápido:',
+            '  reducir `servicio.js` a un `console.log` y agregar imports',
+            '  de a uno hasta que rompa.',
+        ],
+        'reemplazar' => [
+            '**Lecciones aprendidas:**',
+            '',
+            '- Al renombrar un archivo del plugin, hacer un grep del nombre',
+            '  viejo en todo `Aplicacion/` y actualizar **todas** las',
+            '  referencias, no solo las de los archivos que se tocan en la',
+            '  tanda. `GrafoPlugin.js` quedó apuntando a `./bootstrap.js`',
+            '  tras el rename de v1.5plugin.2.',
+            '- **Verificar el nombre exacto del archivo en disco antes de',
+            '  commitear.** `arranque.js` se creó como `arranqu.js` (sin la',
+            '  "e") y los imports apuntaban al nombre correcto. Chrome no',
+            '  podía resolver la cadena y daba el mismo error genérico que',
+            '  un import roto.',
+            '- **Correr `auditar_plugin.php` tras cada tanda que agregue o',
+            '  renombre archivos.** Detecta imports rotos, paths del',
+            '  manifest que no resuelven, y referencias a nombres viejos',
+            '  en comentarios y strings. Es rápido y evita perder tiempo',
+            '  con el error genérico de Chrome.',
+            '- Si Chrome muestra "unknown error when fetching the script" al',
+            '  registrar un service worker module, casi siempre es un import',
+            '  que no se puede resolver en la cadena (nombre mal escrito,',
+            '  archivo faltante, o comentario que menciona un nombre viejo',
+            '  no es la causa, pero ayuda descartar). Diagnóstico rápido:',
             '  reducir `servicio.js` a un `console.log` y agregar imports',
             '  de a uno hasta que rompa.',
         ],

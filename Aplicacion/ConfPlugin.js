@@ -2,7 +2,7 @@
  * Configuracion propia del plugin de pruebas.
  *
  * Modifica los valores estaticos de la clase `Conf` compartida
- * por el framework. Se llama desde `bootstrap.js` *antes* de
+ * por el framework. Se llama desde `arranque.js` *antes* de
  * importar el Controlador, para que la persistencia tome el
  * nombre de la BD correcto.
  *

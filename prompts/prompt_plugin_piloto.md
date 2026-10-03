@@ -231,15 +231,13 @@ armado y funcional, con nombres en español. Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.2a (fix del
-import de `GrafoPlugin.js`: apuntaba a `./bootstrap.js`, que en
-v1.5plugin.2 se había renombrado a `./arranque.js`. Chrome no
-podía resolver el árbol del service worker y abortaba con el
-error genérico "unknown error when fetching the script".
-Regla aprendida: cuando se renombra un archivo del plugin, hay
-que buscar **todas** las referencias al nombre viejo, no solo
-en los archivos que se tocan en la tanda. Un grep del nombre
-viejo en todo `Aplicacion/` debería ser parte del checklist.).
+**Última actualización de este prompt:** v1.5plugin.2b (fix del
+nombre de `arranque.js`: el archivo se había creado como
+`arranqu.js`, sin la "e". Chrome no podía resolver el árbol
+del service worker y abortaba con el error genérico "unknown
+error when fetching the script". Se creó el archivo con el
+nombre correcto, se eliminó el mal nombrado, y se corrigió
+el import en `servicio.js`.).
 
 **Decisiones tomadas:**
 
@@ -295,9 +293,21 @@ viejo en todo `Aplicacion/` debería ser parte del checklist.).
   referencias, no solo las de los archivos que se tocan en la
   tanda. `GrafoPlugin.js` quedó apuntando a `./bootstrap.js`
   tras el rename de v1.5plugin.2.
+- **Verificar el nombre exacto del archivo en disco antes de
+  commitear.** `arranque.js` se creó como `arranqu.js` (sin la
+  "e") y los imports apuntaban al nombre correcto. Chrome no
+  podía resolver la cadena y daba el mismo error genérico que
+  un import roto.
+- **Correr `auditar_plugin.php` tras cada tanda que agregue o
+  renombre archivos.** Detecta imports rotos, paths del
+  manifest que no resuelven, y referencias a nombres viejos
+  en comentarios y strings. Es rápido y evita perder tiempo
+  con el error genérico de Chrome.
 - Si Chrome muestra "unknown error when fetching the script" al
   registrar un service worker module, casi siempre es un import
-  que no se puede resolver en la cadena. Diagnóstico rápido:
+  que no se puede resolver en la cadena (nombre mal escrito,
+  archivo faltante, o comentario que menciona un nombre viejo
+  no es la causa, pero ayuda descartar). Diagnóstico rápido:
   reducir `servicio.js` a un `console.log` y agregar imports
   de a uno hasta que rompa.
 

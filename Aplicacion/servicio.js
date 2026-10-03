@@ -9,10 +9,10 @@
  * @version 1.5plugin.2
  */
 
-import { obtener_controlador } from "./arranqu.js";
+import { obtener_controlador } from "./arranque.js";
 import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
 import { CATALOGO } from "./pruebas/catalogo.js";
-/*
+
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 
 function _es_url_piloto(url) {
@@ -36,11 +36,11 @@ async function _enviar_a_pestana(pestana_id, tipo, datos) {
         };
     }
 }
-*/
+
 /**
  * Construye el objeto `ctx` que reciben las pruebas.
  */
-/*
+
 function _crear_ctx(pestana_id) {
     async function enviar(tipo, datos) {
         return await _enviar_a_pestana(pestana_id, tipo, datos);
@@ -136,4 +136,4 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
     })();
 
     return true; // mantener canal abierto para respuesta async
-});*/
+});

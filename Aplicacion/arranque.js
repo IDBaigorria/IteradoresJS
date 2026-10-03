@@ -9,7 +9,7 @@
  *   Conf, para que la persistencia tome el nombre correcto
  *   de la BD IndexedDB.
  *
- * @version 1.5plugin.2
+ * @version 1.5plugin.2b
  */
 
 import { Conf, Entorno } from "../Configuracion/index.js";
