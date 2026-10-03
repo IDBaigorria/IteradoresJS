@@ -9,7 +9,7 @@
  * basicas sobre el DOM de la pagina. Todas las respuestas
  * son objetos `{ exito, ... }`.
  *
- * @version 1.5plugin.2
+ * @version 1.5plugin.3
  */
 
 (function () {
@@ -19,27 +19,35 @@
         return document.querySelector(selector);
     }
 
+    function _es_visible(el) {
+        if (!el) return false;
+        if (el.offsetParent === null && el.tagName !== "BODY") return false;
+        const estilo = window.getComputedStyle(el);
+        if (estilo.display === "none") return false;
+        if (estilo.visibility === "hidden") return false;
+        if (parseFloat(estilo.opacity) === 0) return false;
+        return true;
+    }
+
     function _disparar(el, tipo) {
         const ev = new Event(tipo, { bubbles: true, cancelable: true });
         el.dispatchEvent(ev);
     }
 
-    function _esperar_elemento(selector, timeout_ms) {
+    function _esperar_condicion(predicado, timeout_ms) {
         return new Promise((resolve) => {
-            const existente = _query(selector);
-            if (existente) {
+            if (predicado()) {
                 resolve({ exito: true });
                 return;
             }
             const inicio = Date.now();
             const intervalo = setInterval(() => {
-                const el = _query(selector);
-                if (el) {
+                if (predicado()) {
                     clearInterval(intervalo);
                     resolve({ exito: true });
                 } else if (Date.now() - inicio > timeout_ms) {
                     clearInterval(intervalo);
-                    resolve({ exito: false, error: "timeout esperando " + selector });
+                    resolve({ exito: false, error: "timeout" });
                 }
             }, 100);
         });
@@ -67,8 +75,30 @@
                 return { exito: true };
             }
 
-            case "esperar_elemento":
-                return await _esperar_elemento(datos.selector, datos.timeout_ms || 5000);
+            case "esperar_elemento": {
+                return await _esperar_condicion(
+                    () => _query(datos.selector) !== null,
+                    datos.timeout_ms || 5000
+                );
+            }
+
+            case "esta_visible": {
+                return { exito: true, visible: _es_visible(_query(datos.selector)) };
+            }
+
+            case "esperar_visible": {
+                return await _esperar_condicion(
+                    () => _es_visible(_query(datos.selector)),
+                    datos.timeout_ms || 5000
+                );
+            }
+
+            case "esperar_oculto": {
+                return await _esperar_condicion(
+                    () => !_es_visible(_query(datos.selector)),
+                    datos.timeout_ms || 5000
+                );
+            }
 
             case "obtener_texto": {
                 const el = _query(datos.selector);

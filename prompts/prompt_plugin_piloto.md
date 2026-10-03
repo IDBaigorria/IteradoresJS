@@ -231,13 +231,14 @@ armado y funcional, con nombres en español. Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.2b (fix del
-nombre de `arranque.js`: el archivo se había creado como
-`arranqu.js`, sin la "e". Chrome no podía resolver el árbol
-del service worker y abortaba con el error genérico "unknown
-error when fetching the script". Se creó el archivo con el
-nombre correcto, se eliminó el mal nombrado, y se corrigió
-el import en `servicio.js`.).
+**Última actualización de este prompt:** v1.5plugin.3 (infra
+mínima del catálogo + primera prueba real: `ConfPlugin.js`
+centraliza `URL_PILOTO` y los códigos de usuario; `contenido.js`
+suma comandos de visibilidad; `ctx` gana `url_base`, `login`,
+`cerrar_sesion`, `dni_unico`, `texto_unico`, `esta_visible`,
+`esperar_visible`, `esperar_oculto`; nueva prueba `login_admin`.
+La auditoría ahora chequea que `URL_PILOTO` esté cubierta por
+`host_permissions` y `content_scripts.matches` del manifest.).
 
 **Decisiones tomadas:**
 
@@ -256,12 +257,20 @@ el import en `servicio.js`.).
   (`manifest`, `service worker`, `content script`, `popup`)
   se aceptan en comentarios y en el manifest.
 
-**Permisos del manifest (borrador):**
+**Entorno de pruebas (v1.5plugin.3):**
 
-- `host_permissions`: `http://localhost/*` y
-  `http://127.0.0.1/*`. Si se prueba contra producción, se
-  agrega el dominio.
-- `permissions`: `activeTab`, `tabs`.
+- **URL del piloto:** `http://localhost/iteradores/codigo.worktrees/v1.5i/`.
+  Vive en `Aplicacion/ConfPlugin.js` como `URL_PILOTO`.
+- **Códigos de usuario del piloto:**
+  - admin:    `IBD`
+  - dueño:    `carmen1`
+  - terminal: `carmen2`
+  - terminal: `lujan2`
+  - soporte:  `manolo3`
+- **Permisos del manifest:**
+  - `host_permissions`: `http://localhost/*` y
+    `http://127.0.0.1/*`. Cubre la URL del piloto.
+  - `permissions`: `activeTab`, `tabs`.
 
 **Vocabulario consolidado (v1.5plugin.2):**
 
@@ -276,13 +285,21 @@ el import en `servicio.js`.).
 | POST desde ctx | `ctx.pedir_post(url, body)` |
 | Prueba inicial | id `"arranque"` |
 
+**Catálogo actual:**
+
+- `arranque` — verifica SW ↔ contenido ↔ página.
+- `login_admin` — entra con código del admin, verifica nivel.
+
 **Pendiente:**
 
-- Escribir más pruebas en `Aplicacion/pruebas/` (más allá de la
-  de arranque).
-- Implementar el historial de corridas en la ventana (hoy solo
-  muestra el resultado de la corrida actual).
-- Definir la convención de nombres de prueba y de aserciones.
+- **v1.5plugin.4:** pruebas de altas (pasajero, viaje, micro,
+  terminal autorizada) con datos únicos. Cada prueba limpia lo
+  que crea.
+- **v1.5plugin.5:** pruebas de ventas y casos borde (ligaduras
+  comprador↔pasajero, DNI duplicado, cupones, deshabilitar
+  método). Es el objetivo que motivó el plugin.
+- **v1.5plugin.6 (opcional):** historial de corridas en la
+  ventana del plugin.
 - Revisar los permisos del manifest cuando se pruebe contra
   un dominio real (hoy solo `localhost` / `127.0.0.1`).
 
@@ -306,10 +323,29 @@ el import en `servicio.js`.).
 - Si Chrome muestra "unknown error when fetching the script" al
   registrar un service worker module, casi siempre es un import
   que no se puede resolver en la cadena (nombre mal escrito,
-  archivo faltante, o comentario que menciona un nombre viejo
-  no es la causa, pero ayuda descartar). Diagnóstico rápido:
-  reducir `servicio.js` a un `console.log` y agregar imports
-  de a uno hasta que rompa.
+  archivo faltante). Diagnóstico rápido: reducir `servicio.js`
+  a un `console.log` y agregar imports de a uno hasta que
+  rompa.
+- **Si `chrome.runtime.sendMessage` devuelve "Could not establish
+  connection. Receiving end does not exist", el listener del
+  service worker NO está registrado.** Primer chequeo: que
+  `Aplicacion/servicio.js` no esté comentado. En v1.5plugin.2b
+  un bloque de diagnóstico quedó pegado y comentó todo el
+  archivo; el SW se registraba sin error pero nunca llamaba a
+  `onMessage.addListener`, y el popup recibía el error de
+  conexión.
+- **Regla de diseño (v1.5plugin.2c):** el service worker
+  registra el listener de mensajes PRIMERO y carga los módulos
+  del plugin con `await import()` después. Así el listener
+  siempre está disponible y cualquier fallo de carga se
+  reporta al popup en texto claro, en vez de morir con el
+  "unknown error" genérico de Chrome.
+- **`auditar_plugin.php` tiene una sección que detecta archivos
+  sospechosamente vacíos** (sección 5). Después de quitar
+  comentarios de línea y de bloque, si el archivo queda sin
+  líneas de código, lo reporta. También tiene la sección 6
+  que cruza `URL_PILOTO` con `host_permissions` y
+  `content_scripts.matches` del manifest.
 
 ---
 

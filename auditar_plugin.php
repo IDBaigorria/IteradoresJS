@@ -14,7 +14,11 @@
  *    bootstrap.js, background.js, content.js, popup.html, popup.js,
  *    prueba_01_smoke, y los strings "ping" / "pong" / "click" /
  *    "fetch_post".
- * 5. Listado completo de archivos presentes en Aplicacion/.
+ * 5. Archivos sospechosamente vacios: .js que despues de quitar
+ *    comentarios quedan sin lineas de codigo. Es la causa del
+ *    bug de v1.5plugin.2b (servicio.js comentado por error).
+ * 6. URL_PILOTO de ConfPlugin.js contra host_permissions y
+ *    content_scripts.matches del manifest.
  *
  * Uso (parado en iteradoresJS/):
  *   php auditar_plugin.php
@@ -121,11 +125,8 @@ echo "\n";
 echo "=== 3. Imports de cada archivo .js ===\n\n";
 
 $patrones_import = [
-    // import X from "path"  /  import {X} from "path"
     '/\bfrom\s+[\'"]([^\'"]+)[\'"]/',
-    // import "path"
     '/\bimport\s+[\'"]([^\'"]+)[\'"]/',
-    // import("path")
     '/\bimport\(\s*[\'"]([^\'"]+)[\'"]\s*\)/',
 ];
 
@@ -160,7 +161,6 @@ foreach ($archivos_js as $archivo_abs) {
     foreach ($imports_encontrados as [$nro, $destino, $linea_completa]) {
         $total_imports++;
 
-        // Solo auditar paths relativos.
         if (strpos($destino, './') !== 0 && strpos($destino, '../') !== 0) {
             printf("    [SKIP] L%d  %s  (no es path relativo)\n", $nro, $destino);
             continue;
@@ -193,7 +193,7 @@ $nombres_viejos = [
     'popup.html',
     'popup.js',
     'prueba_01_smoke',
-    '"ping"',
+    '"ping"' ,
     "'ping'",
     '"pong"',
     "'pong'",
@@ -239,11 +239,112 @@ if ($hallazgos === 0) {
 }
 
 // ============================================================
+// Archivos sospechosamente vacios
+// ============================================================
+
+echo "=== 5. Archivos sospechosamente vacios ===\n\n";
+
+function quitar_comentarios_js($contenido) {
+    $sin_bloque = preg_replace('#/\*.*?\*/#s', '', $contenido);
+    $lineas = explode("\n", $sin_bloque);
+    $out = [];
+    foreach ($lineas as $l) {
+        $pos = strpos($l, '//');
+        if ($pos !== false) {
+            $l = substr($l, 0, $pos);
+        }
+        $out[] = $l;
+    }
+    return implode("\n", $out);
+}
+
+$vacios = 0;
+foreach ($archivos_js as $archivo_abs) {
+    $rel = ruta_relativa($archivo_abs, $raiz);
+    $cont = leer_archivo($archivo_abs);
+    if ($cont === null) continue;
+
+    $sin_com = quitar_comentarios_js($cont);
+    $lineas_codigo = 0;
+    foreach (explode("\n", $sin_com) as $l) {
+        if (trim($l) !== '') $lineas_codigo++;
+    }
+
+    if ($lineas_codigo === 0) {
+        echo "  [SOSPECHOSO] $rel\n";
+        echo "    El archivo no tiene lineas de codigo despues de quitar comentarios.\n";
+        $vacios++;
+    }
+}
+
+if ($vacios === 0) {
+    echo "  (sin archivos sospechosos)\n\n";
+} else {
+    echo "  Total de archivos sospechosos: $vacios\n\n";
+}
+
+// ============================================================
+// URL_PILOTO vs manifest
+// ============================================================
+
+echo "=== 6. URL_PILOTO vs manifest ===\n\n";
+
+$conf_plugin_path = $raiz . '/Aplicacion/ConfPlugin.js';
+$url_piloto = null;
+if (file_exists($conf_plugin_path)) {
+    $conf_cont = file_get_contents($conf_plugin_path);
+    if (preg_match('/URL_PILOTO\s*=\s*["\']([^"\']+)["\']/', $conf_cont, $m)) {
+        $url_piloto = $m[1];
+    }
+}
+
+if ($url_piloto === null) {
+    echo "  [INFO] No se encontro URL_PILOTO en ConfPlugin.js.\n\n";
+} else {
+    echo "  URL_PILOTO = $url_piloto\n";
+
+    $partes = parse_url($url_piloto);
+    $host = isset($partes['host']) ? $partes['host'] : '';
+    $esquema = isset($partes['scheme']) ? $partes['scheme'] : 'http';
+    $prefijo_esperado = $esquema . "://" . $host . "/";
+    echo "  Prefijo esperado en matches: $prefijo_esperado\n\n";
+
+    $hosts_manifest = isset($manifest['host_permissions']) ? $manifest['host_permissions'] : [];
+    $cubierto = false;
+    foreach ($hosts_manifest as $hp) {
+        if (strpos($prefijo_esperado, str_replace('*', '', $hp)) === 0) {
+            $cubierto = true;
+            break;
+        }
+    }
+    printf("  [%s] host_permissions cubre %s\n", $cubierto ? 'OK' : 'REVISAR', $prefijo_esperado);
+
+    $matches_manifest = [];
+    if (isset($manifest['content_scripts']) && is_array($manifest['content_scripts'])) {
+        foreach ($manifest['content_scripts'] as $cs) {
+            if (isset($cs['matches']) && is_array($cs['matches'])) {
+                $matches_manifest = array_merge($matches_manifest, $cs['matches']);
+            }
+        }
+    }
+    $cubierto = false;
+    foreach ($matches_manifest as $m) {
+        if (strpos($prefijo_esperado, str_replace('*', '', $m)) === 0) {
+            $cubierto = true;
+            break;
+        }
+    }
+    printf("  [%s] content_scripts.matches cubre %s\n", $cubierto ? 'OK' : 'REVISAR', $prefijo_esperado);
+    echo "\n";
+}
+
+// ============================================================
 // Resumen final
 // ============================================================
 
 echo "=== Resumen ===\n\n";
 echo "  Imports rotos: " . $total_rotos . "\n";
 echo "  Referencias a nombres viejos: " . $hallazgos . "\n";
+echo "  Archivos sospechosamente vacios: " . $vacios . "\n";
 echo "\n";
 echo "Fin de la auditoria. No se modifico ningun archivo.\n";
