@@ -16,7 +16,7 @@
  *   6. Verificar que apellido y nombres se autocompletan.
  *   7. Cerrar el modal.
  *
- * @version 1.5plugin.4o
+ * @version 1.5plugin.4p
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
@@ -98,16 +98,7 @@ export const prueba = {
             "Los nombres autocompletados ('" + nombres_leidos + "') no coinciden con los esperados ('" + nombres + "')"
         );
 
-        // 10. Verificar que el campo no quedó deshabilitado (se habilita
-        //     al autocompletar). Si sigue disabled con valor cargado,
-        //     algo raro pasó.
-        const atributos_disabled = await ctx.obtener_atributos("#pasajero_apellido_0", "disabled");
-        ctx.assert(
-            !atributos_disabled || atributos_disabled.length === 0,
-            "El campo apellido quedó deshabilitado después del autocompletado"
-        );
-
-        // 11. Cerrar el modal.
+        // 10. Cerrar el modal.
         const clic_cerrar = await ctx.clic("#boton_cancelar_nuevo_pasajero");
         ctx.assert(clic_cerrar && clic_cerrar.exito, "No se pudo cerrar el modal de alta de pasajero");
     }

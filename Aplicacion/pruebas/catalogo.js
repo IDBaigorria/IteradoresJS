@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.4o
+ * @version 1.5plugin.4p
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -40,7 +40,13 @@ export const SECCIONES = [
         nombre: "Base",
         pruebas: [
             arranque,
-            login,
+            login
+        ]
+    },
+    {
+        id: "autocompletado",
+        nombre: "Autocompletado",
+        pruebas: [
             autocompletado_dni_terminal_clientes
         ]
     },

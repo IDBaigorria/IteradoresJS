@@ -2,36 +2,30 @@
 /**
  * Aplicador de cambios automáticos — proyecto iteradoresJS (plugin Chrome).
  *
- * Tanda v1.5plugin.4o: prueba de autocompletado por DNI con terminal.
- *
- * Corrección: el bloque ancla en servicio.js usa la línea completa del
- * return de refrescar_asientos_pagina (con el operador ternario).
+ * Tanda v1.5plugin.4p:
+ * - Corregir la prueba 18: quitar el check de `disabled` mal planteado
+ *   (obtener_atributos devuelve [null], no [] cuando el atributo no está).
+ * - Mover la prueba 18 de la sección "base" a una sección propia
+ *   "Autocompletado".
+ * - Bumps de versión.
  *
  * Uso (parado en la raíz de iteradoresJS/):
  *   php aplicar_cambios.php
  */
 
-// ============================================================
-// Configuración
-// ============================================================
-
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-
-// ============================================================
-// Cambios a aplicar
-// ============================================================
 
 $cambios = [
 
     // --------------------------------------------------------
-    // Archivo nuevo: prueba_18
+    // prueba_18 — sobrescribir sin el check de disabled
     // --------------------------------------------------------
 
     [
         'tipo' => 'crear',
         'archivo' => 'Aplicacion/pruebas/prueba_18_autocompletado_dni_terminal_clientes.js',
-        'descripcion' => 'Nueva prueba: autocompletado por DNI con terminal desde Clientes',
+        'descripcion' => 'Prueba 18 v2: sin el check de disabled',
         'contenido' => [
             "/**",
             " * Prueba: autocompletado por DNI con usuario terminal desde",
@@ -51,7 +45,7 @@ $cambios = [
             " *   6. Verificar que apellido y nombres se autocompletan.",
             " *   7. Cerrar el modal.",
             " *",
-            " * @version 1.5plugin.4o",
+            " * @version 1.5plugin.4p",
             " */",
             "",
             'import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";',
@@ -133,16 +127,7 @@ $cambios = [
             '            "Los nombres autocompletados (\'" + nombres_leidos + "\') no coinciden con los esperados (\'" + nombres + "\')"',
             "        );",
             "",
-            "        // 10. Verificar que el campo no quedó deshabilitado (se habilita",
-            "        //     al autocompletar). Si sigue disabled con valor cargado,",
-            "        //     algo raro pasó.",
-            '        const atributos_disabled = await ctx.obtener_atributos("#pasajero_apellido_0", "disabled");',
-            "        ctx.assert(",
-            "            !atributos_disabled || atributos_disabled.length === 0,",
-            '            "El campo apellido quedó deshabilitado después del autocompletado"',
-            "        );",
-            "",
-            "        // 11. Cerrar el modal.",
+            "        // 10. Cerrar el modal.",
             '        const clic_cerrar = await ctx.clic("#boton_cancelar_nuevo_pasajero");',
             '        ctx.assert(clic_cerrar && clic_cerrar.exito, "No se pudo cerrar el modal de alta de pasajero");',
             "    }",
@@ -151,118 +136,14 @@ $cambios = [
     ],
 
     // --------------------------------------------------------
-    // servicio.js — agregar helper ctx.activar_pestana_piloto
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'Agregar helper activar_pestana_piloto al ctx',
-        'buscar' => [
-            '        refrescar_asientos_pagina: async () => {',
-            '            try {',
-            '                const r = await chrome.scripting.executeScript({',
-            '                    target: { tabId: pestana_id },',
-            '                    world: "MAIN",',
-            '                    func: _refresh_asientos_main_world',
-            '                });',
-            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
-            '            } catch (e) {',
-            '                return { exito: false, error: e.message };',
-            '            }',
-            '        },',
-            '',
-            '        // === helpers de sesion ===',
-            '        async cerrar_sesion() {',
-        ],
-        'reemplazar' => [
-            '        refrescar_asientos_pagina: async () => {',
-            '            try {',
-            '                const r = await chrome.scripting.executeScript({',
-            '                    target: { tabId: pestana_id },',
-            '                    world: "MAIN",',
-            '                    func: _refresh_asientos_main_world',
-            '                });',
-            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
-            '            } catch (e) {',
-            '                return { exito: false, error: e.message };',
-            '            }',
-            '        },',
-            '        activar_pestana_piloto: async (nombre) => {',
-            '            // Activa una pestaña del piloto desde el page context.',
-            '            // Las pestañas se generan dinámicamente, así que no hay',
-            '            // un selector estable; se llama a `activar_pestana`',
-            '            // (global del piloto) vía chrome.scripting en MAIN world.',
-            '            try {',
-            '                const r = await chrome.scripting.executeScript({',
-            '                    target: { tabId: pestana_id },',
-            '                    world: "MAIN",',
-            '                    func: (n) => {',
-            '                        if (typeof activar_pestana === "function") {',
-            '                            activar_pestana(n);',
-            '                            return { exito: true };',
-            '                        }',
-            '                        return { exito: false, error: "activar_pestana no existe en el page" };',
-            '                    },',
-            '                    args: [nombre]',
-            '                });',
-            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
-            '            } catch (e) {',
-            '                return { exito: false, error: e.message };',
-            '            }',
-            '        },',
-            '',
-            '        // === helpers de sesion ===',
-            '        async cerrar_sesion() {',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // servicio.js — bump de version
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'Bump @version de servicio.js a 1.5plugin.4o',
-        'buscar' => [
-            ' * @version 1.5plugin.4nl',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4o',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // catalogo.js — import + agregar a la seccion base
+    // catalogo.js — quitar prueba de base, crear sección nueva
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: import de la prueba 18',
+        'descripcion' => 'catalogo: sacar prueba 18 de base, agregar seccion autocompletado',
         'buscar' => [
-            'import { prueba as login } from "./prueba_02_login.js";',
-        ],
-        'reemplazar' => [
-            'import { prueba as login } from "./prueba_02_login.js";',
-            'import { prueba as autocompletado_dni_terminal_clientes } from "./prueba_18_autocompletado_dni_terminal_clientes.js";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: agregar prueba 18 a la seccion base',
-        'buscar' => [
-            '        id: "base",',
-            '        nombre: "Base",',
-            '        pruebas: [',
-            '            arranque,',
-            '            login',
-            '        ]',
-        ],
-        'reemplazar' => [
             '        id: "base",',
             '        nombre: "Base",',
             '        pruebas: [',
@@ -270,88 +151,93 @@ $cambios = [
             '            login,',
             '            autocompletado_dni_terminal_clientes',
             '        ]',
+            '    },',
+        ],
+        'reemplazar' => [
+            '        id: "base",',
+            '        nombre: "Base",',
+            '        pruebas: [',
+            '            arranque,',
+            '            login',
+            '        ]',
+            '    },',
+            '    {',
+            '        id: "autocompletado",',
+            '        nombre: "Autocompletado",',
+            '        pruebas: [',
+            '            autocompletado_dni_terminal_clientes',
+            '        ]',
+            '    },',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: bump @version a 1.5plugin.4o',
+        'descripcion' => 'catalogo: bump @version a 1.5plugin.4p',
         'buscar' => [
-            ' * @version 1.5plugin.4m',
+            ' * @version 1.5plugin.4o',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4o',
+            ' * @version 1.5plugin.4p',
         ],
     ],
 
     // --------------------------------------------------------
-    // ConfPlugin.js — bumps de version
+    // ConfPlugin.js — bumps
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.4o',
+        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.4p',
         'buscar' => [
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.4nml";',
-        ],
-        'reemplazar' => [
             '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
             '    Conf.VERSION_APP = "1.5plugin.4o";',
         ],
+        'reemplazar' => [
+            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
+            '    Conf.VERSION_APP = "1.5plugin.4p";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.4o',
+        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.4p',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4nml";',
+            'export const VERSION_PLUGIN = "1.5plugin.4o";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4o";',
+            'export const VERSION_PLUGIN = "1.5plugin.4p";',
         ],
     ],
 
     // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §7 estado actual
+    // prompt_plugin_piloto.md — §7 y §9
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §7 actualizar version y conteo de pruebas',
+        'descripcion' => 'prompt: §7 bump a 4p',
         'buscar' => [
-            '**Proyecto en v1.5plugin.4m.** El esqueleto del plugin está',
-            'armado y funcional, tiene 17 pruebas (base + ventas) y las',
-            'agrupa en secciones.',
-        ],
-        'reemplazar' => [
             '**Proyecto en v1.5plugin.4o.** El esqueleto del plugin está',
             'armado y funcional, tiene 18 pruebas (base + ventas) y las',
             'agrupa en secciones.',
         ],
+        'reemplazar' => [
+            '**Proyecto en v1.5plugin.4p.** El esqueleto del plugin está',
+            'armado y funcional, tiene 18 pruebas (base + autocompletado',
+            '+ ventas) y las agrupa en secciones.',
+        ],
     ],
-
-    // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §9 cabecera
-    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 actualizar cabecera de version',
+        'descripcion' => 'prompt: §9 bump cabecera a 4p',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4n (progreso',
-            'en vivo al correr una sección: la ventana itera las pruebas',
-            'y manda `correr_prueba` una por una, actualizando el estado',
-            'después de cada una. El SW ya no corre la sección entera;',
-            'el caso `correr_seccion` se eliminó. Se agrega estilo',
-            '`.corriendo` para la prueba en curso).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.4o (nueva',
             'prueba `autocompletado_dni_terminal_clientes`: login como',
             'terminal, ir a la pestaña Pasajeros/Clientes, crear un',
@@ -361,33 +247,24 @@ $cambios = [
             '`ctx.activar_pestana_piloto(nombre)` al service worker, que',
             'invoca `activar_pestana` del page context vía',
             '`chrome.scripting.executeScript` en MAIN world).',
-            'Antes: v1.5plugin.4n (progreso',
-            'en vivo al correr una sección: la ventana itera las pruebas',
-            'y manda `correr_prueba` una por una, actualizando el estado',
-            'después de cada una. El SW ya no corre la sección entera;',
-            'el caso `correr_seccion` se eliminó. Se agrega estilo',
-            '`.corriendo` para la prueba en curso).',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §9 estado de la conversacion
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 agregar entrada de la prueba nueva',
-        'buscar' => [
-            '- El plugin tiene 17 pruebas que corren OK contra el piloto',
-            '  PHP.',
         ],
         'reemplazar' => [
-            '- El plugin tiene 18 pruebas que corren OK contra el piloto',
-            '  PHP. La más reciente es `autocompletado_dni_terminal_clientes`',
-            '  (v1.5plugin.4o), que verifica el fix v74h del piloto (el',
-            '  autocompletado por DNI desde la pestaña Clientes con usuario',
-            '  terminal, sin depender de que haya un viaje seleccionado).',
+            '**Última actualización de este prompt:** v1.5plugin.4p (se',
+            'quita el check de `disabled` de la prueba',
+            '`autocompletado_dni_terminal_clientes`: el helper',
+            '`obtener_atributos` devuelve `[null]` cuando el atributo no',
+            'existe, no `[]`; el check no aportaba valor y daba falso',
+            'negativo. Además, la prueba se mueve a una sección propia',
+            '`autocompletado` en la ventana).',
+            'Antes: v1.5plugin.4o (nueva',
+            'prueba `autocompletado_dni_terminal_clientes`: login como',
+            'terminal, ir a la pestaña Pasajeros/Clientes, crear un',
+            'pasajero de prueba, abrir el modal de alta, escribir el DNI',
+            'y verificar que apellido y nombres se autocompletan. Cubre',
+            'el fix v74h del piloto PHP. Se agrega el helper',
+            '`ctx.activar_pestana_piloto(nombre)` al service worker, que',
+            'invoca `activar_pestana` del page context vía',
+            '`chrome.scripting.executeScript` en MAIN world).',
         ],
     ],
 

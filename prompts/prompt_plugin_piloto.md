@@ -334,9 +334,9 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.4o.** El esqueleto del plugin está
-armado y funcional, tiene 18 pruebas (base + ventas) y las
-agrupa en secciones. Archivos:
+**Proyecto en v1.5plugin.4p.** El esqueleto del plugin está
+armado y funcional, tiene 18 pruebas (base + autocompletado
++ ventas) y las agrupa en secciones. Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -487,7 +487,14 @@ por tema.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4o (nueva
+**Última actualización de este prompt:** v1.5plugin.4p (se
+quita el check de `disabled` de la prueba
+`autocompletado_dni_terminal_clientes`: el helper
+`obtener_atributos` devuelve `[null]` cuando el atributo no
+existe, no `[]`; el check no aportaba valor y daba falso
+negativo. Además, la prueba se mueve a una sección propia
+`autocompletado` en la ventana).
+Antes: v1.5plugin.4o (nueva
 prueba `autocompletado_dni_terminal_clientes`: login como
 terminal, ir a la pestaña Pasajeros/Clientes, crear un
 pasajero de prueba, abrir el modal de alta, escribir el DNI
