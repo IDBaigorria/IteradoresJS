@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4nl
+ * @version 1.5plugin.4o
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -209,6 +209,29 @@ function _crear_ctx(pestana_id) {
                     target: { tabId: pestana_id },
                     world: "MAIN",
                     func: _refresh_asientos_main_world
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        activar_pestana_piloto: async (nombre) => {
+            // Activa una pestaña del piloto desde el page context.
+            // Las pestañas se generan dinámicamente, así que no hay
+            // un selector estable; se llama a `activar_pestana`
+            // (global del piloto) vía chrome.scripting en MAIN world.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (n) => {
+                        if (typeof activar_pestana === "function") {
+                            activar_pestana(n);
+                            return { exito: true };
+                        }
+                        return { exito: false, error: "activar_pestana no existe en el page" };
+                    },
+                    args: [nombre]
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
             } catch (e) {

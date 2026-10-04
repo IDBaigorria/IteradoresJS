@@ -1,352 +1,393 @@
 <?php
 /**
- * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
+ * Aplicador de cambios automáticos — proyecto iteradoresJS (plugin Chrome).
  *
- * Tanda v1.5plugin.4n (v3) — progreso en vivo al correr una sección.
+ * Tanda v1.5plugin.4o: prueba de autocompletado por DNI con terminal.
  *
- * Corrección sobre v2: la lección se agrega al final de la sección 8.8,
- * con el ancla del item 24 que es única.
+ * Corrección: el bloque ancla en servicio.js usa la línea completa del
+ * return de refrescar_asientos_pagina (con el operador ternario).
  *
- * Uso (parado en iteradoresJS/):
+ * Uso (parado en la raíz de iteradoresJS/):
  *   php aplicar_cambios.php
  */
+
+// ============================================================
+// Configuración
+// ============================================================
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
+// ============================================================
+// Cambios a aplicar
+// ============================================================
+
 $cambios = [
 
-    // ============================================================
-    // Aplicacion/ventana.html
-    // ============================================================
+    // --------------------------------------------------------
+    // Archivo nuevo: prueba_18
+    // --------------------------------------------------------
 
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.html',
-        'descripcion' => 'ventana.html: estilos de corriendo',
-        'buscar' => [
-            '    .estado { font-size: 11px; color: #888; margin-bottom: 6px; }',
-        ],
-        'reemplazar' => [
-            '    .estado { font-size: 11px; color: #888; margin-bottom: 6px; }',
-            '    li.corriendo { background: #fff8e1; }',
-            '    li.corriendo .prueba-nombre::after {',
-            '      content: " (corriendo...)";',
-            '      font-weight: 400;',
-            '      color: #b06000;',
-            '      font-size: 11px;',
-            '    }',
-            '    li.corriendo .resultado { background: #fff3cd; color: #7a4f00; }',
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_18_autocompletado_dni_terminal_clientes.js',
+        'descripcion' => 'Nueva prueba: autocompletado por DNI con terminal desde Clientes',
+        'contenido' => [
+            "/**",
+            " * Prueba: autocompletado por DNI con usuario terminal desde",
+            " * la pestaña Pasajeros/Clientes.",
+            " *",
+            " * Cubre el fix v74h del piloto PHP: cuando el usuario es terminal",
+            " * y no hay un viaje seleccionado, el modal de alta de pasajero",
+            " * resolvía el dueño desde `viaje_seleccionado.dueno`, que podía",
+            " * ser undefined. El fix usa `usuario_actual.dueno` como fallback.",
+            " *",
+            " * Flujo:",
+            " *   1. Login como terminal.",
+            " *   2. Ir a la pestaña Pasajeros/Clientes.",
+            " *   3. Crear un pasajero de prueba con un DNI único.",
+            " *   4. Abrir el modal de alta.",
+            " *   5. Escribir el DNI.",
+            " *   6. Verificar que apellido y nombres se autocompletan.",
+            " *   7. Cerrar el modal.",
+            " *",
+            " * @version 1.5plugin.4o",
+            " */",
+            "",
+            'import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";',
+            "",
+            "export const prueba = {",
+            '    id: "autocompletado_dni_terminal_clientes",',
+            '    nombre: "Autocompletado por DNI desde Clientes (terminal)",',
+            '    descripcion: "Verifica que el autocompletado por DNI funcione con usuario terminal desde la pestaña Pasajeros/Clientes, sin depender de que haya un viaje seleccionado. Cubre el fix v74h del piloto PHP.",',
+            "",
+            "    async ejecutar(ctx) {",
+            "        // 1. Login como terminal.",
+            "        await ctx.asegurar_login(CODIGO_TERMINAL1);",
+            "",
+            "        // 2. Activar la pestaña Pasajeros/Clientes.",
+            '        const activacion = await ctx.activar_pestana_piloto("pasajeros");',
+            '        ctx.assert(activacion && activacion.exito, "No se pudo activar la pestaña Pasajeros: " + (activacion && activacion.error ? activacion.error : "sin detalle"));',
+            "",
+            "        // 3. Esperar el botón de alta.",
+            '        const espera_boton = await ctx.esperar("#boton_agregar_pasajero", 5000);',
+            '        ctx.assert(espera_boton && espera_boton.exito, "No apareció el botón #boton_agregar_pasajero");',
+            "",
+            "        // 4. Crear un pasajero de prueba con un DNI único. Este helper",
+            "        //    resuelve el dueño desde el page (usuario_actual.dueno para",
+            "        //    terminal).",
+            "        const dni = ctx.dni_unico();",
+            '        const apellido = "Prueba";',
+            '        const nombres = "Autocompletado";',
+            "",
+            "        const creacion = await ctx.crear_pasajero_de_prueba({",
+            "            dni,",
+            "            apellido,",
+            "            nombres,",
+            '            email: "",',
+            '            celular: "2983123456",',
+            '            celular_emergencia: "2983654321",',
+            '            fecha_nacimiento: "1990-01-01",',
+            '            direccion: "Calle Falsa 123",',
+            '            localidad: "Tres Arroyos"',
+            "        });",
+            "",
+            '        ctx.assert(creacion && creacion.exito, "No se pudo crear el pasajero de prueba: " + (creacion && creacion.error ? creacion.error : "sin detalle"));',
+            "",
+            "        // 5. Abrir el modal de alta.",
+            '        const clic_agregar = await ctx.clic("#boton_agregar_pasajero");',
+            '        ctx.assert(clic_agregar && clic_agregar.exito, "No se pudo hacer clic en Agregar pasajero");',
+            "",
+            "        // 6. Esperar el campo DNI dentro del modal.",
+            '        const espera_dni = await ctx.esperar("#pasajero_dni_0", 5000);',
+            '        ctx.assert(espera_dni && espera_dni.exito, "No apareció el campo #pasajero_dni_0 en el modal de alta");',
+            "",
+            "        // 7. Escribir el DNI completo. El piloto dispara la búsqueda al",
+            "        //    llegar a 7-8 dígitos desde el listener de `input`.",
+            '        const escritura = await ctx.escribir("#pasajero_dni_0", dni);',
+            '        ctx.assert(escritura && escritura.exito, "No se pudo escribir en el campo DNI");',
+            "",
+            "        // 8. Esperar a que se autocomplete el apellido. Polling hasta 6s.",
+            '        let apellido_leido = "";',
+            "        const inicio = Date.now();",
+            "        while (Date.now() - inicio < 6000) {",
+            '            apellido_leido = (await ctx.valor("#pasajero_apellido_0")) || "";',
+            '            if (apellido_leido.trim() !== "") break;',
+            "            await ctx.pausa(200);",
+            "        }",
+            "",
+            "        ctx.assert(",
+            '            apellido_leido.trim() !== "",',
+            '            "El apellido no se autocompletó. Revisá: (a) que el fix v74h esté aplicado en el piloto PHP, (b) que el pasajero de prueba se haya creado OK, (c) que el listener de input del DNI esté conectado."',
+            "        );",
+            "",
+            "        ctx.assert(",
+            "            apellido_leido === apellido,",
+            '            "El apellido autocompletado (\'" + apellido_leido + "\') no coincide con el esperado (\'" + apellido + "\')"',
+            "        );",
+            "",
+            "        // 9. Verificar nombres también.",
+            '        const nombres_leidos = (await ctx.valor("#pasajero_nombres_0")) || "";',
+            "        ctx.assert(",
+            "            nombres_leidos === nombres,",
+            '            "Los nombres autocompletados (\'" + nombres_leidos + "\') no coinciden con los esperados (\'" + nombres + "\')"',
+            "        );",
+            "",
+            "        // 10. Verificar que el campo no quedó deshabilitado (se habilita",
+            "        //     al autocompletar). Si sigue disabled con valor cargado,",
+            "        //     algo raro pasó.",
+            '        const atributos_disabled = await ctx.obtener_atributos("#pasajero_apellido_0", "disabled");',
+            "        ctx.assert(",
+            "            !atributos_disabled || atributos_disabled.length === 0,",
+            '            "El campo apellido quedó deshabilitado después del autocompletado"',
+            "        );",
+            "",
+            "        // 11. Cerrar el modal.",
+            '        const clic_cerrar = await ctx.clic("#boton_cancelar_nuevo_pasajero");',
+            '        ctx.assert(clic_cerrar && clic_cerrar.exito, "No se pudo cerrar el modal de alta de pasajero");',
+            "    }",
+            "};",
         ],
     ],
 
-    // ============================================================
-    // Aplicacion/ventana.js
-    // ============================================================
+    // --------------------------------------------------------
+    // servicio.js — agregar helper ctx.activar_pestana_piloto
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.js',
-        'descripcion' => 'ventana.js: bump a 1.5plugin.4n',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'Agregar helper activar_pestana_piloto al ctx',
         'buscar' => [
-            ' * @version 1.5plugin.4m',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4n',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.js',
-        'descripcion' => 'ventana.js: correr_seccion itera las pruebas en el popup',
-        'buscar' => [
-            '    async function correr_seccion(seccion, resumen_el) {',
-            '        const boton = seccion.querySelector(".btn-correr-todas");',
-            '        const botones_prueba = seccion.querySelectorAll(".btn-correr-prueba");',
-            '        boton.disabled = true;',
-            '        botones_prueba.forEach((b) => { b.disabled = true; });',
-            '        resumen_el.textContent = "Corriendo...";',
-            '        resumen_el.className = "seccion-resumen";',
-            '',
-            '        let resp;',
-            '        try {',
-            '            resp = await enviar({ tipo: "correr_seccion", id_seccion: seccion.dataset.idSeccion });',
-            '        } catch (e) {',
-            '            resumen_el.textContent = "Error: " + e.message;',
-            '            resumen_el.className = "seccion-resumen fallo";',
-            '            boton.disabled = false;',
-            '            botones_prueba.forEach((b) => { b.disabled = false; });',
-            '            return;',
-            '        }',
-            '',
-            '        if (!resp || !resp.exito) {',
-            '            resumen_el.textContent = "Error: " + (resp && resp.error ? resp.error : "desconocido");',
-            '            resumen_el.className = "seccion-resumen fallo";',
-            '            boton.disabled = false;',
-            '            botones_prueba.forEach((b) => { b.disabled = false; });',
-            '            return;',
-            '        }',
-            '',
-            '        (resp.resultados || []).forEach((r) => {',
-            '            const li = seccion.querySelector(`li[data-id-prueba="${r.id_prueba}"]`);',
-            '            if (!li) return;',
-            '            const el = li.querySelector(".resultado");',
-            '            aplicar_resultado(el, r);',
-            '        });',
-            '',
-            '        resumen_el.textContent = resp.ok + "/" + resp.total + " OK";',
-            '        resumen_el.className = "seccion-resumen " + (resp.fallo === 0 ? "ok" : "fallo");',
-            '        boton.disabled = false;',
-            '        botones_prueba.forEach((b) => { b.disabled = false; });',
-            '    }',
-        ],
-        'reemplazar' => [
-            '    async function correr_seccion(seccion, resumen_el) {',
-            '        const boton = seccion.querySelector(".btn-correr-todas");',
-            '        const botones_prueba = seccion.querySelectorAll(".btn-correr-prueba");',
-            '        boton.disabled = true;',
-            '        botones_prueba.forEach((b) => { b.disabled = true; });',
-            '',
-            '        const lis = Array.from(seccion.querySelectorAll("li[data-id-prueba]"));',
-            '        let ok = 0;',
-            '        let fallo = 0;',
-            '        const total = lis.length;',
-            '',
-            '        lis.forEach((li) => {',
-            '            const el = li.querySelector(".resultado");',
-            '            el.textContent = "—";',
-            '            el.className = "resultado";',
-            '            li.classList.remove("corriendo");',
-            '        });',
-            '',
-            '        for (let i = 0; i < lis.length; i++) {',
-            '            const li = lis[i];',
-            '            const id_prueba = li.dataset.idPrueba;',
-            '            const el = li.querySelector(".resultado");',
-            '',
-            '            li.classList.add("corriendo");',
-            '            el.textContent = "Corriendo...";',
-            '            el.className = "resultado";',
-            '            resumen_el.textContent = `Corriendo ${i + 1}/${total}...`;',
-            '            resumen_el.className = "seccion-resumen";',
-            '',
-            '            let resp;',
+            '        refrescar_asientos_pagina: async () => {',
             '            try {',
-            '                resp = await enviar({ tipo: "correr_prueba", id_prueba });',
+            '                const r = await chrome.scripting.executeScript({',
+            '                    target: { tabId: pestana_id },',
+            '                    world: "MAIN",',
+            '                    func: _refresh_asientos_main_world',
+            '                });',
+            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
             '            } catch (e) {',
-            '                el.textContent = "Error: " + e.message;',
-            '                el.className = "resultado resultado-error";',
-            '                li.classList.remove("corriendo");',
-            '                fallo++;',
-            '                continue;',
+            '                return { exito: false, error: e.message };',
             '            }',
+            '        },',
             '',
-            '            aplicar_resultado(el, resp);',
-            '            li.classList.remove("corriendo");',
+            '        // === helpers de sesion ===',
+            '        async cerrar_sesion() {',
+        ],
+        'reemplazar' => [
+            '        refrescar_asientos_pagina: async () => {',
+            '            try {',
+            '                const r = await chrome.scripting.executeScript({',
+            '                    target: { tabId: pestana_id },',
+            '                    world: "MAIN",',
+            '                    func: _refresh_asientos_main_world',
+            '                });',
+            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
+            '            } catch (e) {',
+            '                return { exito: false, error: e.message };',
+            '            }',
+            '        },',
+            '        activar_pestana_piloto: async (nombre) => {',
+            '            // Activa una pestaña del piloto desde el page context.',
+            '            // Las pestañas se generan dinámicamente, así que no hay',
+            '            // un selector estable; se llama a `activar_pestana`',
+            '            // (global del piloto) vía chrome.scripting en MAIN world.',
+            '            try {',
+            '                const r = await chrome.scripting.executeScript({',
+            '                    target: { tabId: pestana_id },',
+            '                    world: "MAIN",',
+            '                    func: (n) => {',
+            '                        if (typeof activar_pestana === "function") {',
+            '                            activar_pestana(n);',
+            '                            return { exito: true };',
+            '                        }',
+            '                        return { exito: false, error: "activar_pestana no existe en el page" };',
+            '                    },',
+            '                    args: [nombre]',
+            '                });',
+            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
+            '            } catch (e) {',
+            '                return { exito: false, error: e.message };',
+            '            }',
+            '        },',
             '',
-            '            if (resp && resp.exito && resp.resultado === "ok") ok++;',
-            '            else fallo++;',
-            '        }',
-            '',
-            '        resumen_el.textContent = ok + "/" + total + " OK";',
-            '        resumen_el.className = "seccion-resumen " + (fallo === 0 ? "ok" : "fallo");',
-            '        boton.disabled = false;',
-            '        botones_prueba.forEach((b) => { b.disabled = false; });',
-            '    }',
+            '        // === helpers de sesion ===',
+            '        async cerrar_sesion() {',
         ],
     ],
 
-    // ============================================================
-    // Aplicacion/servicio.js
-    // ============================================================
+    // --------------------------------------------------------
+    // servicio.js — bump de version
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4n',
+        'descripcion' => 'Bump @version de servicio.js a 1.5plugin.4o',
+        'buscar' => [
+            ' * @version 1.5plugin.4nl',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4o',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // catalogo.js — import + agregar a la seccion base
+    // --------------------------------------------------------
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: import de la prueba 18',
+        'buscar' => [
+            'import { prueba as login } from "./prueba_02_login.js";',
+        ],
+        'reemplazar' => [
+            'import { prueba as login } from "./prueba_02_login.js";',
+            'import { prueba as autocompletado_dni_terminal_clientes } from "./prueba_18_autocompletado_dni_terminal_clientes.js";',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: agregar prueba 18 a la seccion base',
+        'buscar' => [
+            '        id: "base",',
+            '        nombre: "Base",',
+            '        pruebas: [',
+            '            arranque,',
+            '            login',
+            '        ]',
+        ],
+        'reemplazar' => [
+            '        id: "base",',
+            '        nombre: "Base",',
+            '        pruebas: [',
+            '            arranque,',
+            '            login,',
+            '            autocompletado_dni_terminal_clientes',
+            '        ]',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: bump @version a 1.5plugin.4o',
         'buscar' => [
             ' * @version 1.5plugin.4m',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4n',
+            ' * @version 1.5plugin.4o',
         ],
     ],
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: eliminar _correr_seccion',
-        'buscar' => [
-            'async function _correr_seccion(id_seccion) {',
-            '    const seccion = SECCIONES.find((s) => s.id === id_seccion);',
-            '    if (!seccion) {',
-            '        return { exito: false, error: "Seccion no encontrada: " + id_seccion };',
-            '    }',
-            '    const resultados = [];',
-            '    let ok = 0;',
-            '    let fallo = 0;',
-            '    for (const prueba of seccion.pruebas) {',
-            '        const r = await _correr_prueba(prueba.id);',
-            '        resultados.push({ id_prueba: prueba.id, nombre: prueba.nombre, ...r });',
-            '        if (r.exito && r.resultado === "ok") ok++;',
-            '        else fallo++;',
-            '    }',
-            '    return {',
-            '        exito: true,',
-            '        id_seccion,',
-            '        total: seccion.pruebas.length,',
-            '        ok,',
-            '        fallo,',
-            '        resultados',
-            '    };',
-            '}',
-            '',
-            'async function _correr_prueba(id_prueba) {',
-        ],
-        'reemplazar' => [
-            'async function _correr_prueba(id_prueba) {',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: eliminar caso correr_seccion',
-        'buscar' => [
-            '                case "correr_seccion":',
-            '                    sendResponse(await _correr_seccion(mensaje.id_seccion));',
-            '                    break;',
-            '',
-        ],
-        'reemplazar' => [
-        ],
-    ],
-
-    // ============================================================
-    // Bumps
-    // ============================================================
+    // --------------------------------------------------------
+    // ConfPlugin.js — bumps de version
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump @version a 1.5plugin.4n',
+        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.4o',
         'buscar' => [
-            ' * @version 1.5plugin.4',
+            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
+            '    Conf.VERSION_APP = "1.5plugin.4nml";',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4n',
+            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
+            '    Conf.VERSION_APP = "1.5plugin.4o";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4n',
+        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.4o',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4',
+            'export const VERSION_PLUGIN = "1.5plugin.4nml";',
         ],
         'reemplazar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4n',
+            'export const VERSION_PLUGIN = "1.5plugin.4o";',
         ],
     ],
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4n',
-        'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4',
-        ],
-        'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4n',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4n',
-        'buscar' => [
-            ' * @version 1.5plugin.4',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4n',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4n',
-        'buscar' => [
-            ' * @version 1.5plugin.4',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4n',
-        ],
-    ],
-
-    // ============================================================
-    // prompts/prompt_plugin_piloto.md
-    // ============================================================
+    // --------------------------------------------------------
+    // prompt_plugin_piloto.md — §7 estado actual
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4n',
+        'descripcion' => 'prompt: §7 actualizar version y conteo de pruebas',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4m (secciones',
+            '**Proyecto en v1.5plugin.4m.** El esqueleto del plugin está',
+            'armado y funcional, tiene 17 pruebas (base + ventas) y las',
+            'agrupa en secciones.',
         ],
         'reemplazar' => [
+            '**Proyecto en v1.5plugin.4o.** El esqueleto del plugin está',
+            'armado y funcional, tiene 18 pruebas (base + ventas) y las',
+            'agrupa en secciones.',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // prompt_plugin_piloto.md — §9 cabecera
+    // --------------------------------------------------------
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt: §9 actualizar cabecera de version',
+        'buscar' => [
             '**Última actualización de este prompt:** v1.5plugin.4n (progreso',
             'en vivo al correr una sección: la ventana itera las pruebas',
             'y manda `correr_prueba` una por una, actualizando el estado',
             'después de cada una. El SW ya no corre la sección entera;',
             'el caso `correr_seccion` se eliminó. Se agrega estilo',
             '`.corriendo` para la prueba en curso).',
-            'Antes: v1.5plugin.4m (secciones',
+        ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.4o (nueva',
+            'prueba `autocompletado_dni_terminal_clientes`: login como',
+            'terminal, ir a la pestaña Pasajeros/Clientes, crear un',
+            'pasajero de prueba, abrir el modal de alta, escribir el DNI',
+            'y verificar que apellido y nombres se autocompletan. Cubre',
+            'el fix v74h del piloto PHP. Se agrega el helper',
+            '`ctx.activar_pestana_piloto(nombre)` al service worker, que',
+            'invoca `activar_pestana` del page context vía',
+            '`chrome.scripting.executeScript` en MAIN world).',
+            'Antes: v1.5plugin.4n (progreso',
+            'en vivo al correr una sección: la ventana itera las pruebas',
+            'y manda `correr_prueba` una por una, actualizando el estado',
+            'después de cada una. El SW ya no corre la sección entera;',
+            'el caso `correr_seccion` se eliminó. Se agrega estilo',
+            '`.corriendo` para la prueba en curso).',
         ],
     ],
+
+    // --------------------------------------------------------
+    // prompt_plugin_piloto.md — §9 estado de la conversacion
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: nota de secciones actualizada',
+        'descripcion' => 'prompt: §9 agregar entrada de la prueba nueva',
         'buscar' => [
-            'La ventana renderiza cada sección con un botón "Correr todas".',
-            'Para agregar una sección nueva, sumar un objeto a `SECCIONES`.',
+            '- El plugin tiene 17 pruebas que corren OK contra el piloto',
+            '  PHP.',
         ],
         'reemplazar' => [
-            'La ventana renderiza cada sección con un botón "Correr todas".',
-            'Cuando se aprieta, la ventana itera las pruebas de la',
-            'sección y manda `correr_prueba` una por una, mostrando el',
-            'progreso en vivo: la prueba en curso se resalta y el',
-            'resumen dice "Corriendo N/total...". El SW no tiene un caso',
-            '`correr_seccion`; simplemente ejecuta cada prueba individual.',
-            'Para agregar una sección nueva, sumar un objeto a `SECCIONES`.',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion 24 reemplazada por dos items',
-        'buscar' => [
-            '24. **Cuando un bloque `buscar` falla, copiarlo textual del',
-            '    archivo real, no de memoria.**',
-        ],
-        'reemplazar' => [
-            '24. **Cuando un bloque `buscar` falla, copiarlo textual del',
-            '    archivo real, no de memoria.**',
-            '25. **Cuando un flujo largo necesita progreso, iterarlo desde',
-            '    el lado que dibuja la UI.** Al correr una sección completa,',
-            '    la ventana itera las pruebas y manda `correr_prueba` una',
-            '    por una, actualizando el estado después de cada respuesta.',
-            '    Si el SW corriera todo y devolviera al final, la UI no',
-            '    podría mostrar progreso intermedio sin mensajería',
-            '    bidireccional. Bug en v1.5plugin.4m: "Correr todas"',
-            '    mostraba todo recién al final. Fix en v1.5plugin.4n.',
+            '- El plugin tiene 18 pruebas que corren OK contra el piloto',
+            '  PHP. La más reciente es `autocompletado_dni_terminal_clientes`',
+            '  (v1.5plugin.4o), que verifica el fix v74h del piloto (el',
+            '  autocompletado por DNI desde la pestaña Clientes con usuario',
+            '  terminal, sin depender de que haya un viaje seleccionado).',
         ],
     ],
 

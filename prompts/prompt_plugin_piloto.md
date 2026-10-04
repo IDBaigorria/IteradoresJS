@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.4m.** El esqueleto del plugin está
-armado y funcional, tiene 17 pruebas (base + ventas) y las
+**Proyecto en v1.5plugin.4o.** El esqueleto del plugin está
+armado y funcional, tiene 18 pruebas (base + ventas) y las
 agrupa en secciones. Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
@@ -487,7 +487,16 @@ por tema.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4n (progreso
+**Última actualización de este prompt:** v1.5plugin.4o (nueva
+prueba `autocompletado_dni_terminal_clientes`: login como
+terminal, ir a la pestaña Pasajeros/Clientes, crear un
+pasajero de prueba, abrir el modal de alta, escribir el DNI
+y verificar que apellido y nombres se autocompletan. Cubre
+el fix v74h del piloto PHP. Se agrega el helper
+`ctx.activar_pestana_piloto(nombre)` al service worker, que
+invoca `activar_pestana` del page context vía
+`chrome.scripting.executeScript` en MAIN world).
+Antes: v1.5plugin.4n (progreso
 en vivo al correr una sección: la ventana itera las pruebas
 y manda `correr_prueba` una por una, actualizando el estado
 después de cada una. El SW ya no corre la sección entera;
@@ -499,8 +508,11 @@ completo con todo lo aprendido a la fuerza).
 
 **Estado de la conversación:**
 
-- El plugin tiene 17 pruebas que corren OK contra el piloto
-  PHP.
+- El plugin tiene 18 pruebas que corren OK contra el piloto
+  PHP. La más reciente es `autocompletado_dni_terminal_clientes`
+  (v1.5plugin.4o), que verifica el fix v74h del piloto (el
+  autocompletado por DNI desde la pestaña Clientes con usuario
+  terminal, sin depender de que haya un viaje seleccionado).
 - En el proceso se encontraron y arreglaron varios bugs del
   piloto: v74d (refresco del croquis tras cancelar venta),
   v74e (condición de carrera en el polling de asientos),
