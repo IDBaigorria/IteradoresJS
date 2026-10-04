@@ -147,3 +147,36 @@ export async function leer_aviso_actual(ctx) {
     const texto = await ctx.leer_aviso();
     return (texto || "").trim();
 }
+
+/**
+ * Abre el formulario de agregar micro, elige la empresa y
+ * vehículo por índice, escribe el monto y confirma. NO
+ * espera a que el micro aparezca: el llamador decide qué
+ * verificar (éxito, rechazo, etc.).
+ *
+ * @param {object} ctx
+ * @param {number} idx_empresa
+ * @param {number} idx_vehiculo
+ * @param {string} monto
+ */
+export async function agregar_micro_con_indices(ctx, idx_empresa, idx_vehiculo, monto) {
+    await abrir_formulario_agregar_micro(ctx);
+    const info = await elegir_empresa_y_vehiculo(ctx, idx_empresa, idx_vehiculo);
+    await ctx.escribir("#monto_micro_viaje", monto);
+    await ctx.clic("#boton_confirmar_micro");
+    return info;
+}
+
+/**
+ * Quita un micro por su índice en #lista_micros_viaje. Hace
+ * click en el botón .btn-eliminar-micro de esa posición.
+ * Necesita que las alertas estén sobrescritas (el piloto
+ * usa confirm() nativo).
+ *
+ * @param {object} ctx
+ * @param {number} idx Índice 0-based del micro a quitar.
+ */
+export async function quitar_micro_por_indice(ctx, idx) {
+    const r = await ctx.clic_por_indice("#lista_micros_viaje .btn-eliminar-micro", idx);
+    if (!(r && r.exito)) throw new Error("No se pudo quitar el micro índice " + idx + ": " + (r && r.error ? r.error : "sin detalle"));
+}

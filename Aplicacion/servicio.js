@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4y
+ * @version 1.5plugin.4z
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -371,6 +371,30 @@ function _crear_ctx(pestana_id) {
             }
         },
 
+        clic_por_indice: async (selector, indice) => {
+            // Hace click en el n-ésimo elemento que matchea el
+            // selector (0-based). Se usa para interactuar con
+            // listas (por ejemplo, el botón "Quitar" del segundo
+            // micro en #lista_micros_viaje).
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (sel, idx) => {
+                        const els = document.querySelectorAll(sel);
+                        if (idx < 0 || idx >= els.length) {
+                            return { exito: false, error: "indice " + idx + " fuera de rango (0.." + (els.length - 1) + ")" };
+                        }
+                        els[idx].click();
+                        return { exito: true };
+                    },
+                    args: [selector, indice]
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
         contar: async (selector) => {
             // Cuenta cuántos elementos matchean el selector. Se usa
             // para verificar listas (por ejemplo, cantidad de
@@ -426,6 +450,31 @@ function _crear_ctx(pestana_id) {
                         if (!el) return { exito: false, error: "no existe " + sel };
                         if (el.tagName !== "SELECT") return { exito: false, error: "no es un SELECT: " + sel };
                         const opciones = Array.from(el.options).map(o => ({ valor: o.value, texto: o.textContent }));
+                        return { exito: true, opciones };
+                    },
+                    args: [selector]
+                });
+                if (r && r[0] && r[0].result && r[0].result.exito) {
+                    return r[0].result.opciones;
+                }
+                return [];
+            } catch (e) {
+                return [];
+            }
+        },
+        leer_opciones_con_disabled: async (selector) => {
+            // Como leer_opciones, pero cada opción incluye un
+            // campo `disabled`. Se usa para verificar el filtro
+            // de vehículos sin asientos del alta de micro.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (sel) => {
+                        const el = document.querySelector(sel);
+                        if (!el) return { exito: false, error: "no existe " + sel };
+                        if (el.tagName !== "SELECT") return { exito: false, error: "no es un SELECT: " + sel };
+                        const opciones = Array.from(el.options).map(o => ({ valor: o.value, texto: o.textContent, disabled: o.disabled === true }));
                         return { exito: true, opciones };
                     },
                     args: [selector]

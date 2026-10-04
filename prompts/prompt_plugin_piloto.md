@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.4y.** El esqueleto del plugin está
-armado y funcional, tiene 27 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.4z.** El esqueleto del plugin está
+armado y funcional, tiene 29 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas) y las agrupa
 en secciones. Archivos:
 
@@ -360,10 +360,13 @@ en secciones. Archivos:
 - `autocompletado`: `autocompletado_dni_terminal_clientes`.
 - `puntos_de_venta`: `alta_terminal`.
 - `viajes`: `alta_viaje`.
-- `micros`: 7 pruebas. `alta_micro` (flujo feliz) más
+- `micros`: 9 pruebas. `alta_micro` (flujo feliz) más
   validaciones: `micro_sin_empresa`, `micro_sin_vehiculo`,
   `micro_monto_vacio`, `micro_monto_negativo`,
-  `micro_cancelar`, `micro_mismo_vehiculo_dos_veces`.
+  `micro_cancelar`, `micro_mismo_vehiculo_dos_veces`
+  (verifica rechazo), `micro_vehiculo_sin_asientos`
+  (verifica filtro del select) y `micro_colision_numeracion`
+  (reproduce el bug de colisión al quitar del medio).
 - `ventas`: 15 pruebas (básica, cuotas, transferencia,
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
@@ -631,12 +634,25 @@ por tema.
     pruebas, solo usan `ctx`.
 37. **Documentar el comportamiento del backend con pruebas
     también es útil.** `micro_mismo_vehiculo_dos_veces`
-    verifica que el backend actual PERMITE duplicados. Si
-    en el futuro el backend cambia a rechazarlos, la prueba
-    falla y hay que decidir: actualizar la prueba o revertir
-    el cambio. La prueba no es un contrato inmutable; es una
-    foto del comportamiento observado, con un comentario
-    que lo aclara.
+    verificaba que el backend PERMITE duplicados; después
+    del fix v74k del piloto (que rechaza duplicados) se
+    reescribió para verificar el rechazo. La prueba no es
+    un contrato inmutable; es una foto del comportamiento
+    observado, y se actualiza cuando el comportamiento
+    cambia intencionalmente.
+38. **Las pruebas que dependen de una precondición del
+    entorno deben fallar con mensaje claro.**
+    `micro_colision_numeracion` necesita 3 vehículos
+    configurados en la misma empresa; si el dueño tiene
+    menos, la prueba falla con un mensaje que dice cuántos
+    encontró y qué hacer (cargar más vehículos o ajustar la
+    prueba). `micro_vehiculo_sin_asientos`, en cambio, no
+    puede forzar su precondición (vehículo sin asientos)
+    desde el plugin. En ese caso, la prueba pasa con un
+    `console.warn` si el entorno no la cumple. El criterio:
+    si la precondición es creada por el usuario (cargar
+    datos), fallar con mensaje; si es un estado aleatorio
+    que puede no darse, pasar con advertencia.
 
 ---
 
@@ -675,7 +691,18 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4y (seis
+**Última actualización de este prompt:** v1.5plugin.4z (dos
+pruebas nuevas para verificar los fixes v74k del piloto:
+`micro_vehiculo_sin_asientos` verifica que los vehículos
+sin asientos aparezcan disabled con el sufijo correcto, y
+`micro_colision_numeracion` reproduce el bug de colisión al
+quitar un micro del medio. `micro_mismo_vehiculo_dos_veces`
+se reescribió para verificar el rechazo del backend (antes
+documentaba que lo permitía). Se agregan los helpers
+`ctx.clic_por_indice(sel, idx)` y
+`ctx.leer_opciones_con_disabled(sel)` al service worker.
+Nuevo aprendizaje 38).
+Antes: v1.5plugin.4y (seis
 pruebas nuevas de validación del alta de micro: sin
 empresa, sin vehículo, monto vacío, monto negativo,
 cancelar y mismo vehículo dos veces. Nuevo archivo
@@ -766,16 +793,22 @@ completo con todo lo aprendido a la fuerza).
 
 **Estado de la conversación:**
 
-- El plugin tiene 27 pruebas que corren OK contra el piloto
-  PHP. La última tanda (v1.5plugin.4y) agregó 6 pruebas de
-  validación del alta de micro: `micro_sin_empresa`,
-  `micro_sin_vehiculo`, `micro_monto_vacio`,
-  `micro_monto_negativo`, `micro_cancelar` y
-  `micro_mismo_vehiculo_dos_veces` (esta última documenta
-  que el backend actual permite agregar el mismo vehículo
-  dos veces al mismo viaje). Se extrajeron las funciones de
-  setup a `_micros_helpers.js`, y `alta_micro` se refactorizó
-  para usarlas.
+- El plugin tiene 29 pruebas que corren OK contra el piloto
+  PHP. La última tanda (v1.5plugin.4z) agregó 2 pruebas que
+  verifican los fixes v74k del piloto:
+  `micro_vehiculo_sin_asientos` (verifica que los vehículos
+  sin asientos aparezcan disabled en el select, con el
+  sufijo "Sin asientos configurados") y
+  `micro_colision_numeracion` (reproduce el bug de colisión
+  al quitar un micro del medio: 3 micros → quitar el 2do →
+  agregar uno nuevo → verificar que aparecen 3). Además se
+  reescribió `micro_mismo_vehiculo_dos_veces`: antes
+  documentaba que el backend permitía duplicados; ahora
+  verifica que los rechaza.
+- Requisito de entorno para `micro_colision_numeracion`:
+  la primera empresa del dueño `carmen1` debe tener al
+  menos 3 vehículos configurados. Si no, la prueba falla
+  con mensaje claro pidiendo cargar más.
 - Notas sobre limpieza acumulada:
   - `alta_terminal`: crea terminales con prefijo
     `termprueba`. Limpiar desde la pestaña Puntos de venta.

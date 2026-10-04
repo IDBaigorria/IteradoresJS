@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.4y
+ * @version 1.5plugin.4z
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -27,6 +27,8 @@ import { prueba as micro_monto_vacio } from "./prueba_24_micro_monto_vacio.js";
 import { prueba as micro_monto_negativo } from "./prueba_25_micro_monto_negativo.js";
 import { prueba as micro_cancelar } from "./prueba_26_micro_cancelar.js";
 import { prueba as micro_mismo_vehiculo_dos_veces } from "./prueba_27_micro_mismo_vehiculo.js";
+import { prueba as micro_vehiculo_sin_asientos } from "./prueba_28_micro_vehiculo_sin_asientos.js";
+import { prueba as micro_colision_numeracion } from "./prueba_29_micro_colision_numeracion.js";
 import { prueba as venta_basica } from "./prueba_03_venta_basica.js";
 import { prueba as venta_cuotas } from "./prueba_04_venta_cuotas.js";
 import { prueba as venta_transferencia } from "./prueba_05_venta_transferencia.js";
@@ -83,7 +85,9 @@ export const SECCIONES = [
             micro_monto_vacio,
             micro_monto_negativo,
             micro_cancelar,
-            micro_mismo_vehiculo_dos_veces
+            micro_mismo_vehiculo_dos_veces,
+            micro_vehiculo_sin_asientos,
+            micro_colision_numeracion
         ]
     },
     {
