@@ -8,7 +8,7 @@
  * sean independientes y no se agoten los asientos del viaje
  * de setup.
  *
- * @version 1.5plugin.5b
+ * @version 1.5plugin.5c
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
@@ -260,14 +260,17 @@ export async function seleccionar_n_asientos(ctx, n) {
         const ok = await seleccionar_un_asiento_con_reintentos(ctx, numero, 3);
         if (!ok) throw new Error("El asiento " + numero + " no quedo seleccionado tras 3 intentos");
     }
-    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);
+    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 12000);
     if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");
     return elegidos;
 }
 
 export async function abrir_modal_confirmacion(ctx) {
     await ctx.clic("#boton_confirmar_venta");
-    const form = await ctx.esperar_visible("#formulario_confirmacion_venta", 8000);
+    // El modal dispara resolver_config_pago(), que hace un fetch
+    // a viajes/obtener_opciones_terminal. Con el grafo grande
+    // puede tardar. 15s de margen.
+    const form = await ctx.esperar_visible("#formulario_confirmacion_venta", 15000);
     if (!form || !form.exito) throw new Error("No se abrio el formulario de confirmacion");
 }
 
@@ -382,10 +385,34 @@ export async function setear_monto_pagado(ctx, monto) {
 
 export async function confirmar_venta(ctx) {
     await ctx.clic("#confirmar_venta");
-    const ok = await ctx.esperar_visible("#opciones_impresion", 8000);
-    if (!ok || !ok.exito) {
+    // El flujo del piloto hace dos fetch en serie (estado_asientos
+    // y listar_por_dueno) antes de mostrar el panel. Con el grafo
+    // grande, eso puede tardar 15-20s. Se espera al panel con
+    // timeout largo, pero se acepta tambien el toast de exito como
+    // señal alternativa (el toast aparece antes que el panel).
+    const inicio = Date.now();
+    let panel_ok = false;
+    let toast_ok = false;
+    while (Date.now() - inicio < 25000) {
+        panel_ok = await ctx.esta_visible("#opciones_impresion");
+        if (panel_ok) break;
+        // Chequear el toast como señal alternativa.
+        const aviso = await ctx.leer_aviso();
+        if (aviso && aviso.indexOf("Venta confirmada") !== -1) {
+            toast_ok = true;
+            break;
+        }
+        await ctx.pausa(200);
+    }
+    if (!panel_ok && !toast_ok) {
         const aviso = await ctx.leer_aviso();
         throw new Error("No se confirmo la venta. Aviso: " + (aviso || "(sin aviso)"));
+    }
+    // Si el toast aparecio pero el panel todavia no, darle un
+    // margen corto para que termine de aparecer (asi
+    // obtener_id_ultima_venta lo puede cerrar).
+    if (!panel_ok) {
+        await ctx.esperar_visible("#opciones_impresion", 5000);
     }
 }
 

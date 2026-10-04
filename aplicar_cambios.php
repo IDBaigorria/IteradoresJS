@@ -2,12 +2,12 @@
 /**
  * Aplicador de cambios automáticos — proyecto iteradoresJS (plugin Chrome).
  *
- * Tanda v1.5plugin.5b: carga de viajes más robusta.
+ * Tanda v1.5plugin.5c: timeouts del flujo de venta.
  *
- * - ir_a_tab no clickea la tab si ya está activa (evita reiniciar
- *   cargar_viajes y descartar el trabajo de la primera carga).
- * - Los timeouts del primer load suben (25s para la lista, 10-15s
- *   para el modal y los micros).
+ * Con el grafo grande (2 micros + muchas ventas acumuladas), los
+ * fetch en serie dentro del flujo de confirmación tardan más de lo
+ * que esperaban los helpers. Se suben los timeouts y se agrega el
+ * toast como señal alternativa de confirmación.
  *
  * Uso (parado en la raíz de iteradoresJS/):
  *   php aplicar_cambios.php
@@ -19,83 +19,101 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // --------------------------------------------------------
-    // _helpers.js — ir_a_tab: no clickear si ya está activa
+    // _helpers.js — confirmar_venta: timeout + toast alternativo
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers: ir_a_tab no clickea si la tab ya esta activa',
+        'descripcion' => '_helpers: confirmar_venta con timeout 25s + toast alternativo',
         'buscar' => [
-            '    await cerrar_modales_si_abiertos(ctx);',
-            '',
-            '    const selector = `.tab[data-tab="${id_tab}"]`;',
-            '    const existe = await ctx.esperar(selector, 3000);',
-            '    if (!existe || !existe.exito) throw new Error("No existe el tab " + id_tab);',
-            '    await ctx.clic(selector);',
-            '    const seccion = await ctx.esperar_visible("#" + id_tab, 5000);',
+            'export async function confirmar_venta(ctx) {',
+            '    await ctx.clic("#confirmar_venta");',
+            '    const ok = await ctx.esperar_visible("#opciones_impresion", 8000);',
+            '    if (!ok || !ok.exito) {',
+            '        const aviso = await ctx.leer_aviso();',
+            '        throw new Error("No se confirmo la venta. Aviso: " + (aviso || "(sin aviso)"));',
+            '    }',
+            '}',
         ],
         'reemplazar' => [
-            '    await cerrar_modales_si_abiertos(ctx);',
-            '',
-            '    const selector = `.tab[data-tab="${id_tab}"]`;',
-            '    const existe = await ctx.esperar(selector, 3000);',
-            '    if (!existe || !existe.exito) throw new Error("No existe el tab " + id_tab);',
-            '',
-            '    // Si el tab ya esta activo, no clickear: evita reiniciar la',
-            '    // carga de datos (el piloto limpia la lista al principio de',
-            '    // cargar_viajes, y volver a clickear descarta lo que la carga',
-            '    // anterior ya tenia listo). Despues del login, el piloto',
-            '    // activa el primer tab automaticamente, asi que en la mayoria',
-            '    // de los casos el tab ya esta activo al entrar aca.',
-            '    const clases = await ctx.obtener_atributos(selector, "class");',
-            '    const ya_activo = clases.length > 0 && String(clases[0]).indexOf("active") !== -1;',
-            '    if (!ya_activo) {',
-            '        await ctx.clic(selector);',
+            'export async function confirmar_venta(ctx) {',
+            '    await ctx.clic("#confirmar_venta");',
+            '    // El flujo del piloto hace dos fetch en serie (estado_asientos',
+            '    // y listar_por_dueno) antes de mostrar el panel. Con el grafo',
+            '    // grande, eso puede tardar 15-20s. Se espera al panel con',
+            '    // timeout largo, pero se acepta tambien el toast de exito como',
+            '    // señal alternativa (el toast aparece antes que el panel).',
+            '    const inicio = Date.now();',
+            '    let panel_ok = false;',
+            '    let toast_ok = false;',
+            '    while (Date.now() - inicio < 25000) {',
+            '        panel_ok = await ctx.esta_visible("#opciones_impresion");',
+            '        if (panel_ok) break;',
+            '        // Chequear el toast como señal alternativa.',
+            '        const aviso = await ctx.leer_aviso();',
+            '        if (aviso && aviso.indexOf("Venta confirmada") !== -1) {',
+            '            toast_ok = true;',
+            '            break;',
+            '        }',
+            '        await ctx.pausa(200);',
             '    }',
-            '',
-            '    const seccion = await ctx.esperar_visible("#" + id_tab, 5000);',
+            '    if (!panel_ok && !toast_ok) {',
+            '        const aviso = await ctx.leer_aviso();',
+            '        throw new Error("No se confirmo la venta. Aviso: " + (aviso || "(sin aviso)"));',
+            '    }',
+            '    // Si el toast aparecio pero el panel todavia no, darle un',
+            '    // margen corto para que termine de aparecer (asi',
+            '    // obtener_id_ultima_venta lo puede cerrar).',
+            '    if (!panel_ok) {',
+            '        await ctx.esperar_visible("#opciones_impresion", 5000);',
+            '    }',
+            '}',
         ],
     ],
 
     // --------------------------------------------------------
-    // _helpers.js — ir_a_viajes_y_abrir_primero: timeouts más largos
+    // _helpers.js — abrir_modal_confirmacion: timeout 15s
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers: ir_a_viajes_y_abrir_primero con timeouts largos',
+        'descripcion' => '_helpers: abrir_modal_confirmacion con timeout 15s',
         'buscar' => [
-            'export async function ir_a_viajes_y_abrir_primero(ctx) {',
-            '    await ir_a_tab(ctx, "viajes");',
-            '    const hay = await ctx.esperar(".btn-detalle-viaje", 8000);',
-            '    if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");',
-            '',
-            '    await ctx.clic(".btn-detalle-viaje");',
-            '    const modal = await ctx.esperar_visible("#modal_generico", 8000);',
-            '    if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");',
-            '    const micros = await ctx.esperar(".btn-ver-pasaje", 8000);',
-            '    if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");',
+            'export async function abrir_modal_confirmacion(ctx) {',
+            '    await ctx.clic("#boton_confirmar_venta");',
+            '    const form = await ctx.esperar_visible("#formulario_confirmacion_venta", 8000);',
+            '    if (!form || !form.exito) throw new Error("No se abrio el formulario de confirmacion");',
             '}',
         ],
         'reemplazar' => [
-            'export async function ir_a_viajes_y_abrir_primero(ctx) {',
-            '    await ir_a_tab(ctx, "viajes");',
-            '    // El primer load de la lista de viajes puede tardar bastante',
-            '    // si el grafo acumulo muchos datos de corridas anteriores',
-            '    // (viajes, ventas, micros). En la primera prueba de la corrida',
-            '    // el fetch puede tardar 10-15s. Damos 25s para no fallar por',
-            '    // timing.',
-            '    const hay = await ctx.esperar(".btn-detalle-viaje", 25000);',
-            '    if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");',
-            '',
-            '    await ctx.clic(".btn-detalle-viaje");',
-            '    const modal = await ctx.esperar_visible("#modal_generico", 10000);',
-            '    if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");',
-            '    const micros = await ctx.esperar(".btn-ver-pasaje", 15000);',
-            '    if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");',
+            'export async function abrir_modal_confirmacion(ctx) {',
+            '    await ctx.clic("#boton_confirmar_venta");',
+            '    // El modal dispara resolver_config_pago(), que hace un fetch',
+            '    // a viajes/obtener_opciones_terminal. Con el grafo grande',
+            '    // puede tardar. 15s de margen.',
+            '    const form = await ctx.esperar_visible("#formulario_confirmacion_venta", 15000);',
+            '    if (!form || !form.exito) throw new Error("No se abrio el formulario de confirmacion");',
             '}',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // _helpers.js — seleccionar_n_asientos: timeout del boton Vender
+    // --------------------------------------------------------
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => '_helpers: boton Vender con timeout 12s',
+        'buscar' => [
+            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 5000);',
+            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
+        ],
+        'reemplazar' => [
+            '    const boton = await ctx.esperar_visible("#contenedor_boton_confirmar_venta", 12000);',
+            '    if (!boton || !boton.exito) throw new Error("No aparecio el boton Vender");',
         ],
     ],
 
@@ -106,42 +124,42 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers: bump @version a 1.5plugin.5b',
+        'descripcion' => '_helpers: bump @version a 1.5plugin.5c',
         'buscar' => [
-            ' * @version 1.5plugin.5a',
+            ' * @version 1.5plugin.5b',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.5b',
+            ' * @version 1.5plugin.5c',
         ],
     ],
 
     // --------------------------------------------------------
-    // ConfPlugin.js — bumps a 5b
+    // ConfPlugin.js — bumps a 5c
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.5b',
+        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.5c',
         'buscar' => [
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.5a";',
-        ],
-        'reemplazar' => [
             '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
             '    Conf.VERSION_APP = "1.5plugin.5b";',
         ],
+        'reemplazar' => [
+            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
+            '    Conf.VERSION_APP = "1.5plugin.5c";',
+        ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.5b',
+        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.5c',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.5a";',
+            'export const VERSION_PLUGIN = "1.5plugin.5b";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.5b";',
+            'export const VERSION_PLUGIN = "1.5plugin.5c";',
         ],
     ],
 
@@ -152,18 +170,8 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §7 bump a 5b',
+        'descripcion' => 'prompt: §7 bump a 5c',
         'buscar' => [
-            '**Proyecto en v1.5plugin.5a.** El esqueleto del plugin está',
-            'armado y funcional, tiene 29 pruebas (base + autocompletado',
-            '+ puntos de venta + viajes + micros + ventas) y las agrupa',
-            'en secciones. Las pruebas de venta son independientes: cada',
-            'una cierra los modales al terminar, fuerza el refresh del',
-            'croquis y espera activamente por asientos libres. El viaje',
-            'de setup tiene 2 micros de 44 asientos cada uno (88 en',
-            'total).',
-        ],
-        'reemplazar' => [
             '**Proyecto en v1.5plugin.5b.** El esqueleto del plugin está',
             'armado y funcional, tiene 29 pruebas (base + autocompletado',
             '+ puntos de venta + viajes + micros + ventas) y las agrupa',
@@ -176,39 +184,32 @@ $cambios = [
             'load: 25s para la lista de viajes, 10s para el modal, 15s',
             'para los micros.',
         ],
+        'reemplazar' => [
+            '**Proyecto en v1.5plugin.5c.** El esqueleto del plugin está',
+            'armado y funcional, tiene 29 pruebas (base + autocompletado',
+            '+ puntos de venta + viajes + micros + ventas) y las agrupa',
+            'en secciones. Las pruebas de venta son independientes: cada',
+            'una cierra los modales al terminar, fuerza el refresh del',
+            'croquis y espera activamente por asientos libres. El viaje',
+            'de setup tiene 2 micros de 44 asientos cada uno (88 en',
+            'total). `ir_a_tab` no clickea la tab si ya está activa',
+            '(evita reiniciar la carga de datos). Timeouts del primer',
+            'load: 25s para la lista de viajes, 10s para el modal, 15s',
+            'para los micros. Timeouts del flujo de venta: 25s para el',
+            'panel de opciones de impresión, 15s para abrir el modal de',
+            'confirmación, 12s para el botón Vender.',
+        ],
     ],
 
     // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §8.8 aprendizaje 42
+    // prompt_plugin_piloto.md — §8.8 aprendizaje 43
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §8.8 agregar aprendizaje 42',
+        'descripcion' => 'prompt: §8.8 agregar aprendizaje 43',
         'buscar' => [
-            '41. **Un recurso compartido entre pruebas se agota si',
-            '    nadie lo repone.** El viaje de setup de las pruebas',
-            '    de venta empezó con 1 micro de 44 asientos y 9 libres.',
-            '    Con 15 pruebas × 1-3 asientos por prueba, no alcanza.',
-            '    Solución: 2 micros (88 asientos). Además, aunque las',
-            '    pruebas cancelen al final, la cancelación no libera',
-            '    los asientos en el croquis del frontend hasta el',
-            '    próximo polling, así que las pruebas siguientes ven',
-            '    el estado viejo. Combinación: pool grande + refresh',
-            '    forzado + espera activa.',
-        ],
-        'reemplazar' => [
-            '41. **Un recurso compartido entre pruebas se agota si',
-            '    nadie lo repone.** El viaje de setup de las pruebas',
-            '    de venta empezó con 1 micro de 44 asientos y 9 libres.',
-            '    Con 15 pruebas × 1-3 asientos por prueba, no alcanza.',
-            '    Solución: 2 micros (88 asientos). Además, aunque las',
-            '    pruebas cancelen al final, la cancelación no libera',
-            '    los asientos en el croquis del frontend hasta el',
-            '    próximo polling, así que las pruebas siguientes ven',
-            '    el estado viejo. Combinación: pool grande + refresh',
-            '    forzado + espera activa.',
             '42. **El primer load del viaje puede tardar 10-15s.** El',
             '    grafo acumula viajes, micros, ventas y asientos de',
             '    corridas anteriores. `formatear_viaje` itera todos',
@@ -221,6 +222,30 @@ $cambios = [
             '    del login y arranca `cargar_viajes` — clickear de',
             '    nuevo limpia la lista y reinicia el fetch).',
         ],
+        'reemplazar' => [
+            '42. **El primer load del viaje puede tardar 10-15s.** El',
+            '    grafo acumula viajes, micros, ventas y asientos de',
+            '    corridas anteriores. `formatear_viaje` itera todos',
+            '    los micros y todos los asientos para calcular los',
+            '    contadores al vuelo, así que la respuesta de',
+            '    `viajes/listar_por_terminal` se pone lenta cuando el',
+            '    grafo crece. Un timeout de 8s es corto. Regla: 25s',
+            '    para el primer load de la lista, y no clickear la tab',
+            '    si ya está activa (el piloto la activa solo después',
+            '    del login y arranca `cargar_viajes` — clickear de',
+            '    nuevo limpia la lista y reinicia el fetch).',
+            '43. **El flujo de confirmación de venta tiene dos fetch',
+            '    en serie.** Después de mostrar el toast "Venta',
+            '    confirmada", el piloto hace `solicitar_estado_asientos`',
+            '    y después `refrescar_contadores_viaje_actual`, y recién',
+            '    después muestra el panel `#opciones_impresion`. Con el',
+            '    grafo grande, cada fetch puede tardar 5-10s. Regla:',
+            '    esperar el panel con timeout de 25s, y aceptar el toast',
+            '    como señal alternativa (el toast aparece antes). Si el',
+            '    toast aparece pero el panel no, hacer una espera corta',
+            '    extra para que el panel termine de aparecer y',
+            '    `obtener_id_ultima_venta` lo pueda cerrar.',
+        ],
     ],
 
     // --------------------------------------------------------
@@ -230,19 +255,8 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 cabecera bump a 5b',
+        'descripcion' => 'prompt: §9 cabecera bump a 5c',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5a (las',
-            'pruebas de venta pasan a ser independientes. Nuevo helper',
-            '`cerrar_modales_si_abiertos(ctx)` en `_helpers.js` que se',
-            'llama al inicio y al final de cada prueba. `ir_a_tab`',
-            'cierra modales antes de cambiar de pestaña.',
-            '`abrir_primer_micro_con_libres` fuerza un refresh del',
-            'croquis y espera activamente por asientos libres.',
-            '`cerrar_form_venta_y_liberar` cierra también el modal del',
-            'viaje. Nuevos aprendizajes 39-41).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.5b (la',
             'carga de la lista de viajes pasa a ser más robusta.',
             '`ir_a_tab` no clickea la tab si ya está activa, así no',
@@ -250,45 +264,20 @@ $cambios = [
             'Timeouts del primer load subidos a 25s para la lista, 10s',
             'para el modal del viaje y 15s para la lista de micros.',
             'Nuevo aprendizaje 42).',
-            'Antes: v1.5plugin.5a (las',
-            'pruebas de venta pasan a ser independientes. Nuevo helper',
-            '`cerrar_modales_si_abiertos(ctx)` en `_helpers.js` que se',
-            'llama al inicio y al final de cada prueba. `ir_a_tab`',
-            'cierra modales antes de cambiar de pestaña.',
-            '`abrir_primer_micro_con_libres` fuerza un refresh del',
-            'croquis y espera activamente por asientos libres.',
-            '`cerrar_form_venta_y_liberar` cierra también el modal del',
-            'viaje. Nuevos aprendizajes 39-41).',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §9 estado de la conversación
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 agregar entrada de la tanda 5b',
-        'buscar' => [
-            '- Nota: el pool (los 2 micros) se agrega manualmente una',
-            '  vez desde la pestaña Viajes del piloto. Si se vuelve a',
-            '  agotar, hay que agregar un tercer micro o limpiar',
-            '  ventas viejas desde la pestaña Vendidos.',
         ],
         'reemplazar' => [
-            '- Nota: el pool (los 2 micros) se agrega manualmente una',
-            '  vez desde la pestaña Viajes del piloto. Si se vuelve a',
-            '  agotar, hay que agregar un tercer micro o limpiar',
-            '  ventas viejas desde la pestaña Vendidos.',
-            '- En v1.5plugin.5b, después de aplicar el fix, la prueba',
-            '  `venta_basica` seguía fallando con "No hay viajes',
-            '  disponibles". Diagnóstico: la lista tarda 10-15s en',
-            '  cargar (el grafo acumuló mucho dato) y `ir_a_tab`',
-            '  clickeaba la tab aunque ya estuviera activa, reiniciando',
-            '  `cargar_viajes`. Se subieron los timeouts a 25s y se',
-            '  evitó el click redundante. Con eso, la primera carga',
-            '  tiene tiempo de terminar.',
+            '**Última actualización de este prompt:** v1.5plugin.5c (suben',
+            'los timeouts del flujo de venta. `confirmar_venta` espera',
+            'hasta 25s al panel `#opciones_impresion` y acepta el toast',
+            '"Venta confirmada" como señal alternativa. `abrir_modal_confirmacion`',
+            '15s, botón Vender 12s. Nuevo aprendizaje 43).',
+            'Antes: v1.5plugin.5b (la',
+            'carga de la lista de viajes pasa a ser más robusta.',
+            '`ir_a_tab` no clickea la tab si ya está activa, así no',
+            'reinicia `cargar_viajes` ni descarta la carga en curso.',
+            'Timeouts del primer load subidos a 25s para la lista, 10s',
+            'para el modal del viaje y 15s para la lista de micros.',
+            'Nuevo aprendizaje 42).',
         ],
     ],
 

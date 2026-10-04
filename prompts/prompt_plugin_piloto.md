@@ -334,7 +334,7 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5b.** El esqueleto del plugin está
+**Proyecto en v1.5plugin.5c.** El esqueleto del plugin está
 armado y funcional, tiene 29 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
@@ -344,7 +344,9 @@ de setup tiene 2 micros de 44 asientos cada uno (88 en
 total). `ir_a_tab` no clickea la tab si ya está activa
 (evita reiniciar la carga de datos). Timeouts del primer
 load: 25s para la lista de viajes, 10s para el modal, 15s
-para los micros. Archivos:
+para los micros. Timeouts del flujo de venta: 25s para el
+panel de opciones de impresión, 15s para abrir el modal de
+confirmación, 12s para el botón Vender. Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -703,6 +705,17 @@ por tema.
     si ya está activa (el piloto la activa solo después
     del login y arranca `cargar_viajes` — clickear de
     nuevo limpia la lista y reinicia el fetch).
+43. **El flujo de confirmación de venta tiene dos fetch
+    en serie.** Después de mostrar el toast "Venta
+    confirmada", el piloto hace `solicitar_estado_asientos`
+    y después `refrescar_contadores_viaje_actual`, y recién
+    después muestra el panel `#opciones_impresion`. Con el
+    grafo grande, cada fetch puede tardar 5-10s. Regla:
+    esperar el panel con timeout de 25s, y aceptar el toast
+    como señal alternativa (el toast aparece antes). Si el
+    toast aparece pero el panel no, hacer una espera corta
+    extra para que el panel termine de aparecer y
+    `obtener_id_ultima_venta` lo pueda cerrar.
 
 ---
 
@@ -741,7 +754,12 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5b (la
+**Última actualización de este prompt:** v1.5plugin.5c (suben
+los timeouts del flujo de venta. `confirmar_venta` espera
+hasta 25s al panel `#opciones_impresion` y acepta el toast
+"Venta confirmada" como señal alternativa. `abrir_modal_confirmacion`
+15s, botón Vender 12s. Nuevo aprendizaje 43).
+Antes: v1.5plugin.5b (la
 carga de la lista de viajes pasa a ser más robusta.
 `ir_a_tab` no clickea la tab si ya está activa, así no
 reinicia `cargar_viajes` ni descarta la carga en curso.
