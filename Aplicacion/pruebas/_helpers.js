@@ -3,7 +3,12 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4nml
+ * v1.5plugin.5a: agrega cierre de modales entre pruebas y
+ * espera activa por asientos libres, para que las pruebas
+ * sean independientes y no se agoten los asientos del viaje
+ * de setup.
+ *
+ * @version 1.5plugin.5a
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
@@ -54,6 +59,37 @@ export function datos_pasajero_aleatorio(index = 0) {
 }
 
 // ============================================================
+// Cierre de modales
+// ============================================================
+
+// Los modales del piloto (generico y apilado) NO se cierran
+// solos al cambiar de pestaña cuando la pestaña destino ya
+// estaba activa (activar_pestana solo cierra el modal del
+// viaje cuando la pestaña destino NO es 'viajes'). Tampoco
+// se cierran al hacer logout. Eso deja el modal abierto
+// entre pruebas, tapando la lista de viajes y acumulando
+// estado. Este helper los cierra explicitamente.
+export async function cerrar_modales_si_abiertos(ctx) {
+    // Modal apilado primero (esta encima).
+    try {
+        const apilado_visible = await ctx.esta_visible("#modal_apilado");
+        if (apilado_visible) {
+            await ctx.clic("#cerrar_modal_apilado");
+            await ctx.pausa(200);
+        }
+    } catch (e) { /* no hacer nada */ }
+
+    // Modal generico.
+    try {
+        const generico_visible = await ctx.esta_visible("#modal_generico");
+        if (generico_visible) {
+            await ctx.clic("#cerrar_modal_generico");
+            await ctx.pausa(200);
+        }
+    } catch (e) { /* no hacer nada */ }
+}
+
+// ============================================================
 // Navegacion
 // ============================================================
 
@@ -62,6 +98,10 @@ export async function login_terminal(ctx) {
 }
 
 export async function ir_a_tab(ctx, id_tab) {
+    // Cerrar modales que hayan quedado abiertos de una prueba
+    // anterior. Si no, tapan el contenido y el estado se acumula.
+    await cerrar_modales_si_abiertos(ctx);
+
     const selector = `.tab[data-tab="${id_tab}"]`;
     const existe = await ctx.esperar(selector, 3000);
     if (!existe || !existe.exito) throw new Error("No existe el tab " + id_tab);
@@ -83,6 +123,10 @@ export async function ir_a_viajes_y_abrir_primero(ctx) {
     if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");
 }
 
+// Abre el primer micro del viaje que tenga al menos 1 asiento
+// libre. Fuerza un refresh del croquis para no depender del
+// polling del piloto (que puede tardar 15s o estar pausado
+// por inactividad).
 export async function abrir_primer_micro_con_libres(ctx) {
     const nombres = await ctx.obtener_atributos(".btn-ver-pasaje", "data-micro");
     if (nombres.length === 0) throw new Error("No hay micros en el viaje");
@@ -92,7 +136,21 @@ export async function abrir_primer_micro_con_libres(ctx) {
         const asientos = await ctx.esperar("#croquis_pasaje_micro .seat", 8000);
         if (!asientos || !asientos.exito) continue;
 
-        const libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
+        // Forzar refresh del croquis: no esperar al polling de 15s.
+        // refrescar_asientos_pagina() lee viaje_seleccionado y
+        // micro_seleccionado del page y hace un fetch a
+        // viajes/estado_asientos para actualizar el DOM.
+        await ctx.refrescar_asientos_pagina();
+        await ctx.pausa(300);
+
+        // Esperar activamente a que aparezca al menos 1 libre.
+        let libres = [];
+        const inicio = Date.now();
+        while (Date.now() - inicio < 8000) {
+            libres = await ctx.obtener_atributos(".seat.seat-libre", "data-numero");
+            if (libres.length > 0) break;
+            await ctx.pausa(300);
+        }
         if (libres.length > 0) {
             return { micro: nombre, libres };
         }
@@ -195,10 +253,6 @@ export async function abrir_modal_confirmacion(ctx) {
     const form = await ctx.esperar_visible("#formulario_confirmacion_venta", 8000);
     if (!form || !form.exito) throw new Error("No se abrio el formulario de confirmacion");
 }
-
-// ============================================================
-// Llenado de formularios
-// ============================================================
 
 // ============================================================
 // Espera a que el aviso del DNI se resuelva
@@ -330,9 +384,6 @@ export async function obtener_id_ultima_venta(ctx) {
         await ctx.pausa(300);
     }
     // Pedir al backend el id de la ultima venta de la terminal.
-    // Antes navegabamos a la pestaña Vendidos, pero eso cerraba
-    // el modal del viaje y mataba el polling del croquis,
-    // dejandolo congelado tras la cancelacion.
     const r = await ctx.enviar("obtener_id_ultima_venta_terminal", {});
     if (!r || !r.exito) {
         throw new Error("No se pudo obtener el id de la ultima venta: " + (r && r.error ? r.error : "(sin detalle)"));
@@ -352,30 +403,35 @@ export async function esperar_sin_asientos_propios(ctx, timeout_ms = 8000) {
     return false;
 }
 
-// Cierra el formulario de confirmacion de venta y libera los
-// asientos que quedaron seleccionados. El boton "Cancelar"
-// del piloto solo oculta el form; no deselecciona. Este
-// helper aprieta "Reiniciar seleccion" para dejar el croquis
-// limpio, como haria el usuario a mano.
+// Cierra el formulario de confirmacion de venta, libera los
+// asientos que quedaron seleccionados y cierra el modal del
+// viaje. Deja el entorno listo para la proxima prueba.
+//
+// El boton "Cancelar" del piloto solo oculta el form; no
+// deselecciona. Este helper aprieta "Reiniciar seleccion" para
+// dejar el croquis limpio, como haria el usuario a mano.
 export async function cerrar_form_venta_y_liberar(ctx) {
     // Cerrar el formulario.
     await ctx.clic("#cancelar_venta_modal");
     await ctx.pausa(400);
 
-    // Si no hay asientos propios, listo.
+    // Si hay asientos propios, liberarlos.
     const propios = await ctx.obtener_atributos(".seat.seat-seleccionado-propio", "data-numero");
-    if (propios.length === 0) return;
-
-    // Apretar "Reiniciar seleccion" via main world (sobrescribe
-    // confirm, que el piloto usa).
-    const r = await ctx.liberar_asientos_propios();
-    if (!r || !r.exito) {
-        console.warn("No se pudieron liberar los asientos propios:", r && r.error ? r.error : "(sin detalle)");
-        return;
+    if (propios.length > 0) {
+        // Apretar "Reiniciar seleccion" via main world (sobrescribe
+        // confirm, que el piloto usa).
+        const r = await ctx.liberar_asientos_propios();
+        if (!r || !r.exito) {
+            console.warn("No se pudieron liberar los asientos propios:", r && r.error ? r.error : "(sin detalle)");
+        } else {
+            await esperar_sin_asientos_propios(ctx, 8000);
+        }
     }
 
-    // Esperar a que el croquis se actualice.
-    await esperar_sin_asientos_propios(ctx, 8000);
+    // Cerrar el modal del viaje (que quedo abierto detras).
+    // Si no se cierra, la proxima prueba arranca con el modal
+    // tapando la lista de viajes, y el estado se acumula.
+    await cerrar_modales_si_abiertos(ctx);
 }
 
 // Pide el detalle de una venta por POST (`ventas/obtener`) y

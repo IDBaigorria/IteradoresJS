@@ -334,10 +334,14 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.4z.** El esqueleto del plugin está
+**Proyecto en v1.5plugin.5a.** El esqueleto del plugin está
 armado y funcional, tiene 29 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas) y las agrupa
-en secciones. Archivos:
+en secciones. Las pruebas de venta son independientes: cada
+una cierra los modales al terminar, fuerza el refresh del
+croquis y espera activamente por asientos libres. El viaje
+de setup tiene 2 micros de 44 asientos cada uno (88 en
+total). Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -653,6 +657,38 @@ por tema.
     si la precondición es creada por el usuario (cargar
     datos), fallar con mensaje; si es un estado aleatorio
     que puede no darse, pasar con advertencia.
+39. **Los modales del piloto no se cierran solos entre
+    pruebas.** El `activar_pestana` del piloto solo cierra
+    el modal del viaje cuando la pestaña destino NO es
+    "viajes". Si la prueba anterior dejó el modal abierto
+    y la siguiente activa la misma pestaña, el modal sigue
+    ahí, tapando la lista de viajes, y el estado se
+    acumula. Tampoco se cierra al hacer logout. Regla:
+    cada prueba debe llamar a `cerrar_modales_si_abiertos(ctx)`
+    al empezar (o el helper `ir_a_tab` lo hace por
+    nosotros) y al terminar (`cerrar_form_venta_y_liberar`
+    lo hace).
+40. **El croquis de asientos no se actualiza solo al
+    abrir un micro.** El piloto arranca un polling de 15s
+    (`SYNC_INTERVALO_MS`) que se pausa por inactividad. Si
+    el croquis quedó con estado viejo (por ejemplo, tras
+    una cancelación reciente), no alcanza con esperar 8s a
+    que aparezca `.seat.seat-libre`: hay que forzar el
+    refresh con `ctx.refrescar_asientos_pagina()`. Ese
+    helper lee `viaje_seleccionado` y `micro_seleccionado`
+    del page, hace un fetch a `viajes/estado_asientos` y
+    actualiza el DOM. Sin esto, las pruebas ven menos
+    asientos libres de los que hay y se agotan antes.
+41. **Un recurso compartido entre pruebas se agota si
+    nadie lo repone.** El viaje de setup de las pruebas
+    de venta empezó con 1 micro de 44 asientos y 9 libres.
+    Con 15 pruebas × 1-3 asientos por prueba, no alcanza.
+    Solución: 2 micros (88 asientos). Además, aunque las
+    pruebas cancelen al final, la cancelación no libera
+    los asientos en el croquis del frontend hasta el
+    próximo polling, así que las pruebas siguientes ven
+    el estado viejo. Combinación: pool grande + refresh
+    forzado + espera activa.
 
 ---
 
@@ -691,7 +727,16 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4z (dos
+**Última actualización de este prompt:** v1.5plugin.5a (las
+pruebas de venta pasan a ser independientes. Nuevo helper
+`cerrar_modales_si_abiertos(ctx)` en `_helpers.js` que se
+llama al inicio y al final de cada prueba. `ir_a_tab`
+cierra modales antes de cambiar de pestaña.
+`abrir_primer_micro_con_libres` fuerza un refresh del
+croquis y espera activamente por asientos libres.
+`cerrar_form_venta_y_liberar` cierra también el modal del
+viaje. Nuevos aprendizajes 39-41).
+Antes: v1.5plugin.4z (dos
 pruebas nuevas para verificar los fixes v74k del piloto:
 `micro_vehiculo_sin_asientos` verifica que los vehículos
 sin asientos aparezcan disabled con el sufijo correcto, y
@@ -793,18 +838,19 @@ completo con todo lo aprendido a la fuerza).
 
 **Estado de la conversación:**
 
-- El plugin tiene 29 pruebas que corren OK contra el piloto
-  PHP. La última tanda (v1.5plugin.4z) agregó 2 pruebas que
-  verifican los fixes v74k del piloto:
-  `micro_vehiculo_sin_asientos` (verifica que los vehículos
-  sin asientos aparezcan disabled en el select, con el
-  sufijo "Sin asientos configurados") y
-  `micro_colision_numeracion` (reproduce el bug de colisión
-  al quitar un micro del medio: 3 micros → quitar el 2do →
-  agregar uno nuevo → verificar que aparecen 3). Además se
-  reescribió `micro_mismo_vehiculo_dos_veces`: antes
-  documentaba que el backend permitía duplicados; ahora
-  verifica que los rechaza.
+- El plugin tiene 29 pruebas. Hasta v1.5plugin.4z las
+  pruebas de venta fallaban en cascada por acumulación de
+  estado (los modales no se cerraban entre pruebas, el
+  croquis quedaba desactualizado y el pool de asientos se
+  agotaba). En v1.5plugin.5a se corrigió: nuevo helper
+  `cerrar_modales_si_abiertos`, refresh forzado del
+  croquis, espera activa por asientos libres y cierre del
+  modal del viaje al final de cada prueba. El viaje de
+  setup ahora tiene 2 micros de 44 asientos cada uno.
+- Nota: el pool (los 2 micros) se agrega manualmente una
+  vez desde la pestaña Viajes del piloto. Si se vuelve a
+  agotar, hay que agregar un tercer micro o limpiar
+  ventas viejas desde la pestaña Vendidos.
 - Requisito de entorno para `micro_colision_numeracion`:
   la primera empresa del dueño `carmen1` debe tener al
   menos 3 vehículos configurados. Si no, la prueba falla
