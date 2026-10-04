@@ -482,12 +482,76 @@ por tema.
     podría mostrar progreso intermedio sin mensajería
     bidireccional. Bug en v1.5plugin.4m: "Correr todas"
     mostraba todo recién al final. Fix en v1.5plugin.4n.
+26. **Las pestañas del piloto se generan dinámicamente.** No
+    hay selector DOM estable para clickearlas. Para activar
+    una pestaña, usar `chrome.scripting.executeScript` con
+    `world: "MAIN"` e invocar la función `activar_pestana`
+    del page directamente. El helper
+    `ctx.activar_pestana_piloto(nombre)` encapsula esto.
+    (Va temáticamente con 8.5, pero se numera acá para no
+    romper la numeración de esa sección.)
+27. **`ctx.obtener_atributos` devuelve `[null]` si el
+    atributo no existe, no `[]`.** El helper hace un match
+    por selector y devuelve un array con el valor del
+    atributo por cada match (null si no está). Para
+    chequear "el atributo no está en ningún match", usar
+    `.every(v => v === null)`. En general, preferir
+    chequear el valor observable (que el campo tenga el
+    contenido esperado) antes que atributos de estado.
+    Un assert mal planteado da falsos negativos que
+    cuestan tiempo de debugging. (Va temáticamente con
+    8.7.)
+28. **Los bloques `buscar` del `aplicar_cambios.php`
+    deben incluir la línea completa, no un prefijo.** Un
+    `return (r && r[0] && r[0].result) ? ... : ...` no
+    matchea con un `return { exito: false }`. Cuando se
+    arma un bloque, verificarlo contra el archivo real,
+    no contra el recuerdo de lo que uno escribió. Si el
+    bloque falla, pedir el fragmento exacto del archivo
+    al usuario antes de ajustar.
+
+---
+
+## 10. REGLAS DE TRABAJO
+
+Reglas del método que aplican específicamente a este
+proyecto.
+
+1. **Cada `aplicar_cambios.php` va acompañado de un commit
+   sugerido.** Siempre, sin excepción, tanto en este repo
+   (`iteradoresJS/`) como en el repo del piloto
+   (`iteradores/`). El título del commit arranca con
+   `V1.5plugin.XX:` acá y con `V1.5piloto.XX:` allá.
+
+2. **Este proyecto no arranca tandas por su cuenta cuando el
+   cambio es en el piloto.** Cada cambio del piloto PHP lleva
+   su espejo acá: la tanda del piloto entrega DOS
+   `aplicar_cambios.php` (uno por repo) y DOS commits (uno por
+   repo). El del plugin agrega las pruebas que verifican el
+   cambio hecho en el piloto. El plugin sí puede arrancar
+   tandas propias cuando el cambio es solo suyo (por ejemplo,
+   refactor interno del SW o de la ventana).
+
+3. **Cada cambio al plugin incrementa la versión.** En
+   `ConfPlugin.js` (`VERSION_APP` y `VERSION_PLUGIN`) y en
+   `@version` de los archivos que se tocan. El `manifest.json`
+   no se bumpea en cada letra (ver sección 3.12).
+
+4. **Los bloques `buscar` del `aplicar_cambios.php` deben
+   matchear exactamente el archivo en disco.** No alcanza con
+   el recuerdo de lo que uno escribió. Si un bloque falla,
+   pedir el fragmento exacto del archivo al usuario antes de
+   ajustarlo. Ver sección 8.8, aprendizaje 28.
 
 ---
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4p (se
+**Última actualización de este prompt:** v1.5plugin.4q (nueva
+sección 10 "Reglas de trabajo": cada `aplicar_cambios.php` va
+con su commit sugerido, y cada cambio del piloto PHP trae su
+espejo de pruebas acá).
+Antes: v1.5plugin.4p (se
 quita el check de `disabled` de la prueba
 `autocompletado_dni_terminal_clientes`: el helper
 `obtener_atributos` devuelve `[null]` cuando el atributo no

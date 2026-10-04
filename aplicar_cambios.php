@@ -2,12 +2,13 @@
 /**
  * Aplicador de cambios automáticos — proyecto iteradoresJS (plugin Chrome).
  *
- * Tanda v1.5plugin.4p:
- * - Corregir la prueba 18: quitar el check de `disabled` mal planteado
- *   (obtener_atributos devuelve [null], no [] cuando el atributo no está).
- * - Mover la prueba 18 de la sección "base" a una sección propia
- *   "Autocompletado".
- * - Bumps de versión.
+ * Tanda v1.5plugin.4q (solo documentación):
+ * - Incorpora al prompt del plugin las dos reglas nuevas del método de
+ *   trabajo:
+ *     1. Cada aplicar_cambios.php va acompañado de un commit sugerido.
+ *     2. Cada cambio al piloto PHP lleva su espejo de pruebas del plugin
+ *        (este repo). El plugin no arranca una tanda por su cuenta: la
+ *        tanda del piloto trae su mitad JS.
  *
  * Uso (parado en la raíz de iteradoresJS/):
  *   php aplicar_cambios.php
@@ -19,236 +20,63 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // --------------------------------------------------------
-    // prueba_18 — sobrescribir sin el check de disabled
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/pruebas/prueba_18_autocompletado_dni_terminal_clientes.js',
-        'descripcion' => 'Prueba 18 v2: sin el check de disabled',
-        'contenido' => [
-            "/**",
-            " * Prueba: autocompletado por DNI con usuario terminal desde",
-            " * la pestaña Pasajeros/Clientes.",
-            " *",
-            " * Cubre el fix v74h del piloto PHP: cuando el usuario es terminal",
-            " * y no hay un viaje seleccionado, el modal de alta de pasajero",
-            " * resolvía el dueño desde `viaje_seleccionado.dueno`, que podía",
-            " * ser undefined. El fix usa `usuario_actual.dueno` como fallback.",
-            " *",
-            " * Flujo:",
-            " *   1. Login como terminal.",
-            " *   2. Ir a la pestaña Pasajeros/Clientes.",
-            " *   3. Crear un pasajero de prueba con un DNI único.",
-            " *   4. Abrir el modal de alta.",
-            " *   5. Escribir el DNI.",
-            " *   6. Verificar que apellido y nombres se autocompletan.",
-            " *   7. Cerrar el modal.",
-            " *",
-            " * @version 1.5plugin.4p",
-            " */",
-            "",
-            'import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";',
-            "",
-            "export const prueba = {",
-            '    id: "autocompletado_dni_terminal_clientes",',
-            '    nombre: "Autocompletado por DNI desde Clientes (terminal)",',
-            '    descripcion: "Verifica que el autocompletado por DNI funcione con usuario terminal desde la pestaña Pasajeros/Clientes, sin depender de que haya un viaje seleccionado. Cubre el fix v74h del piloto PHP.",',
-            "",
-            "    async ejecutar(ctx) {",
-            "        // 1. Login como terminal.",
-            "        await ctx.asegurar_login(CODIGO_TERMINAL1);",
-            "",
-            "        // 2. Activar la pestaña Pasajeros/Clientes.",
-            '        const activacion = await ctx.activar_pestana_piloto("pasajeros");',
-            '        ctx.assert(activacion && activacion.exito, "No se pudo activar la pestaña Pasajeros: " + (activacion && activacion.error ? activacion.error : "sin detalle"));',
-            "",
-            "        // 3. Esperar el botón de alta.",
-            '        const espera_boton = await ctx.esperar("#boton_agregar_pasajero", 5000);',
-            '        ctx.assert(espera_boton && espera_boton.exito, "No apareció el botón #boton_agregar_pasajero");',
-            "",
-            "        // 4. Crear un pasajero de prueba con un DNI único. Este helper",
-            "        //    resuelve el dueño desde el page (usuario_actual.dueno para",
-            "        //    terminal).",
-            "        const dni = ctx.dni_unico();",
-            '        const apellido = "Prueba";',
-            '        const nombres = "Autocompletado";',
-            "",
-            "        const creacion = await ctx.crear_pasajero_de_prueba({",
-            "            dni,",
-            "            apellido,",
-            "            nombres,",
-            '            email: "",',
-            '            celular: "2983123456",',
-            '            celular_emergencia: "2983654321",',
-            '            fecha_nacimiento: "1990-01-01",',
-            '            direccion: "Calle Falsa 123",',
-            '            localidad: "Tres Arroyos"',
-            "        });",
-            "",
-            '        ctx.assert(creacion && creacion.exito, "No se pudo crear el pasajero de prueba: " + (creacion && creacion.error ? creacion.error : "sin detalle"));',
-            "",
-            "        // 5. Abrir el modal de alta.",
-            '        const clic_agregar = await ctx.clic("#boton_agregar_pasajero");',
-            '        ctx.assert(clic_agregar && clic_agregar.exito, "No se pudo hacer clic en Agregar pasajero");',
-            "",
-            "        // 6. Esperar el campo DNI dentro del modal.",
-            '        const espera_dni = await ctx.esperar("#pasajero_dni_0", 5000);',
-            '        ctx.assert(espera_dni && espera_dni.exito, "No apareció el campo #pasajero_dni_0 en el modal de alta");',
-            "",
-            "        // 7. Escribir el DNI completo. El piloto dispara la búsqueda al",
-            "        //    llegar a 7-8 dígitos desde el listener de `input`.",
-            '        const escritura = await ctx.escribir("#pasajero_dni_0", dni);',
-            '        ctx.assert(escritura && escritura.exito, "No se pudo escribir en el campo DNI");',
-            "",
-            "        // 8. Esperar a que se autocomplete el apellido. Polling hasta 6s.",
-            '        let apellido_leido = "";',
-            "        const inicio = Date.now();",
-            "        while (Date.now() - inicio < 6000) {",
-            '            apellido_leido = (await ctx.valor("#pasajero_apellido_0")) || "";',
-            '            if (apellido_leido.trim() !== "") break;',
-            "            await ctx.pausa(200);",
-            "        }",
-            "",
-            "        ctx.assert(",
-            '            apellido_leido.trim() !== "",',
-            '            "El apellido no se autocompletó. Revisá: (a) que el fix v74h esté aplicado en el piloto PHP, (b) que el pasajero de prueba se haya creado OK, (c) que el listener de input del DNI esté conectado."',
-            "        );",
-            "",
-            "        ctx.assert(",
-            "            apellido_leido === apellido,",
-            '            "El apellido autocompletado (\'" + apellido_leido + "\') no coincide con el esperado (\'" + apellido + "\')"',
-            "        );",
-            "",
-            "        // 9. Verificar nombres también.",
-            '        const nombres_leidos = (await ctx.valor("#pasajero_nombres_0")) || "";',
-            "        ctx.assert(",
-            "            nombres_leidos === nombres,",
-            '            "Los nombres autocompletados (\'" + nombres_leidos + "\') no coinciden con los esperados (\'" + nombres + "\')"',
-            "        );",
-            "",
-            "        // 10. Cerrar el modal.",
-            '        const clic_cerrar = await ctx.clic("#boton_cancelar_nuevo_pasajero");',
-            '        ctx.assert(clic_cerrar && clic_cerrar.exito, "No se pudo cerrar el modal de alta de pasajero");',
-            "    }",
-            "};",
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // catalogo.js — quitar prueba de base, crear sección nueva
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: sacar prueba 18 de base, agregar seccion autocompletado',
-        'buscar' => [
-            '        id: "base",',
-            '        nombre: "Base",',
-            '        pruebas: [',
-            '            arranque,',
-            '            login,',
-            '            autocompletado_dni_terminal_clientes',
-            '        ]',
-            '    },',
-        ],
-        'reemplazar' => [
-            '        id: "base",',
-            '        nombre: "Base",',
-            '        pruebas: [',
-            '            arranque,',
-            '            login',
-            '        ]',
-            '    },',
-            '    {',
-            '        id: "autocompletado",',
-            '        nombre: "Autocompletado",',
-            '        pruebas: [',
-            '            autocompletado_dni_terminal_clientes',
-            '        ]',
-            '    },',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: bump @version a 1.5plugin.4p',
-        'buscar' => [
-            ' * @version 1.5plugin.4o',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4p',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // ConfPlugin.js — bumps
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.4p',
-        'buscar' => [
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.4o";',
-        ],
-        'reemplazar' => [
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.4p";',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.4p',
-        'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4o";',
-        ],
-        'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4p";',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §7 y §9
+    // Nueva sección 10: reglas de trabajo
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §7 bump a 4p',
+        'descripcion' => 'Nueva sección 10: reglas de trabajo',
         'buscar' => [
-            '**Proyecto en v1.5plugin.4o.** El esqueleto del plugin está',
-            'armado y funcional, tiene 18 pruebas (base + ventas) y las',
-            'agrupa en secciones.',
+            '## 9. DISCUSIÓN ACTUAL',
         ],
         'reemplazar' => [
-            '**Proyecto en v1.5plugin.4p.** El esqueleto del plugin está',
-            'armado y funcional, tiene 18 pruebas (base + autocompletado',
-            '+ ventas) y las agrupa en secciones.',
+            '## 10. REGLAS DE TRABAJO',
+            '',
+            'Reglas del método que aplican específicamente a este',
+            'proyecto.',
+            '',
+            '1. **Cada `aplicar_cambios.php` va acompañado de un commit',
+            '   sugerido.** Siempre, sin excepción, tanto en este repo',
+            '   (`iteradoresJS/`) como en el repo del piloto',
+            '   (`iteradores/`). El título del commit arranca con',
+            '   `V1.5plugin.XX:` acá y con `V1.5piloto.XX:` allá.',
+            '',
+            '2. **Este proyecto no arranca tandas por su cuenta cuando el',
+            '   cambio es en el piloto.** Cada cambio del piloto PHP lleva',
+            '   su espejo acá: la tanda del piloto entrega DOS',
+            '   `aplicar_cambios.php` (uno por repo) y DOS commits (uno por',
+            '   repo). El del plugin agrega las pruebas que verifican el',
+            '   cambio hecho en el piloto. El plugin sí puede arrancar',
+            '   tandas propias cuando el cambio es solo suyo (por ejemplo,',
+            '   refactor interno del SW o de la ventana).',
+            '',
+            '3. **Cada cambio al plugin incrementa la versión.** En',
+            '   `ConfPlugin.js` (`VERSION_APP` y `VERSION_PLUGIN`) y en',
+            '   `@version` de los archivos que se tocan. El `manifest.json`',
+            '   no se bumpea en cada letra (ver sección 3.12).',
+            '',
+            '4. **Los bloques `buscar` del `aplicar_cambios.php` deben',
+            '   matchear exactamente el archivo en disco.** No alcanza con',
+            '   el recuerdo de lo que uno escribió. Si un bloque falla,',
+            '   pedir el fragmento exacto del archivo al usuario antes de',
+            '   ajustarlo. Ver sección 8.8, aprendizaje 28.',
+            '',
+            '---',
+            '',
+            '## 9. DISCUSIÓN ACTUAL',
         ],
     ],
+
+    // --------------------------------------------------------
+    // §9 cabecera
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 bump cabecera a 4p',
+        'descripcion' => '§9 cabecera: bump a 4q + registrar reglas nuevas',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4o (nueva',
-            'prueba `autocompletado_dni_terminal_clientes`: login como',
-            'terminal, ir a la pestaña Pasajeros/Clientes, crear un',
-            'pasajero de prueba, abrir el modal de alta, escribir el DNI',
-            'y verificar que apellido y nombres se autocompletan. Cubre',
-            'el fix v74h del piloto PHP. Se agrega el helper',
-            '`ctx.activar_pestana_piloto(nombre)` al service worker, que',
-            'invoca `activar_pestana` del page context vía',
-            '`chrome.scripting.executeScript` en MAIN world).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.4p (se',
             'quita el check de `disabled` de la prueba',
             '`autocompletado_dni_terminal_clientes`: el helper',
@@ -256,22 +84,26 @@ $cambios = [
             'existe, no `[]`; el check no aportaba valor y daba falso',
             'negativo. Además, la prueba se mueve a una sección propia',
             '`autocompletado` en la ventana).',
-            'Antes: v1.5plugin.4o (nueva',
-            'prueba `autocompletado_dni_terminal_clientes`: login como',
-            'terminal, ir a la pestaña Pasajeros/Clientes, crear un',
-            'pasajero de prueba, abrir el modal de alta, escribir el DNI',
-            'y verificar que apellido y nombres se autocompletan. Cubre',
-            'el fix v74h del piloto PHP. Se agrega el helper',
-            '`ctx.activar_pestana_piloto(nombre)` al service worker, que',
-            'invoca `activar_pestana` del page context vía',
-            '`chrome.scripting.executeScript` en MAIN world).',
+        ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.4q (nueva',
+            'sección 10 "Reglas de trabajo": cada `aplicar_cambios.php` va',
+            'con su commit sugerido, y cada cambio del piloto PHP trae su',
+            'espejo de pruebas acá).',
+            'Antes: v1.5plugin.4p (se',
+            'quita el check de `disabled` de la prueba',
+            '`autocompletado_dni_terminal_clientes`: el helper',
+            '`obtener_atributos` devuelve `[null]` cuando el atributo no',
+            'existe, no `[]`; el check no aportaba valor y daba falso',
+            'negativo. Además, la prueba se mueve a una sección propia',
+            '`autocompletado` en la ventana).',
         ],
     ],
 
 ];
 
 // ============================================================
-// Runner
+// Runner (idéntico al del sistema de scripts)
 // ============================================================
 
 echo "=== Aplicador de cambios ===\n\n";
