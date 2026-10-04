@@ -3,24 +3,28 @@
  *
  * Flujo:
  *   1. Login como dueño.
- *   2. Activar modo prueba del piloto
- *      (window.__iteradores_modo_prueba = true). Esto evita
- *      que el alert() de "código de acceso" bloquee el page
- *      context. Requiere el helper _mostrar_alerta_critica
- *      en el piloto (v1.5piloto.74j+).
+ *   2. Doble protección contra el alert del código de acceso:
+ *      a. ctx.activar_modo_prueba() -> setea
+ *         window.__iteradores_modo_prueba = true, que el
+ *         helper _mostrar_alerta_critica() del piloto respeta
+ *         (aplicado en v1.5piloto.74j).
+ *      b. ctx.sobrescribir_alertas() -> override de
+ *         window.alert y window.confirm en el page context.
+ *      Si una capa falla, la otra cubre. El override fue lo
+ *      que funcionó en v1.5plugin.4t; la bandera es refuerzo.
  *   3. Ir a la pestaña Puntos de venta.
  *   4. Click en "Agregar punto de venta" (abre modal).
  *   5. Llenar los campos del modal con datos únicos.
- *   6. Guardar. El modal cierra sin alert bloqueante.
+ *   6. Guardar.
  *   7. Verificar que la nueva terminal aparezca en la tabla.
- *   8. Desactivar modo prueba (finally).
+ *   8. Restaurar (finally).
  *
  * IMPORTANTE: cada corrida crea una terminal nueva con un
  * nombre único (prefijo "termprueba"). El test NO la
  * elimina; las corridas sucesivas van acumulando terminales
  * de prueba. Limpiar manualmente desde la misma pestaña.
  *
- * @version 1.5plugin.4u
+ * @version 1.5plugin.4v
  */
 
 import { CODIGO_DUENO } from "../ConfPlugin.js";
@@ -34,11 +38,17 @@ export const prueba = {
         // 1. Login como dueño.
         await ctx.asegurar_login(CODIGO_DUENO);
 
-        // 2. Activar modo prueba ANTES de cualquier acción que
-        //    pueda disparar un alert(). El piloto respeta la
-        //    bandera en _mostrar_alerta_critica().
+        // 2a. Bandera de modo prueba (refuerzo, requiere piloto
+        //     v74j+).
         const modo = await ctx.activar_modo_prueba();
         ctx.assert(modo && modo.exito, "No se pudo activar el modo prueba: " + (modo && modo.error ? modo.error : "sin detalle"));
+
+        // 2b. Override de window.alert / window.confirm. Este es el
+        //     que ya funcionó en v1.5plugin.4t. Se aplica SIEMPRE,
+        //     independientemente de si la bandera del piloto está
+        //     activa.
+        const override = await ctx.sobrescribir_alertas();
+        ctx.assert(override && override.exito, "sobrescribir_alertas falló: " + (override && override.error ? override.error : "sin detalle"));
 
         try {
             // 3. Activar la pestaña Puntos de venta.
@@ -49,7 +59,7 @@ export const prueba = {
             const espera_boton = await ctx.esperar("#boton_agregar_terminal", 5000);
             ctx.assert(espera_boton && espera_boton.exito, "No apareció el botón #boton_agregar_terminal");
 
-            // 5. Click en Agregar punto de venta (abre el modal).
+            // 5. Click en Agregar punto de venta.
             const clic_agregar = await ctx.clic("#boton_agregar_terminal");
             ctx.assert(clic_agregar && clic_agregar.exito, "No se pudo hacer clic en Agregar punto de venta");
 
@@ -78,22 +88,22 @@ export const prueba = {
             ctx.assert(clic_guardar && clic_guardar.exito, "No se pudo hacer clic en Guardar");
 
             // 10. Verificar que la nueva terminal aparezca en la tabla.
-            //     Con el modo prueba, no hay alert bloqueante; el
-            //     flujo es fluido.
+            //     Timeout holgado (25s) e intervalo de 500ms.
             let encontrada = false;
             const inicio = Date.now();
-            while (Date.now() - inicio < 10000) {
+            while (Date.now() - inicio < 25000) {
                 const html_tabla = await ctx.html("#tabla_terminales_dueno");
                 if (html_tabla && html_tabla.includes(nombre_usuario)) {
                     encontrada = true;
                     break;
                 }
-                await ctx.pausa(300);
+                await ctx.pausa(500);
             }
 
             ctx.assert(encontrada, "La nueva terminal (" + nombre_usuario + ") no apareció en la tabla #tabla_terminales_dueno después del alta");
         } finally {
-            // 11. Desactivar modo prueba (idempotente).
+            // 11. Restaurar (idempotente).
+            await ctx.restaurar_alertas();
             await ctx.desactivar_modo_prueba();
         }
     }

@@ -574,9 +574,14 @@ por tema.
     los popups al perder foco); los resultados de la prueba
     se siguen persistiendo en IndexedDB, pero el usuario no
     los ve en vivo. Moraleja: las pruebas que disparan
-    flujos con alert() deben evitarlo con la bandera de
-    modo prueba, no depender del override. Ver
-    aprendizaje 31.
+    flujos con alert() deben evitarlo con override Y, si
+    está disponible, con la bandera de modo prueba.
+    **Actualización v1.5plugin.4v:** usar AMBOS métodos en
+    conjunto (cinturón y tiradores). El override de
+    `window.alert` fue el que funcionó en v4t; la bandera
+    de modo prueba del piloto es un refuerzo adicional.
+    Activarlos juntos y restaurarlos juntos en el finally.
+    Ver aprendizaje 31.
 
 ---
 
@@ -615,7 +620,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4u (modo
+**Última actualización de este prompt:** v1.5plugin.4v (la
+prueba `alta_terminal` usa AMBOS métodos juntos para
+suprimir el alert del código de acceso:
+`ctx.sobrescribir_alertas()` (el que funcionó en v4t) y
+`ctx.activar_modo_prueba()` (bandera del piloto, refuerzo).
+Timeouts holgados: 25s para la verificación en la tabla,
+polling cada 500ms).
+Antes: v1.5plugin.4u (modo
 prueba del piloto: el override de `window.alert` no alcanza,
 el alert nativo sigue apareciendo y bloquea el page context.
 Solución: el piloto PHP respeta una bandera
@@ -712,6 +724,13 @@ completo con todo lo aprendido a la fuerza).
   La prueba `alta_terminal` activa el modo antes de
   cualquier acción que dispare alert. Aprendizajes 31
   (actualizado) y 32 en §8.8.
+- Fix v1.5plugin.4v: el override de `window.alert` (v4t)
+  sí funcionaba; la bandera de modo prueba (v4u) fue
+  insuficiente por sí sola. Se combinan AMBOS:
+  `sobrescribir_alertas()` + `activar_modo_prueba()`. El
+  piloto mantiene `_mostrar_alerta_critica()` y la
+  bandera, pero la prueba no depende de ellos. Se suben
+  los timeouts (25s) por si la red del backend tarda.
 - En el proceso se encontraron y arreglaron varios bugs del
   piloto: v74d (refresco del croquis tras cancelar venta),
   v74e (condición de carrera en el polling de asientos),

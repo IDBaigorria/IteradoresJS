@@ -2,14 +2,13 @@
 /**
  * Aplicador de cambios automáticos — proyecto iteradoresJS (plugin Chrome).
  *
- * Tanda v1.5plugin.4u: modo prueba del piloto.
+ * Tanda v1.5plugin.4v: prueba de alta de terminal con doble protección.
  *
- * - servicio.js: nuevos helpers ctx.activar_modo_prueba() y
- *   ctx.desactivar_modo_prueba(). Setean/limpian
- *   window.__iteradores_modo_prueba en el page context.
- * - prueba_19_alta_terminal: usa el modo prueba en lugar del override
- *   de alert. Más simple, más robusto, y no depende de que el override
- *   funcione.
+ * - La prueba vuelve a usar `sobrescribir_alertas()` (que fue lo que
+ *   funcionó en v4t) ADEMÁS de `activar_modo_prueba()` (bandera del
+ *   piloto). Cinturón y tiradores: si una capa falla, la otra cubre.
+ * - Se sube el timeout de la tabla a 25s y se baja el intervalo de
+ *   polling a 500ms, para tolerar latencias.
  *
  * Uso (parado en la raíz de iteradoresJS/):
  *   php aplicar_cambios.php
@@ -21,111 +20,41 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // --------------------------------------------------------
-    // servicio.js — agregar helpers de modo prueba
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio: agregar helpers activar/desactivar_modo_prueba',
-        'buscar' => [
-            '        sobrescribir_alertas: async () => {',
-        ],
-        'reemplazar' => [
-            '        activar_modo_prueba: async () => {',
-            '            // Setea window.__iteradores_modo_prueba = true en el',
-            '            // page context. El piloto PHP chequea esa bandera en',
-            '            // _mostrar_alerta_critica() y no dispara alert()',
-            '            // cuando está activa (loguea a consola en su lugar).',
-            '            //',
-            '            // Es la forma limpia de evitar los alerts nativos que',
-            '            // bloquean el page context: el override de window.alert',
-            '            // no siempre reemplaza la referencia global, pero la',
-            '            // bandera la lee el propio código del piloto. Requiere',
-            '            // que el piloto tenga el helper _mostrar_alerta_critica',
-            '            // (aplicado en v1.5piloto.74j).',
-            '            try {',
-            '                const r = await chrome.scripting.executeScript({',
-            '                    target: { tabId: pestana_id },',
-            '                    world: "MAIN",',
-            '                    func: () => {',
-            '                        window.__iteradores_modo_prueba = true;',
-            '                        return { exito: true };',
-            '                    }',
-            '                });',
-            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
-            '            } catch (e) {',
-            '                return { exito: false, error: e.message };',
-            '            }',
-            '        },',
-            '        desactivar_modo_prueba: async () => {',
-            '            // Limpia la bandera de modo prueba. Idempotente.',
-            '            try {',
-            '                const r = await chrome.scripting.executeScript({',
-            '                    target: { tabId: pestana_id },',
-            '                    world: "MAIN",',
-            '                    func: () => {',
-            '                        delete window.__iteradores_modo_prueba;',
-            '                        return { exito: true };',
-            '                    }',
-            '                });',
-            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
-            '            } catch (e) {',
-            '                return { exito: false, error: e.message };',
-            '            }',
-            '        },',
-            '        sobrescribir_alertas: async () => {',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // servicio.js — bump @version
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio: bump @version a 1.5plugin.4u',
-        'buscar' => [
-            ' * @version 1.5plugin.4t',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4u',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // prueba_19 — reescribir usando modo prueba
+    // prueba_19 — reescribir con doble protección y timeouts holgados
     // --------------------------------------------------------
 
     [
         'tipo' => 'crear',
         'archivo' => 'Aplicacion/pruebas/prueba_19_alta_terminal.js',
-        'descripcion' => 'Prueba 19 v4: usar modo prueba del piloto',
+        'descripcion' => 'Prueba 19 v5: override + bandera, timeouts holgados',
         'contenido' => [
             "/**",
             " * Prueba: alta de terminal por parte de un dueño.",
             " *",
             " * Flujo:",
             " *   1. Login como dueño.",
-            " *   2. Activar modo prueba del piloto",
-            " *      (window.__iteradores_modo_prueba = true). Esto evita",
-            " *      que el alert() de \"código de acceso\" bloquee el page",
-            " *      context. Requiere el helper _mostrar_alerta_critica",
-            " *      en el piloto (v1.5piloto.74j+).",
+            " *   2. Doble protección contra el alert del código de acceso:",
+            " *      a. ctx.activar_modo_prueba() -> setea",
+            " *         window.__iteradores_modo_prueba = true, que el",
+            " *         helper _mostrar_alerta_critica() del piloto respeta",
+            " *         (aplicado en v1.5piloto.74j).",
+            " *      b. ctx.sobrescribir_alertas() -> override de",
+            " *         window.alert y window.confirm en el page context.",
+            " *      Si una capa falla, la otra cubre. El override fue lo",
+            " *      que funcionó en v1.5plugin.4t; la bandera es refuerzo.",
             " *   3. Ir a la pestaña Puntos de venta.",
             " *   4. Click en \"Agregar punto de venta\" (abre modal).",
             " *   5. Llenar los campos del modal con datos únicos.",
-            " *   6. Guardar. El modal cierra sin alert bloqueante.",
+            " *   6. Guardar.",
             " *   7. Verificar que la nueva terminal aparezca en la tabla.",
-            " *   8. Desactivar modo prueba (finally).",
+            " *   8. Restaurar (finally).",
             " *",
             " * IMPORTANTE: cada corrida crea una terminal nueva con un",
             " * nombre único (prefijo \"termprueba\"). El test NO la",
             " * elimina; las corridas sucesivas van acumulando terminales",
             " * de prueba. Limpiar manualmente desde la misma pestaña.",
             " *",
-            " * @version 1.5plugin.4u",
+            " * @version 1.5plugin.4v",
             " */",
             "",
             'import { CODIGO_DUENO } from "../ConfPlugin.js";',
@@ -139,11 +68,17 @@ $cambios = [
             "        // 1. Login como dueño.",
             "        await ctx.asegurar_login(CODIGO_DUENO);",
             "",
-            "        // 2. Activar modo prueba ANTES de cualquier acción que",
-            "        //    pueda disparar un alert(). El piloto respeta la",
-            "        //    bandera en _mostrar_alerta_critica().",
+            "        // 2a. Bandera de modo prueba (refuerzo, requiere piloto",
+            "        //     v74j+).",
             "        const modo = await ctx.activar_modo_prueba();",
             '        ctx.assert(modo && modo.exito, "No se pudo activar el modo prueba: " + (modo && modo.error ? modo.error : "sin detalle"));',
+            "",
+            "        // 2b. Override de window.alert / window.confirm. Este es el",
+            "        //     que ya funcionó en v1.5plugin.4t. Se aplica SIEMPRE,",
+            "        //     independientemente de si la bandera del piloto está",
+            "        //     activa.",
+            "        const override = await ctx.sobrescribir_alertas();",
+            '        ctx.assert(override && override.exito, "sobrescribir_alertas falló: " + (override && override.error ? override.error : "sin detalle"));',
             "",
             "        try {",
             "            // 3. Activar la pestaña Puntos de venta.",
@@ -154,7 +89,7 @@ $cambios = [
             '            const espera_boton = await ctx.esperar("#boton_agregar_terminal", 5000);',
             '            ctx.assert(espera_boton && espera_boton.exito, "No apareció el botón #boton_agregar_terminal");',
             "",
-            "            // 5. Click en Agregar punto de venta (abre el modal).",
+            "            // 5. Click en Agregar punto de venta.",
             '            const clic_agregar = await ctx.clic("#boton_agregar_terminal");',
             '            ctx.assert(clic_agregar && clic_agregar.exito, "No se pudo hacer clic en Agregar punto de venta");',
             "",
@@ -183,22 +118,22 @@ $cambios = [
             '            ctx.assert(clic_guardar && clic_guardar.exito, "No se pudo hacer clic en Guardar");',
             "",
             "            // 10. Verificar que la nueva terminal aparezca en la tabla.",
-            "            //     Con el modo prueba, no hay alert bloqueante; el",
-            "            //     flujo es fluido.",
+            "            //     Timeout holgado (25s) e intervalo de 500ms.",
             "            let encontrada = false;",
             "            const inicio = Date.now();",
-            "            while (Date.now() - inicio < 10000) {",
+            "            while (Date.now() - inicio < 25000) {",
             '                const html_tabla = await ctx.html("#tabla_terminales_dueno");',
             "                if (html_tabla && html_tabla.includes(nombre_usuario)) {",
             "                    encontrada = true;",
             "                    break;",
             "                }",
-            "                await ctx.pausa(300);",
+            "                await ctx.pausa(500);",
             "            }",
             "",
             '            ctx.assert(encontrada, "La nueva terminal (" + nombre_usuario + ") no apareció en la tabla #tabla_terminales_dueno después del alta");',
             "        } finally {",
-            "            // 11. Desactivar modo prueba (idempotente).",
+            "            // 11. Restaurar (idempotente).",
+            "            await ctx.restaurar_alertas();",
             "            await ctx.desactivar_modo_prueba();",
             "        }",
             "    }",
@@ -213,12 +148,12 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: bump @version a 1.5plugin.4u',
+        'descripcion' => 'catalogo: bump @version a 1.5plugin.4v',
         'buscar' => [
-            ' * @version 1.5plugin.4t',
+            ' * @version 1.5plugin.4u',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4u',
+            ' * @version 1.5plugin.4v',
         ],
     ],
 
@@ -229,90 +164,38 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.4u',
+        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.4v',
         'buscar' => [
             '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.4t";',
+            '    Conf.VERSION_APP = "1.5plugin.4u";',
         ],
         'reemplazar' => [
             '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.4u";',
+            '    Conf.VERSION_APP = "1.5plugin.4v";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.4u',
+        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.4v',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4t";',
+            'export const VERSION_PLUGIN = "1.5plugin.4u";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4u";',
+            'export const VERSION_PLUGIN = "1.5plugin.4v";',
         ],
     ],
 
     // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §8.8 aprendizaje 32
+    // prompt_plugin_piloto.md — §8.8 aprendizaje 32 actualizado
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §8.8 agregar aprendizaje 32',
+        'descripcion' => 'prompt: §8.8 actualizar aprendizaje 32',
         'buscar' => [
-            '31. **Sobrescribir `window.alert` con `Object.defineProperty`,',
-            '    no con asignación directa.** En el contexto de un page',
-            '    cargado con scripts clásicos, `window.alert = ...` no',
-            '    siempre reemplaza la referencia global (Chrome puede',
-            '    haber cacheado la implementación nativa). Usar',
-            '    `Object.defineProperty(window, "alert", { value: fn,',
-            '    writable: true, configurable: true })`. Y **verificar',
-            '    que el override se aplicó** comparando identidades:',
-            '    `window.alert === noop_fn`. El helper',
-            '    `ctx.sobrescribir_alertas()` retorna `{ exito, activo }`',
-            '    con ese chequeo. Si `activo` es `false`, el alert',
-            '    nativo va a bloquear el page context y el test se va a',
-            '    colgar. **Nota:** si el override no se aplica, la',
-            '    página entera queda congelada esperando que el usuario',
-            '    cierre el alert; todas las llamadas a `executeScript`',
-            '    y `sendMessage` que toquen ese page context quedan en',
-            '    cola hasta entonces. Por eso conviene que las pruebas',
-            '    que disparan alerts tengan un assert temprano sobre',
-            '    `activo === true`, y que el assert principal del test',
-            '    (que la acción se refleje en el estado observable) no',
-            '    dependa del cierre del modal. Ver también',
-            '    aprendizajes 10 y 29.',
-        ],
-        'reemplazar' => [
-            '31. **Sobrescribir `window.alert` con `Object.defineProperty`,',
-            '    no con asignación directa.** En el contexto de un page',
-            '    cargado con scripts clásicos, `window.alert = ...` no',
-            '    siempre reemplaza la referencia global (Chrome puede',
-            '    haber cacheado la implementación nativa). Usar',
-            '    `Object.defineProperty(window, "alert", { value: fn,',
-            '    writable: true, configurable: true })`. Y **verificar',
-            '    que el override se aplicó** comparando identidades:',
-            '    `window.alert === noop_fn`. El helper',
-            '    `ctx.sobrescribir_alertas()` retorna `{ exito, activo }`',
-            '    con ese chequeo.',
-            '    **Actualización v1.5plugin.4u:** aun con el override',
-            '    aplicado y verificado, en algunos contextos el alert',
-            '    nativo sigue apareciendo. No alcanza con sobrescribir',
-            '    `window.alert` desde `chrome.scripting.executeScript`:',
-            '    el alert() del piloto sigue disparándose. **Solución',
-            '    adoptada:** bandera de modo prueba en el propio piloto.',
-            '    El piloto expone `_mostrar_alerta_critica()` (en',
-            '    `aplicacion.js`, aplicado en v1.5piloto.74j) que',
-            '    chequea `window.__iteradores_modo_prueba` y, si está',
-            '    activo, loguea a consola en lugar de llamar a `alert()`.',
-            '    El plugin setea/limpia la bandera con',
-            '    `ctx.activar_modo_prueba()` / `ctx.desactivar_modo_prueba()`.',
-            '    Es la solución robusta cuando el override de `window.alert`',
-            '    no alcanza: no depende de reemplazar la referencia global,',
-            '    depende de que el propio código del piloto respete la',
-            '    bandera. Requiere tocar el piloto, por lo que se aplica',
-            '    con la regla de los dos scripts.',
             '32. **Un alert nativo congela el page context entero.**',
             '    Mientras el alert está abierto, cualquier sendMessage o',
             '    executeScript que toque ese page queda en cola. El',
@@ -324,6 +207,23 @@ $cambios = [
             '    modo prueba, no depender del override. Ver',
             '    aprendizaje 31.',
         ],
+        'reemplazar' => [
+            '32. **Un alert nativo congela el page context entero.**',
+            '    Mientras el alert está abierto, cualquier sendMessage o',
+            '    executeScript que toque ese page queda en cola. El',
+            '    popup del plugin pierde foco y se cierra (Chrome cierra',
+            '    los popups al perder foco); los resultados de la prueba',
+            '    se siguen persistiendo en IndexedDB, pero el usuario no',
+            '    los ve en vivo. Moraleja: las pruebas que disparan',
+            '    flujos con alert() deben evitarlo con override Y, si',
+            '    está disponible, con la bandera de modo prueba.',
+            '    **Actualización v1.5plugin.4v:** usar AMBOS métodos en',
+            '    conjunto (cinturón y tiradores). El override de',
+            '    `window.alert` fue el que funcionó en v4t; la bandera',
+            '    de modo prueba del piloto es un refuerzo adicional.',
+            '    Activarlos juntos y restaurarlos juntos en el finally.',
+            '    Ver aprendizaje 31.',
+        ],
     ],
 
     // --------------------------------------------------------
@@ -333,18 +233,8 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 cabecera bump a 4u',
+        'descripcion' => 'prompt: §9 cabecera bump a 4v',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4t (fix',
-            'del override de alert/confirm: se usa `Object.defineProperty`',
-            'en lugar de asignación directa, y `sobrescribir_alertas`',
-            'verifica que el override se aplicó antes de continuar. La',
-            'prueba `alta_terminal` agrega un assert temprano sobre',
-            '`activo === true` y pasa a ser tolerante: si el modal no se',
-            'cierra pero la tabla se actualizó, cuenta como OK. Nuevo',
-            'aprendizaje 31).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.4u (modo',
             'prueba del piloto: el override de `window.alert` no alcanza,',
             'el alert nativo sigue apareciendo y bloquea el page context.',
@@ -355,14 +245,25 @@ $cambios = [
             '`ctx.activar_modo_prueba()` / `ctx.desactivar_modo_prueba()`.',
             'La prueba `alta_terminal` usa ese modo. Nuevos aprendizajes',
             '31 (actualizado) y 32).',
-            'Antes: v1.5plugin.4t (fix',
-            'del override de alert/confirm: se usa `Object.defineProperty`',
-            'en lugar de asignación directa, y `sobrescribir_alertas`',
-            'verifica que el override se aplicó antes de continuar. La',
-            'prueba `alta_terminal` agrega un assert temprano sobre',
-            '`activo === true` y pasa a ser tolerante: si el modal no se',
-            'cierra pero la tabla se actualizó, cuenta como OK. Nuevo',
-            'aprendizaje 31).',
+        ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.4v (la',
+            'prueba `alta_terminal` usa AMBOS métodos juntos para',
+            'suprimir el alert del código de acceso:',
+            '`ctx.sobrescribir_alertas()` (el que funcionó en v4t) y',
+            '`ctx.activar_modo_prueba()` (bandera del piloto, refuerzo).',
+            'Timeouts holgados: 25s para la verificación en la tabla,',
+            'polling cada 500ms).',
+            'Antes: v1.5plugin.4u (modo',
+            'prueba del piloto: el override de `window.alert` no alcanza,',
+            'el alert nativo sigue apareciendo y bloquea el page context.',
+            'Solución: el piloto PHP respeta una bandera',
+            '`window.__iteradores_modo_prueba` (helper',
+            '`_mostrar_alerta_critica()` en `aplicacion.js`, aplicado en',
+            'v1.5piloto.74j). El plugin setea/limpia la bandera con',
+            '`ctx.activar_modo_prueba()` / `ctx.desactivar_modo_prueba()`.',
+            'La prueba `alta_terminal` usa ese modo. Nuevos aprendizajes',
+            '31 (actualizado) y 32).',
         ],
     ],
 
@@ -373,24 +274,8 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 agregar nota del fix v4u',
+        'descripcion' => 'prompt: §9 agregar nota del fix v4v',
         'buscar' => [
-            '- Fix v1.5plugin.4t: el override de `window.alert` con',
-            '  asignación directa no reemplazaba la referencia global',
-            '  en el page context. Se cambió a `Object.defineProperty`',
-            '  y se agregó verificación (`activo === true`). Además, la',
-            '  prueba `alta_terminal` pasa a ser tolerante: si el modal',
-            '  no se cierra pero la tabla se actualizó, cuenta como OK.',
-            '  Aprendizaje 31 en §8.8.',
-        ],
-        'reemplazar' => [
-            '- Fix v1.5plugin.4t: el override de `window.alert` con',
-            '  asignación directa no reemplazaba la referencia global',
-            '  en el page context. Se cambió a `Object.defineProperty`',
-            '  y se agregó verificación (`activo === true`). Además, la',
-            '  prueba `alta_terminal` pasa a ser tolerante: si el modal',
-            '  no se cierra pero la tabla se actualizó, cuenta como OK.',
-            '  Aprendizaje 31 en §8.8.',
             '- Fix v1.5plugin.4u: aun con `Object.defineProperty` y',
             '  `activo === true`, el alert nativo sigue apareciendo en',
             '  algunos contextos. Se adopta la bandera de modo prueba',
@@ -399,6 +284,23 @@ $cambios = [
             '  La prueba `alta_terminal` activa el modo antes de',
             '  cualquier acción que dispare alert. Aprendizajes 31',
             '  (actualizado) y 32 en §8.8.',
+        ],
+        'reemplazar' => [
+            '- Fix v1.5plugin.4u: aun con `Object.defineProperty` y',
+            '  `activo === true`, el alert nativo sigue apareciendo en',
+            '  algunos contextos. Se adopta la bandera de modo prueba',
+            '  del piloto (`window.__iteradores_modo_prueba`), que el',
+            '  propio `_mostrar_alerta_critica()` del piloto respeta.',
+            '  La prueba `alta_terminal` activa el modo antes de',
+            '  cualquier acción que dispare alert. Aprendizajes 31',
+            '  (actualizado) y 32 en §8.8.',
+            '- Fix v1.5plugin.4v: el override de `window.alert` (v4t)',
+            '  sí funcionaba; la bandera de modo prueba (v4u) fue',
+            '  insuficiente por sí sola. Se combinan AMBOS:',
+            '  `sobrescribir_alertas()` + `activar_modo_prueba()`. El',
+            '  piloto mantiene `_mostrar_alerta_critica()` y la',
+            '  bandera, pero la prueba no depende de ellos. Se suben',
+            '  los timeouts (25s) por si la red del backend tarda.',
         ],
     ],
 
