@@ -334,9 +334,9 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.4p.** El esqueleto del plugin está
-armado y funcional, tiene 18 pruebas (base + autocompletado
-+ ventas) y las agrupa en secciones. Archivos:
+**Proyecto en v1.5plugin.4r.** El esqueleto del plugin está
+armado y funcional, tiene 19 pruebas (base + autocompletado
++ puntos de venta + ventas) y las agrupa en secciones. Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -355,7 +355,9 @@ armado y funcional, tiene 18 pruebas (base + autocompletado
 
 **Secciones actuales:**
 
-- `base`: `arranque`, `login_admin`.
+- `base`: `arranque`, `login`.
+- `autocompletado`: `autocompletado_dni_terminal_clientes`.
+- `puntos_de_venta`: `alta_terminal`.
 - `ventas`: 15 pruebas (básica, cuotas, transferencia,
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
@@ -509,6 +511,17 @@ por tema.
     no contra el recuerdo de lo que uno escribió. Si el
     bloque falla, pedir el fragmento exacto del archivo
     al usuario antes de ajustar.
+29. **`window.alert` y `window.confirm` nativos bloquean
+    la extensión.** Para flujos que disparan dialogs
+    nativos (por ejemplo, el alta de terminal muestra
+    `alert()` con el código generado), sobrescribir ambos
+    antes de la acción y restaurarlos al final. Los
+    helpers `ctx.sobrescribir_alertas()` y
+    `ctx.restaurar_alertas()` encapsulan esto. La
+    sobrescritura tiene que estar activa durante toda la
+    operación, no solo durante el click: el `alert` puede
+    dispararse después de que el fetch resuelva. Ver
+    también el aprendizaje 10 (confirm nativo).
 
 ---
 
@@ -547,7 +560,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4q (nueva
+**Última actualización de este prompt:** v1.5plugin.4r (nueva
+prueba `alta_terminal`: login dueño, pestaña Puntos de
+venta, alta de terminal con datos únicos, verificación en
+la tabla. Nueva sección "Puntos de venta" en la ventana.
+Se agregan los helpers `ctx.sobrescribir_alertas()` y
+`ctx.restaurar_alertas()` al service worker para flujos que
+disparan dialogs nativos. Nuevo aprendizaje 29).
+Antes: v1.5plugin.4q (nueva
 sección 10 "Reglas de trabajo": cada `aplicar_cambios.php` va
 con su commit sugerido, y cada cambio del piloto PHP trae su
 espejo de pruebas acá).
@@ -579,11 +599,17 @@ completo con todo lo aprendido a la fuerza).
 
 **Estado de la conversación:**
 
-- El plugin tiene 18 pruebas que corren OK contra el piloto
-  PHP. La más reciente es `autocompletado_dni_terminal_clientes`
-  (v1.5plugin.4o), que verifica el fix v74h del piloto (el
+- El plugin tiene 19 pruebas que corren OK contra el piloto
+  PHP. Las más recientes son `autocompletado_dni_terminal_clientes`
+  (v1.5plugin.4p), que verifica el fix v74h del piloto (el
   autocompletado por DNI desde la pestaña Clientes con usuario
-  terminal, sin depender de que haya un viaje seleccionado).
+  terminal), y `alta_terminal` (v1.5plugin.4r), que cubre el
+  alta de terminal desde la pestaña Puntos de venta.
+- Nota sobre `alta_terminal`: cada corrida crea una terminal
+  nueva con prefijo `termprueba`. El test NO la elimina;
+  limpiar manualmente cuando molesten. Se puede agregar la
+  eliminación al final del test cuando tengamos el selector
+  del botón de eliminar de cada fila.
 - En el proceso se encontraron y arreglaron varios bugs del
   piloto: v74d (refresco del croquis tras cancelar venta),
   v74e (condición de carrera en el polling de asientos),

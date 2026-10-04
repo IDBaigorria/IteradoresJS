@@ -12,12 +12,13 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.4p
+ * @version 1.5plugin.4r
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
 import { prueba as login } from "./prueba_02_login.js";
 import { prueba as autocompletado_dni_terminal_clientes } from "./prueba_18_autocompletado_dni_terminal_clientes.js";
+import { prueba as alta_terminal } from "./prueba_19_alta_terminal.js";
 import { prueba as venta_basica } from "./prueba_03_venta_basica.js";
 import { prueba as venta_cuotas } from "./prueba_04_venta_cuotas.js";
 import { prueba as venta_transferencia } from "./prueba_05_venta_transferencia.js";
@@ -48,6 +49,13 @@ export const SECCIONES = [
         nombre: "Autocompletado",
         pruebas: [
             autocompletado_dni_terminal_clientes
+        ]
+    },
+    {
+        id: "puntos_de_venta",
+        nombre: "Puntos de venta",
+        pruebas: [
+            alta_terminal
         ]
     },
     {

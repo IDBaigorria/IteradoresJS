@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4o
+ * @version 1.5plugin.4r
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -232,6 +232,59 @@ function _crear_ctx(pestana_id) {
                         return { exito: false, error: "activar_pestana no existe en el page" };
                     },
                     args: [nombre]
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        sobrescribir_alertas: async () => {
+            // Sobrescribe window.alert y window.confirm del page
+            // con no-ops. Necesario para flujos que disparan
+            // dialogs nativos (por ejemplo, el alta de terminal
+            // muestra alert() con el código generado). La
+            // sobrescritura tiene que estar activa durante toda
+            // la operación, no solo durante el click: el alert
+            // se dispara después de que el fetch resuelve.
+            // Idempotente: guarda los originales la primera vez
+            // y no los pisa en llamadas sucesivas.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        if (!window.__plugin_alert_override) {
+                            window.__plugin_alert_override = {
+                                alert: window.alert,
+                                confirm: window.confirm
+                            };
+                            window.alert = () => {};
+                            window.confirm = () => true;
+                        }
+                        return { exito: true };
+                    }
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        restaurar_alertas: async () => {
+            // Restaura window.alert y window.confirm originales.
+            // Idempotente: si no había override activo, no hace
+            // nada.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        if (window.__plugin_alert_override) {
+                            window.alert = window.__plugin_alert_override.alert;
+                            window.confirm = window.__plugin_alert_override.confirm;
+                            delete window.__plugin_alert_override;
+                        }
+                        return { exito: true };
+                    }
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
             } catch (e) {
