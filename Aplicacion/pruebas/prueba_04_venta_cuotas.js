@@ -2,7 +2,7 @@
  * Venta en cuotas: 1 asiento, efectivo, 2 cuotas, pago parcial.
  * Verifica que la venta queda con cupones pendientes (por
  * backend, no por DOM, porque no navegamos a Vendidos).
- * @version 1.5plugin.4k
+ * @version 1.5plugin.4l
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,

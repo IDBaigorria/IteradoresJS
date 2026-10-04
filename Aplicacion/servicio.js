@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4k
+ * @version 1.5plugin.4l
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -57,11 +57,14 @@ async function _enviar_a_pestana(pestana_id, tipo, datos) {
 function _refresh_asientos_main_world() {
     return (async function () {
         try {
-            if (!window.viaje_seleccionado || !window.micro_seleccionado) {
-                return { exito: false, error: "sin viaje o micro abierto" };
+            if (typeof viaje_seleccionado === "undefined" || !viaje_seleccionado) {
+                return { exito: false, error: "sin viaje abierto" };
             }
-            const viaje = window.viaje_seleccionado;
-            const micro = window.micro_seleccionado;
+            if (typeof micro_seleccionado === "undefined" || !micro_seleccionado) {
+                return { exito: false, error: "sin micro abierto" };
+            }
+            const viaje = viaje_seleccionado;
+            const micro = micro_seleccionado;
             const resp = await fetch("index.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -74,12 +77,12 @@ function _refresh_asientos_main_world() {
             });
             const datos = await resp.json();
             if (datos.exito && Array.isArray(datos.asientos)) {
-                window.estados_asientos_actuales = datos.asientos;
-                if (typeof window.actualizar_colores_asientos === "function") {
-                    window.actualizar_colores_asientos(datos.asientos);
+                estados_asientos_actuales = datos.asientos;
+                if (typeof actualizar_colores_asientos === "function") {
+                    actualizar_colores_asientos(datos.asientos);
                 }
-                if (typeof window.refrescar_info_asientos_propios === "function") {
-                    window.refrescar_info_asientos_propios(true);
+                if (typeof refrescar_info_asientos_propios === "function") {
+                    refrescar_info_asientos_propios(true);
                 }
                 return { exito: true };
             }
@@ -142,8 +145,10 @@ function _crear_ctx(pestana_id) {
                     func: (args) => {
                         return (async () => {
                             try {
-                                const usuario = window.usuario_actual;
-                                if (!usuario) return { exito: false, error: "sin usuario_actual en el page" };
+                                if (typeof usuario_actual === "undefined" || !usuario_actual) {
+                                    return { exito: false, error: "sin usuario_actual en el page" };
+                                }
+                                const usuario = usuario_actual;
                                 const dueno = usuario.dueno || usuario.nombre_usuario;
                                 if (!dueno) return { exito: false, error: "sin dueno en el usuario del page" };
                                 const body = Object.assign({}, args, {

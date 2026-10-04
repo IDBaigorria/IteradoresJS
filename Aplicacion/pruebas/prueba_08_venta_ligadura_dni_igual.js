@@ -2,7 +2,7 @@
  * Ligadura comprador-pasajero: mismo DNI.
  * El comprador tiene datos; al poner el mismo DNI en el pasajero,
  * los campos comunes deben copiarse. Caso reportado del bug 2.
- * @version 1.5plugin.4k
+ * @version 1.5plugin.4l
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,

@@ -2,7 +2,7 @@
  * Ligadura inversa: el pasajero se llena primero.
  * Al poner el mismo DNI en el comprador, los datos comunes
  * deben copiarse pasajero -> comprador.
- * @version 1.5plugin.4k
+ * @version 1.5plugin.4l
  */
 import {
     login_terminal, ir_a_viajes_y_abrir_primero,

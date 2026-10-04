@@ -242,7 +242,15 @@ de admin). Archivos:
 
 ## 6. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4k (crear
+**Última actualización de este prompt:** v1.5plugin.4l (acceder
+a variables del page sin `window.`. Las variables top-level
+del piloto (`usuario_actual`, `viaje_seleccionado`,
+`micro_seleccionado`, `estados_asientos_actuales`) están
+declaradas con `let`, que NO crea propiedades en `window`.
+Hay que accederlas directamente y chequear con `typeof`.
+Además: el refresh de asientos de v4g nunca funcionó,
+retornaba "sin viaje o micro abierto" en silencio).
+Antes: v1.5plugin.4k (crear
 pasajero de prueba sin nombre de dueño fijo:
 `NOMBRE_DUENO_PRUEBA = "carmen1"` estaba mal, era el código
 de acceso, no el nombre de usuario. El backend devolvía
@@ -456,6 +464,19 @@ el manifest no se bumpea en cada letra.).
   archivo; el SW se registraba sin error pero nunca llamaba a
   `onMessage.addListener`, y el popup recibía el error de
   conexión.
+- **`let`/`const` top-level NO crean propiedades en `window`.**
+  En el page del piloto, `usuario_actual`, `viaje_seleccionado`,
+  `micro_seleccionado` y `estados_asientos_actuales` están
+  declaradas con `let`. `window.usuario_actual` es `undefined`
+  aunque la variable exista. En código inyectado por
+  `chrome.scripting.executeScript` en `world: "MAIN"`, hay
+  que accederlas directamente (`usuario_actual`, no
+  `window.usuario_actual`) y chequear con `typeof X !==
+  "undefined"` por si no están en el scope. Bug en
+  v1.5plugin.4k: `crear_pasajero_de_prueba` usaba
+  `window.usuario_actual`. Bug latente en v1.5plugin.4g:
+  `_refresh_asientos_main_world` usaba `window.viaje_seleccionado`,
+  retornando error silencioso desde entonces.
 - **No adivinar nombres de usuario ni datos del entorno.** El
   plugin no conoce el nombre de usuario del dueño de las
   terminales de prueba. Lo que el usuario pasa son los
