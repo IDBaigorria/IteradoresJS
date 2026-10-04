@@ -539,6 +539,28 @@ por tema.
     tiene efecto. Nota de riesgo: el usuario suele dar el
     HTML estático cuando se le pide "el archivo del
     módulo", y eso puede inducir a error.
+31. **Sobrescribir `window.alert` con `Object.defineProperty`,
+    no con asignación directa.** En el contexto de un page
+    cargado con scripts clásicos, `window.alert = ...` no
+    siempre reemplaza la referencia global (Chrome puede
+    haber cacheado la implementación nativa). Usar
+    `Object.defineProperty(window, "alert", { value: fn,
+    writable: true, configurable: true })`. Y **verificar
+    que el override se aplicó** comparando identidades:
+    `window.alert === noop_fn`. El helper
+    `ctx.sobrescribir_alertas()` retorna `{ exito, activo }`
+    con ese chequeo. Si `activo` es `false`, el alert
+    nativo va a bloquear el page context y el test se va a
+    colgar. **Nota:** si el override no se aplica, la
+    página entera queda congelada esperando que el usuario
+    cierre el alert; todas las llamadas a `executeScript`
+    y `sendMessage` que toquen ese page context quedan en
+    cola hasta entonces. Por eso conviene que las pruebas
+    que disparan alerts tengan un assert temprano sobre
+    `activo === true`, y que el assert principal del test
+    (que la acción se refleje en el estado observable) no
+    dependa del cierre del modal. Ver también
+    aprendizajes 10 y 29.
 
 ---
 
@@ -577,7 +599,15 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4s (fix
+**Última actualización de este prompt:** v1.5plugin.4t (fix
+del override de alert/confirm: se usa `Object.defineProperty`
+en lugar de asignación directa, y `sobrescribir_alertas`
+verifica que el override se aplicó antes de continuar. La
+prueba `alta_terminal` agrega un assert temprano sobre
+`activo === true` y pasa a ser tolerante: si el modal no se
+cierra pero la tabla se actualizó, cuenta como OK. Nuevo
+aprendizaje 31).
+Antes: v1.5plugin.4s (fix
 de la prueba `alta_terminal`: los selectores del formulario
 de alta eran los del modal genérico (`modal_agregar_*`),
 no los del formulario embebido sin uso (`nuevo_terminal_*`).
@@ -641,6 +671,13 @@ completo con todo lo aprendido a la fuerza).
   del piloto. El botón de alta abre un modal genérico con
   IDs `#modal_agregar_*`; la prueba se corrigió para usar
   esos. Aprendizaje 30 en §8.8.
+- Fix v1.5plugin.4t: el override de `window.alert` con
+  asignación directa no reemplazaba la referencia global
+  en el page context. Se cambió a `Object.defineProperty`
+  y se agregó verificación (`activo === true`). Además, la
+  prueba `alta_terminal` pasa a ser tolerante: si el modal
+  no se cierra pero la tabla se actualizó, cuenta como OK.
+  Aprendizaje 31 en §8.8.
 - En el proceso se encontraron y arreglaron varios bugs del
   piloto: v74d (refresco del croquis tras cancelar venta),
   v74e (condición de carrera en el polling de asientos),

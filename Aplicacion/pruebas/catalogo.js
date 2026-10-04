@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.4s
+ * @version 1.5plugin.4t
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";

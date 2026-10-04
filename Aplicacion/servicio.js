@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4r
+ * @version 1.5plugin.4t
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -246,22 +246,47 @@ function _crear_ctx(pestana_id) {
             // sobrescritura tiene que estar activa durante toda
             // la operación, no solo durante el click: el alert
             // se dispara después de que el fetch resuelve.
-            // Idempotente: guarda los originales la primera vez
-            // y no los pisa en llamadas sucesivas.
+            //
+            // Se usa Object.defineProperty en lugar de asignación
+            // directa: en el contexto de un page cargado con
+            // scripts clásicos, `window.alert = ...` no siempre
+            // reemplaza la referencia global (Chrome puede haber
+            // cacheado la implementación nativa).
+            //
+            // Idempotente: guarda los originales la primera vez y
+            // no los pisa en llamadas sucesivas.
+            // Retorna { exito, activo } para que el test pueda
+            // verificar que el override se aplicó.
             try {
                 const r = await chrome.scripting.executeScript({
                     target: { tabId: pestana_id },
                     world: "MAIN",
                     func: () => {
+                        // Guardar los originales solo la primera vez.
                         if (!window.__plugin_alert_override) {
                             window.__plugin_alert_override = {
                                 alert: window.alert,
                                 confirm: window.confirm
                             };
-                            window.alert = () => {};
-                            window.confirm = () => true;
                         }
-                        return { exito: true };
+                        const noop_alert = function () {};
+                        const noop_confirm = function () { return true; };
+                        try {
+                            Object.defineProperty(window, "alert", {
+                                value: noop_alert,
+                                writable: true,
+                                configurable: true
+                            });
+                            Object.defineProperty(window, "confirm", {
+                                value: noop_confirm,
+                                writable: true,
+                                configurable: true
+                            });
+                        } catch (e) {
+                            return { exito: false, error: "defineProperty fallo: " + e.message };
+                        }
+                        const activo = (window.alert === noop_alert);
+                        return { exito: true, activo: activo };
                     }
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
@@ -279,8 +304,20 @@ function _crear_ctx(pestana_id) {
                     world: "MAIN",
                     func: () => {
                         if (window.__plugin_alert_override) {
-                            window.alert = window.__plugin_alert_override.alert;
-                            window.confirm = window.__plugin_alert_override.confirm;
+                            try {
+                                Object.defineProperty(window, "alert", {
+                                    value: window.__plugin_alert_override.alert,
+                                    writable: true,
+                                    configurable: true
+                                });
+                                Object.defineProperty(window, "confirm", {
+                                    value: window.__plugin_alert_override.confirm,
+                                    writable: true,
+                                    configurable: true
+                                });
+                            } catch (e) {
+                                return { exito: false, error: "defineProperty fallo al restaurar: " + e.message };
+                            }
                             delete window.__plugin_alert_override;
                         }
                         return { exito: true };
