@@ -334,14 +334,17 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5a.** El esqueleto del plugin está
+**Proyecto en v1.5plugin.5b.** El esqueleto del plugin está
 armado y funcional, tiene 29 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
 croquis y espera activamente por asientos libres. El viaje
 de setup tiene 2 micros de 44 asientos cada uno (88 en
-total). Archivos:
+total). `ir_a_tab` no clickea la tab si ya está activa
+(evita reiniciar la carga de datos). Timeouts del primer
+load: 25s para la lista de viajes, 10s para el modal, 15s
+para los micros. Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -689,6 +692,17 @@ por tema.
     próximo polling, así que las pruebas siguientes ven
     el estado viejo. Combinación: pool grande + refresh
     forzado + espera activa.
+42. **El primer load del viaje puede tardar 10-15s.** El
+    grafo acumula viajes, micros, ventas y asientos de
+    corridas anteriores. `formatear_viaje` itera todos
+    los micros y todos los asientos para calcular los
+    contadores al vuelo, así que la respuesta de
+    `viajes/listar_por_terminal` se pone lenta cuando el
+    grafo crece. Un timeout de 8s es corto. Regla: 25s
+    para el primer load de la lista, y no clickear la tab
+    si ya está activa (el piloto la activa solo después
+    del login y arranca `cargar_viajes` — clickear de
+    nuevo limpia la lista y reinicia el fetch).
 
 ---
 
@@ -727,7 +741,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5a (las
+**Última actualización de este prompt:** v1.5plugin.5b (la
+carga de la lista de viajes pasa a ser más robusta.
+`ir_a_tab` no clickea la tab si ya está activa, así no
+reinicia `cargar_viajes` ni descarta la carga en curso.
+Timeouts del primer load subidos a 25s para la lista, 10s
+para el modal del viaje y 15s para la lista de micros.
+Nuevo aprendizaje 42).
+Antes: v1.5plugin.5a (las
 pruebas de venta pasan a ser independientes. Nuevo helper
 `cerrar_modales_si_abiertos(ctx)` en `_helpers.js` que se
 llama al inicio y al final de cada prueba. `ir_a_tab`
@@ -851,6 +872,14 @@ completo con todo lo aprendido a la fuerza).
   vez desde la pestaña Viajes del piloto. Si se vuelve a
   agotar, hay que agregar un tercer micro o limpiar
   ventas viejas desde la pestaña Vendidos.
+- En v1.5plugin.5b, después de aplicar el fix, la prueba
+  `venta_basica` seguía fallando con "No hay viajes
+  disponibles". Diagnóstico: la lista tarda 10-15s en
+  cargar (el grafo acumuló mucho dato) y `ir_a_tab`
+  clickeaba la tab aunque ya estuviera activa, reiniciando
+  `cargar_viajes`. Se subieron los timeouts a 25s y se
+  evitó el click redundante. Con eso, la primera carga
+  tiene tiempo de terminar.
 - Requisito de entorno para `micro_colision_numeracion`:
   la primera empresa del dueño `carmen1` debe tener al
   menos 3 vehículos configurados. Si no, la prueba falla

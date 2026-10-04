@@ -8,7 +8,7 @@
  * sean independientes y no se agoten los asientos del viaje
  * de setup.
  *
- * @version 1.5plugin.5a
+ * @version 1.5plugin.5b
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
@@ -105,7 +105,19 @@ export async function ir_a_tab(ctx, id_tab) {
     const selector = `.tab[data-tab="${id_tab}"]`;
     const existe = await ctx.esperar(selector, 3000);
     if (!existe || !existe.exito) throw new Error("No existe el tab " + id_tab);
-    await ctx.clic(selector);
+
+    // Si el tab ya esta activo, no clickear: evita reiniciar la
+    // carga de datos (el piloto limpia la lista al principio de
+    // cargar_viajes, y volver a clickear descarta lo que la carga
+    // anterior ya tenia listo). Despues del login, el piloto
+    // activa el primer tab automaticamente, asi que en la mayoria
+    // de los casos el tab ya esta activo al entrar aca.
+    const clases = await ctx.obtener_atributos(selector, "class");
+    const ya_activo = clases.length > 0 && String(clases[0]).indexOf("active") !== -1;
+    if (!ya_activo) {
+        await ctx.clic(selector);
+    }
+
     const seccion = await ctx.esperar_visible("#" + id_tab, 5000);
     if (!seccion || !seccion.exito) throw new Error("El tab " + id_tab + " no quedo visible");
     await ctx.pausa(300);
@@ -113,13 +125,18 @@ export async function ir_a_tab(ctx, id_tab) {
 
 export async function ir_a_viajes_y_abrir_primero(ctx) {
     await ir_a_tab(ctx, "viajes");
-    const hay = await ctx.esperar(".btn-detalle-viaje", 8000);
+    // El primer load de la lista de viajes puede tardar bastante
+    // si el grafo acumulo muchos datos de corridas anteriores
+    // (viajes, ventas, micros). En la primera prueba de la corrida
+    // el fetch puede tardar 10-15s. Damos 25s para no fallar por
+    // timing.
+    const hay = await ctx.esperar(".btn-detalle-viaje", 25000);
     if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");
 
     await ctx.clic(".btn-detalle-viaje");
-    const modal = await ctx.esperar_visible("#modal_generico", 8000);
+    const modal = await ctx.esperar_visible("#modal_generico", 10000);
     if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");
-    const micros = await ctx.esperar(".btn-ver-pasaje", 8000);
+    const micros = await ctx.esperar(".btn-ver-pasaje", 15000);
     if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");
 }
 
