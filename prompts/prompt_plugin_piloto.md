@@ -522,6 +522,23 @@ por tema.
     operación, no solo durante el click: el `alert` puede
     dispararse después de que el fetch resuelva. Ver
     también el aprendizaje 10 (confirm nativo).
+30. **Verificar los selectores reales antes de escribir
+    una prueba sobre un modal.** Los formularios embebidos
+    en el HTML del piloto quedaron sin uso en v73g: el
+    alta/edición de usuarios y terminales pasó a modales
+    genéricos (`abrir_modal_agregar_usuario_generico` y
+    `abrir_modal_editar_usuario_generico`, en
+    `aplicacion.js`). Los IDs de los campos del modal
+    tienen prefijo `modal_agregar_*` o `modal_editar_*`,
+    no los IDs del formulario viejo (`nuevo_terminal_*`,
+    `nuevo_*`). Antes de escribir un test que toque un
+    modal, revisar el archivo del módulo
+    (`Aplicacion/terminales.js`, `Aplicacion/admin.js`) y
+    `aplicacion.js`. Los IDs viejos siguen existiendo en
+    el HTML pero están ocultos; escribir en ellos no
+    tiene efecto. Nota de riesgo: el usuario suele dar el
+    HTML estático cuando se le pide "el archivo del
+    módulo", y eso puede inducir a error.
 
 ---
 
@@ -560,7 +577,13 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4r (nueva
+**Última actualización de este prompt:** v1.5plugin.4s (fix
+de la prueba `alta_terminal`: los selectores del formulario
+de alta eran los del modal genérico (`modal_agregar_*`),
+no los del formulario embebido sin uso (`nuevo_terminal_*`).
+Se agrega el aprendizaje 30 sobre verificar selectores
+reales antes de escribir una prueba sobre un modal).
+Antes: v1.5plugin.4r (nueva
 prueba `alta_terminal`: login dueño, pestaña Puntos de
 venta, alta de terminal con datos únicos, verificación en
 la tabla. Nueva sección "Puntos de venta" en la ventana.
@@ -609,7 +632,15 @@ completo con todo lo aprendido a la fuerza).
   nueva con prefijo `termprueba`. El test NO la elimina;
   limpiar manualmente cuando molesten. Se puede agregar la
   eliminación al final del test cuando tengamos el selector
-  del botón de eliminar de cada fila.
+  del botón de eliminar de cada fila (hoy:
+  `button.btn_eliminar_terminal[data-usuario="..."]`, con
+  `confirm()` nativo).
+- Fix v1.5plugin.4s: la prueba `alta_terminal` escribía en
+  los inputs del formulario embebido en el HTML
+  (`#nuevo_terminal_*`), que quedaron sin uso desde v73g
+  del piloto. El botón de alta abre un modal genérico con
+  IDs `#modal_agregar_*`; la prueba se corrigió para usar
+  esos. Aprendizaje 30 en §8.8.
 - En el proceso se encontraron y arreglaron varios bugs del
   piloto: v74d (refresco del croquis tras cancelar venta),
   v74e (condición de carrera en el polling de asientos),
