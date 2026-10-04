@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4t
+ * @version 1.5plugin.4u
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -232,6 +232,48 @@ function _crear_ctx(pestana_id) {
                         return { exito: false, error: "activar_pestana no existe en el page" };
                     },
                     args: [nombre]
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        activar_modo_prueba: async () => {
+            // Setea window.__iteradores_modo_prueba = true en el
+            // page context. El piloto PHP chequea esa bandera en
+            // _mostrar_alerta_critica() y no dispara alert()
+            // cuando está activa (loguea a consola en su lugar).
+            //
+            // Es la forma limpia de evitar los alerts nativos que
+            // bloquean el page context: el override de window.alert
+            // no siempre reemplaza la referencia global, pero la
+            // bandera la lee el propio código del piloto. Requiere
+            // que el piloto tenga el helper _mostrar_alerta_critica
+            // (aplicado en v1.5piloto.74j).
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        window.__iteradores_modo_prueba = true;
+                        return { exito: true };
+                    }
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        desactivar_modo_prueba: async () => {
+            // Limpia la bandera de modo prueba. Idempotente.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        delete window.__iteradores_modo_prueba;
+                        return { exito: true };
+                    }
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
             } catch (e) {

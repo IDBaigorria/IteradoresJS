@@ -549,18 +549,34 @@ por tema.
     que el override se aplicó** comparando identidades:
     `window.alert === noop_fn`. El helper
     `ctx.sobrescribir_alertas()` retorna `{ exito, activo }`
-    con ese chequeo. Si `activo` es `false`, el alert
-    nativo va a bloquear el page context y el test se va a
-    colgar. **Nota:** si el override no se aplica, la
-    página entera queda congelada esperando que el usuario
-    cierre el alert; todas las llamadas a `executeScript`
-    y `sendMessage` que toquen ese page context quedan en
-    cola hasta entonces. Por eso conviene que las pruebas
-    que disparan alerts tengan un assert temprano sobre
-    `activo === true`, y que el assert principal del test
-    (que la acción se refleje en el estado observable) no
-    dependa del cierre del modal. Ver también
-    aprendizajes 10 y 29.
+    con ese chequeo.
+    **Actualización v1.5plugin.4u:** aun con el override
+    aplicado y verificado, en algunos contextos el alert
+    nativo sigue apareciendo. No alcanza con sobrescribir
+    `window.alert` desde `chrome.scripting.executeScript`:
+    el alert() del piloto sigue disparándose. **Solución
+    adoptada:** bandera de modo prueba en el propio piloto.
+    El piloto expone `_mostrar_alerta_critica()` (en
+    `aplicacion.js`, aplicado en v1.5piloto.74j) que
+    chequea `window.__iteradores_modo_prueba` y, si está
+    activo, loguea a consola en lugar de llamar a `alert()`.
+    El plugin setea/limpia la bandera con
+    `ctx.activar_modo_prueba()` / `ctx.desactivar_modo_prueba()`.
+    Es la solución robusta cuando el override de `window.alert`
+    no alcanza: no depende de reemplazar la referencia global,
+    depende de que el propio código del piloto respete la
+    bandera. Requiere tocar el piloto, por lo que se aplica
+    con la regla de los dos scripts.
+32. **Un alert nativo congela el page context entero.**
+    Mientras el alert está abierto, cualquier sendMessage o
+    executeScript que toque ese page queda en cola. El
+    popup del plugin pierde foco y se cierra (Chrome cierra
+    los popups al perder foco); los resultados de la prueba
+    se siguen persistiendo en IndexedDB, pero el usuario no
+    los ve en vivo. Moraleja: las pruebas que disparan
+    flujos con alert() deben evitarlo con la bandera de
+    modo prueba, no depender del override. Ver
+    aprendizaje 31.
 
 ---
 
@@ -599,7 +615,17 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4t (fix
+**Última actualización de este prompt:** v1.5plugin.4u (modo
+prueba del piloto: el override de `window.alert` no alcanza,
+el alert nativo sigue apareciendo y bloquea el page context.
+Solución: el piloto PHP respeta una bandera
+`window.__iteradores_modo_prueba` (helper
+`_mostrar_alerta_critica()` en `aplicacion.js`, aplicado en
+v1.5piloto.74j). El plugin setea/limpia la bandera con
+`ctx.activar_modo_prueba()` / `ctx.desactivar_modo_prueba()`.
+La prueba `alta_terminal` usa ese modo. Nuevos aprendizajes
+31 (actualizado) y 32).
+Antes: v1.5plugin.4t (fix
 del override de alert/confirm: se usa `Object.defineProperty`
 en lugar de asignación directa, y `sobrescribir_alertas`
 verifica que el override se aplicó antes de continuar. La
@@ -678,6 +704,14 @@ completo con todo lo aprendido a la fuerza).
   prueba `alta_terminal` pasa a ser tolerante: si el modal
   no se cierra pero la tabla se actualizó, cuenta como OK.
   Aprendizaje 31 en §8.8.
+- Fix v1.5plugin.4u: aun con `Object.defineProperty` y
+  `activo === true`, el alert nativo sigue apareciendo en
+  algunos contextos. Se adopta la bandera de modo prueba
+  del piloto (`window.__iteradores_modo_prueba`), que el
+  propio `_mostrar_alerta_critica()` del piloto respeta.
+  La prueba `alta_terminal` activa el modo antes de
+  cualquier acción que dispare alert. Aprendizajes 31
+  (actualizado) y 32 en §8.8.
 - En el proceso se encontraron y arreglaron varios bugs del
   piloto: v74d (refresco del croquis tras cancelar venta),
   v74e (condición de carrera en el polling de asientos),
