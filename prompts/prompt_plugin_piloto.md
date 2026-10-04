@@ -334,7 +334,7 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5c.** El esqueleto del plugin está
+**Proyecto en v1.5plugin.5d.** El esqueleto del plugin está
 armado y funcional, tiene 29 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
@@ -342,11 +342,10 @@ una cierra los modales al terminar, fuerza el refresh del
 croquis y espera activamente por asientos libres. El viaje
 de setup tiene 2 micros de 44 asientos cada uno (88 en
 total). `ir_a_tab` no clickea la tab si ya está activa
-(evita reiniciar la carga de datos). Timeouts del primer
-load: 25s para la lista de viajes, 10s para el modal, 15s
-para los micros. Timeouts del flujo de venta: 25s para el
-panel de opciones de impresión, 15s para abrir el modal de
-confirmación, 12s para el botón Vender. Archivos:
+(evita reiniciar la carga de datos). Timeouts: lista de
+viajes 40s, modal del viaje 30s, micros 30s (subidos en 5d
+para tolerar grafos grandes mientras el piloto se aliviana
+con la limpieza de viajes de prueba de v74n). Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -716,6 +715,20 @@ por tema.
     toast aparece pero el panel no, hacer una espera corta
     extra para que el panel termine de aparecer y
     `obtener_id_ultima_venta` lo pueda cerrar.
+44. **Los timeouts largos son una curita, no una solución.**
+    Cada vez que subimos timeouts (5b, 5c, 5d) es porque el
+    piloto se puso más lento por acumulación de datos en el
+    grafo. La causa raíz está en `formatear_viaje` del
+    piloto: escala con V × W (viajes × ventas), porque por
+    cada viaje recorre todas las ventas del dueño dos veces
+    (`viaje_tiene_ventas` y `vendidos_por_micro`). Con 21
+    viajes × 24 ventas, eso son ~500 iteraciones por cada
+    listado. La limpieza de viajes de prueba (v74n del
+    piloto) alivia el problema. La optimización real
+    (índice de ventas por viaje, cacheo de contadores) es
+    una tanda aparte del piloto. Regla del plugin: aceptar
+    timeouts largos como paliativo, pero anotar la causa
+    raíz cuando se identifique.
 
 ---
 
@@ -754,7 +767,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5c (suben
+**Última actualización de este prompt:** v1.5plugin.5d (suben
+los timeouts del listado de viajes: 40s para la lista, 30s
+para el modal del viaje y 30s para los micros. Paliativo
+mientras el piloto se aliviana con la limpieza de viajes de
+prueba (v74n del piloto). Nuevo aprendizaje 44: la causa
+raíz está en `formatear_viaje` del piloto, que escala con
+V × W).
+Antes: v1.5plugin.5c (suben
 los timeouts del flujo de venta. `confirmar_venta` espera
 hasta 25s al panel `#opciones_impresion` y acepta el toast
 "Venta confirmada" como señal alternativa. `abrir_modal_confirmacion`

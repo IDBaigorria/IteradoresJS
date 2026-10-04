@@ -8,7 +8,7 @@
  * sean independientes y no se agoten los asientos del viaje
  * de setup.
  *
- * @version 1.5plugin.5c
+ * @version 1.5plugin.5d
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
@@ -125,18 +125,19 @@ export async function ir_a_tab(ctx, id_tab) {
 
 export async function ir_a_viajes_y_abrir_primero(ctx) {
     await ir_a_tab(ctx, "viajes");
-    // El primer load de la lista de viajes puede tardar bastante
-    // si el grafo acumulo muchos datos de corridas anteriores
-    // (viajes, ventas, micros). En la primera prueba de la corrida
-    // el fetch puede tardar 10-15s. Damos 25s para no fallar por
-    // timing.
-    const hay = await ctx.esperar(".btn-detalle-viaje", 25000);
+    // Timeouts largos para tolerar grafos grandes. El fetch del
+    // listado tarda segundos cuando hay muchos viajes y ventas,
+    // porque formatear_viaje escala con V x W (viajes x ventas).
+    // Con la limpieza de viajes de prueba del piloto (v74n)
+    // esto se va a aliviar, pero los timeouts quedan como red
+    // de seguridad.
+    const hay = await ctx.esperar(".btn-detalle-viaje", 40000);
     if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");
 
     await ctx.clic(".btn-detalle-viaje");
-    const modal = await ctx.esperar_visible("#modal_generico", 10000);
+    const modal = await ctx.esperar_visible("#modal_generico", 30000);
     if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");
-    const micros = await ctx.esperar(".btn-ver-pasaje", 15000);
+    const micros = await ctx.esperar(".btn-ver-pasaje", 30000);
     if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");
 }
 
