@@ -12,13 +12,21 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.4v
+ * @version 1.5plugin.4y
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
 import { prueba as login } from "./prueba_02_login.js";
 import { prueba as autocompletado_dni_terminal_clientes } from "./prueba_18_autocompletado_dni_terminal_clientes.js";
 import { prueba as alta_terminal } from "./prueba_19_alta_terminal.js";
+import { prueba as alta_viaje } from "./prueba_20_alta_viaje.js";
+import { prueba as alta_micro } from "./prueba_21_alta_micro.js";
+import { prueba as micro_sin_empresa } from "./prueba_22_micro_sin_empresa.js";
+import { prueba as micro_sin_vehiculo } from "./prueba_23_micro_sin_vehiculo.js";
+import { prueba as micro_monto_vacio } from "./prueba_24_micro_monto_vacio.js";
+import { prueba as micro_monto_negativo } from "./prueba_25_micro_monto_negativo.js";
+import { prueba as micro_cancelar } from "./prueba_26_micro_cancelar.js";
+import { prueba as micro_mismo_vehiculo_dos_veces } from "./prueba_27_micro_mismo_vehiculo.js";
 import { prueba as venta_basica } from "./prueba_03_venta_basica.js";
 import { prueba as venta_cuotas } from "./prueba_04_venta_cuotas.js";
 import { prueba as venta_transferencia } from "./prueba_05_venta_transferencia.js";
@@ -56,6 +64,26 @@ export const SECCIONES = [
         nombre: "Puntos de venta",
         pruebas: [
             alta_terminal
+        ]
+    },
+    {
+        id: "viajes",
+        nombre: "Viajes",
+        pruebas: [
+            alta_viaje
+        ]
+    },
+    {
+        id: "micros",
+        nombre: "Micros",
+        pruebas: [
+            alta_micro,
+            micro_sin_empresa,
+            micro_sin_vehiculo,
+            micro_monto_vacio,
+            micro_monto_negativo,
+            micro_cancelar,
+            micro_mismo_vehiculo_dos_veces
         ]
     },
     {

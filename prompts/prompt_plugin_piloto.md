@@ -334,9 +334,10 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.4r.** El esqueleto del plugin está
-armado y funcional, tiene 19 pruebas (base + autocompletado
-+ puntos de venta + ventas) y las agrupa en secciones. Archivos:
+**Proyecto en v1.5plugin.4y.** El esqueleto del plugin está
+armado y funcional, tiene 27 pruebas (base + autocompletado
++ puntos de venta + viajes + micros + ventas) y las agrupa
+en secciones. Archivos:
 
 - `manifest.json` — manifiesto MV3 en la raíz.
 - `Aplicacion/servicio.js` — service worker (module, imports
@@ -358,6 +359,11 @@ armado y funcional, tiene 19 pruebas (base + autocompletado
 - `base`: `arranque`, `login`.
 - `autocompletado`: `autocompletado_dni_terminal_clientes`.
 - `puntos_de_venta`: `alta_terminal`.
+- `viajes`: `alta_viaje`.
+- `micros`: 7 pruebas. `alta_micro` (flujo feliz) más
+  validaciones: `micro_sin_empresa`, `micro_sin_vehiculo`,
+  `micro_monto_vacio`, `micro_monto_negativo`,
+  `micro_cancelar`, `micro_mismo_vehiculo_dos_veces`.
 - `ventas`: 15 pruebas (básica, cuotas, transferencia,
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
@@ -582,6 +588,55 @@ por tema.
     de modo prueba del piloto es un refuerzo adicional.
     Activarlos juntos y restaurarlos juntos en el finally.
     Ver aprendizaje 31.
+33. **No todos los flujos del piloto disparan alert().**
+    El alta de viaje (viajes-opciones.js,
+    `abrir_modal_viaje`) solo usa `mostrar_aviso` / toast,
+    nunca `alert()` ni `confirm()`. No necesita ni override
+    ni bandera de modo prueba. Antes de escribir una
+    prueba, revisar el flujo del piloto para saber qué
+    protecciones hacen falta. Como regla práctica:
+    `alert()` se dispara en el alta/edición de usuarios y
+    terminales (código de acceso generado); `confirm()`
+    se usa en eliminaciones (viajes, terminales, cupones)
+    y en algunos subflujos (reiniciar selección). El resto
+    de los flujos usa toast.
+34. **Los `<select>` necesitan helpers específicos.** Un
+    `ctx.clic` sobre un `<select>` abre el dropdown nativo,
+    que la extensión no puede manejar. Y asignar
+    `select.value = x` por sí solo no dispara el listener
+    `onchange` del piloto. Los helpers correctos:
+    `ctx.leer_opciones(sel)` devuelve `[{valor, texto}]`
+    (para esperar a que un select se llene);
+    `ctx.seleccionar_indice(sel, idx)` setea
+    `selectedIndex`, dispara `change` y devuelve
+    `{ exito, valor, texto }` con la opción elegida (para
+    verificar por el value después). Los helpers van por
+    `chrome.scripting.executeScript` en MAIN world, que
+    sí dispara los listeners del page context.
+35. **Las pruebas con dependencias encadenadas hacen su
+    propio setup.** `alta_micro` necesita un viaje
+    existente; `alta_viaje` ya crea uno, pero no queremos
+    acoplar las pruebas entre sí. La prueba autocontenida
+    crea el viaje, le agrega el micro y verifica. Ventaja:
+    se puede correr sola, en cualquier orden. Desventaja:
+    cada corrida deja más basura (viajes huérfanos). Se
+    mitiga con prefijos distinguibles (`viajemicro` vs
+    `viajeprueba`) para limpiar por tipo cuando moleste.
+36. **Cuando 3+ pruebas comparten pasos de setup, extraer a
+    un archivo de helpers.** El archivo va con prefijo `_`
+    (`_micros_helpers.js`) para distinguirlo de las
+    pruebas. Los helpers lanzan `Error` (no `ctx.assert`)
+    cuando fallan, así la prueba que los usa aborta con
+    mensaje claro. Los helpers NO importan nada de otras
+    pruebas, solo usan `ctx`.
+37. **Documentar el comportamiento del backend con pruebas
+    también es útil.** `micro_mismo_vehiculo_dos_veces`
+    verifica que el backend actual PERMITE duplicados. Si
+    en el futuro el backend cambia a rechazarlos, la prueba
+    falla y hay que decidir: actualizar la prueba o revertir
+    el cambio. La prueba no es un contrato inmutable; es una
+    foto del comportamiento observado, con un comentario
+    que lo aclara.
 
 ---
 
@@ -620,7 +675,28 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.4v (la
+**Última actualización de este prompt:** v1.5plugin.4y (seis
+pruebas nuevas de validación del alta de micro: sin
+empresa, sin vehículo, monto vacío, monto negativo,
+cancelar y mismo vehículo dos veces. Nuevo archivo
+`_micros_helpers.js` con las funciones de setup compartidas;
+`alta_micro` refactorizada para usarlas. Se agregan los
+helpers `ctx.contar(sel)` y `ctx.forzar_valor(sel, valor)`
+al service worker. Nuevos aprendizajes 36 y 37).
+Antes: v1.5plugin.4x (nueva
+prueba `alta_micro`: crea un viaje de setup, le agrega un
+micro (empresa + vehículo + monto) y verifica. Nueva
+sección "Micros" en la ventana. Se agregan los helpers
+`ctx.leer_opciones(sel)` y `ctx.seleccionar_indice(sel,
+idx)` para interactuar con `<select>`. Nuevos aprendizajes
+34 y 35).
+Antes: v1.5plugin.4w (nueva
+prueba `alta_viaje`: login dueño, pestaña Viajes, alta de
+viaje con datos únicos, verificación en la lista. Nueva
+sección "Viajes" en la ventana. Nota: el alta de viaje NO
+dispara alert(), solo toast, así que la prueba no necesita
+override ni bandera de modo prueba. Nuevo aprendizaje 33).
+Antes: v1.5plugin.4v (la
 prueba `alta_terminal` usa AMBOS métodos juntos para
 suprimir el alert del código de acceso:
 `ctx.sobrescribir_alertas()` (el que funcionó en v4t) y
@@ -690,12 +766,29 @@ completo con todo lo aprendido a la fuerza).
 
 **Estado de la conversación:**
 
-- El plugin tiene 19 pruebas que corren OK contra el piloto
-  PHP. Las más recientes son `autocompletado_dni_terminal_clientes`
-  (v1.5plugin.4p), que verifica el fix v74h del piloto (el
-  autocompletado por DNI desde la pestaña Clientes con usuario
-  terminal), y `alta_terminal` (v1.5plugin.4r), que cubre el
-  alta de terminal desde la pestaña Puntos de venta.
+- El plugin tiene 27 pruebas que corren OK contra el piloto
+  PHP. La última tanda (v1.5plugin.4y) agregó 6 pruebas de
+  validación del alta de micro: `micro_sin_empresa`,
+  `micro_sin_vehiculo`, `micro_monto_vacio`,
+  `micro_monto_negativo`, `micro_cancelar` y
+  `micro_mismo_vehiculo_dos_veces` (esta última documenta
+  que el backend actual permite agregar el mismo vehículo
+  dos veces al mismo viaje). Se extrajeron las funciones de
+  setup a `_micros_helpers.js`, y `alta_micro` se refactorizó
+  para usarlas.
+- Notas sobre limpieza acumulada:
+  - `alta_terminal`: crea terminales con prefijo
+    `termprueba`. Limpiar desde la pestaña Puntos de venta.
+  - `alta_viaje`: crea viajes con prefijo `viajeprueba`.
+    Limpiar desde la pestaña Viajes.
+  - `alta_micro`: crea viajes con prefijo `viajemicro`, y
+    en cada uno agrega un micro. Limpiar desde la pestaña
+    Viajes (hay que abrir el viaje y quitar el micro, o
+    eliminar el viaje entero).
+- Requisito de entorno para `alta_micro`: el dueño de prueba
+  (`carmen1`) debe tener al menos una empresa con un vehículo
+  configurado. Si no lo tiene, la prueba falla con mensaje
+  claro en el paso de seleccionar empresa.
 - Nota sobre `alta_terminal`: cada corrida crea una terminal
   nueva con prefijo `termprueba`. El test NO la elimina;
   limpiar manualmente cuando molesten. Se puede agregar la

@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4u
+ * @version 1.5plugin.4y
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -364,6 +364,105 @@ function _crear_ctx(pestana_id) {
                         }
                         return { exito: true };
                     }
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+
+        contar: async (selector) => {
+            // Cuenta cuántos elementos matchean el selector. Se usa
+            // para verificar listas (por ejemplo, cantidad de
+            // .micro-item en #lista_micros_viaje).
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (sel) => {
+                        return document.querySelectorAll(sel).length;
+                    },
+                    args: [selector]
+                });
+                return (r && r[0] && typeof r[0].result === "number") ? r[0].result : 0;
+            } catch (e) {
+                return 0;
+            }
+        },
+        forzar_valor: async (selector, valor) => {
+            // Setea el value de un input/select y dispara input +
+            // change. Necesario para forzar valores que el input
+            // rechazaría por sus restricciones (por ejemplo, monto
+            // negativo en un input con min="0").
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (sel, val) => {
+                        const el = document.querySelector(sel);
+                        if (!el) return { exito: false, error: "no existe " + sel };
+                        el.value = val;
+                        el.dispatchEvent(new Event("input", { bubbles: true }));
+                        el.dispatchEvent(new Event("change", { bubbles: true }));
+                        return { exito: true, valor: el.value };
+                    },
+                    args: [selector, valor]
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        leer_opciones: async (selector) => {
+            // Devuelve un array de {valor, texto} con las opciones
+            // actuales del <select>. Útil para esperar a que un
+            // select se llene y para elegir opciones por índice.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (sel) => {
+                        const el = document.querySelector(sel);
+                        if (!el) return { exito: false, error: "no existe " + sel };
+                        if (el.tagName !== "SELECT") return { exito: false, error: "no es un SELECT: " + sel };
+                        const opciones = Array.from(el.options).map(o => ({ valor: o.value, texto: o.textContent }));
+                        return { exito: true, opciones };
+                    },
+                    args: [selector]
+                });
+                if (r && r[0] && r[0].result && r[0].result.exito) {
+                    return r[0].result.opciones;
+                }
+                return [];
+            } catch (e) {
+                return [];
+            }
+        },
+        seleccionar_indice: async (selector, indice) => {
+            // Setea el <select> a la opción del índice indicado y
+            // dispara el evento change. Devuelve { exito, valor,
+            // texto } con la opción elegida.
+            //
+            // Necesario porque ctx.clic sobre un <select> abre el
+            // dropdown nativo (que la extensión no puede manejar),
+            // y asignar el value directamente no dispara el
+            // listener onchange del piloto.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: (sel, idx) => {
+                        const el = document.querySelector(sel);
+                        if (!el) return { exito: false, error: "no existe " + sel };
+                        if (el.tagName !== "SELECT") return { exito: false, error: "no es un SELECT: " + sel };
+                        if (idx < 0 || idx >= el.options.length) {
+                            return { exito: false, error: "indice " + idx + " fuera de rango (0.." + (el.options.length - 1) + ")" };
+                        }
+                        el.selectedIndex = idx;
+                        el.dispatchEvent(new Event("change", { bubbles: true }));
+                        return { exito: true, valor: el.value, texto: el.options[idx].textContent };
+                    },
+                    args: [selector, indice]
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
             } catch (e) {
