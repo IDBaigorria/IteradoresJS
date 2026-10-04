@@ -4,11 +4,18 @@
   <meta charset="UTF-8">
   <title>Iteradores Pruebas</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 340px; }
+    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 400px; }
     h1 { font-size: 14px; margin: 0 0 8px 0; }
+    .seccion { border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 12px; }
+    .seccion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .seccion-nombre { font-weight: 700; font-size: 13px; }
+    .seccion-resumen { font-size: 11px; color: #555; margin-left: 8px; }
+    .seccion-resumen.ok { color: #137333; }
+    .seccion-resumen.fallo { color: #c5221f; }
     ul { list-style: none; padding: 0; margin: 0; }
-    li { padding: 8px 0; border-bottom: 1px solid #eee; }
-    .prueba-nombre { font-weight: 600; }
+    li { padding: 6px 0; border-top: 1px solid #eee; }
+    li:first-child { border-top: none; }
+    .prueba-nombre { font-weight: 600; font-size: 12px; }
     .prueba-desc { font-size: 11px; color: #666; margin: 2px 0 4px 0; }
     .acciones { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
     .resultado { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #f1f1f1; color: #555; }
@@ -16,13 +23,23 @@
     .resultado-fallo { background: #fce8e6; color: #c5221f; }
     .resultado-error { background: #fef7e0; color: #b06000; }
     button { cursor: pointer; padding: 2px 10px; }
+    button:disabled { cursor: not-allowed; opacity: 0.5; }
+    .btn-correr-todas { padding: 3px 12px; font-size: 12px; }
     .estado { font-size: 11px; color: #888; margin-bottom: 6px; }
+    li.corriendo { background: #fff8e1; }
+    li.corriendo .prueba-nombre::after {
+      content: " (corriendo...)";
+      font-weight: 400;
+      color: #b06000;
+      font-size: 11px;
+    }
+    li.corriendo .resultado { background: #fff3cd; color: #7a4f00; }
   </style>
 </head>
 <body>
   <h1>Iteradores Pruebas</h1>
   <div class="estado" id="mensaje_estado">Cargando...</div>
-  <ul id="lista_pruebas"></ul>
+  <div id="contenedor_secciones"></div>
   <script src="ventana.js"></script>
 </body>
 </html>

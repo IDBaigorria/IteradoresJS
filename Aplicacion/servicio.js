@@ -18,12 +18,12 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4l
+ * @version 1.5plugin.4nl
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
 import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
-import { CATALOGO } from "./pruebas/catalogo.js";
+import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 
@@ -310,9 +310,25 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                     });
                     break;
 
+                case "listar_secciones":
+                    sendResponse({
+                        exito: true,
+                        secciones: SECCIONES.map((s) => ({
+                            id: s.id,
+                            nombre: s.nombre,
+                            pruebas: s.pruebas.map((p) => ({
+                                id: p.id,
+                                nombre: p.nombre,
+                                descripcion: p.descripcion || ""
+                            }))
+                        }))
+                    });
+                    break;
+
                 case "correr_prueba":
                     sendResponse(await _correr_prueba(mensaje.id_prueba));
                     break;
+
 
                 case "listar_corridas":
                     const corridas = await listar_ultimas_corridas(mensaje.limite || 20);

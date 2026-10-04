@@ -1,10 +1,18 @@
 /**
- * Catalogo de pruebas disponibles.
+ * Catalogo de pruebas disponibles, agrupadas por seccion.
  *
  * Cada prueba exporta un objeto `{ id, nombre, descripcion,
- * ejecutar(ctx) }`. Aca se importan y se listan.
+ * ejecutar(ctx) }`. Se importan aca y se agrupan en SECCIONES.
  *
- * @version 1.5plugin.4l
+ * `CATALOGO` se mantiene como array aplanado para
+ * compatibilidad con codigo viejo (los mensajes `listar_pruebas`
+ * y `correr_prueba` lo siguen usando).
+ *
+ * Para agregar una seccion nueva, sumar un objeto a SECCIONES
+ * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
+ * automaticamente.
+ *
+ * @version 1.5plugin.4m
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -25,22 +33,37 @@ import { prueba as venta_sin_comprador } from "./prueba_15_venta_sin_comprador.j
 import { prueba as venta_cancelar_reabrir } from "./prueba_16_venta_cancelar_reabrir.js";
 import { prueba as venta_sin_asientos } from "./prueba_17_venta_sin_asientos.js";
 
-export const CATALOGO = [
-    arranque,
-    login,
-    venta_basica,
-    venta_cuotas,
-    venta_transferencia,
-    venta_dos_asientos,
-    venta_tres_asientos,
-    venta_ligadura_dni_igual,
-    venta_comprador_lleno_pasajero_vacio,
-    venta_dni_duplicado,
-    venta_correccion_dni_pasajero,
-    venta_correccion_dni_comprador,
-    venta_monto_mayor_total,
-    venta_monto_cero,
-    venta_sin_comprador,
-    venta_cancelar_reabrir,
-    venta_sin_asientos
+export const SECCIONES = [
+    {
+        id: "base",
+        nombre: "Base",
+        pruebas: [
+            arranque,
+            login
+        ]
+    },
+    {
+        id: "ventas",
+        nombre: "Ventas",
+        pruebas: [
+            venta_basica,
+            venta_cuotas,
+            venta_transferencia,
+            venta_dos_asientos,
+            venta_tres_asientos,
+            venta_ligadura_dni_igual,
+            venta_comprador_lleno_pasajero_vacio,
+            venta_dni_duplicado,
+            venta_correccion_dni_pasajero,
+            venta_correccion_dni_comprador,
+            venta_monto_mayor_total,
+            venta_monto_cero,
+            venta_sin_comprador,
+            venta_cancelar_reabrir,
+            venta_sin_asientos
+        ]
+    }
 ];
+
+// Array aplanado para compatibilidad con codigo viejo.
+export const CATALOGO = SECCIONES.flatMap((s) => s.pruebas);

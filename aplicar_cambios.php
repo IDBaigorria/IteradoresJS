@@ -2,25 +2,160 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.4l (v3) — acceder a variables del page sin window.
- * Anclas con la indentación exacta del archivo real.
+ * Tanda v1.5plugin.4n (v3) — progreso en vivo al correr una sección.
+ *
+ * Corrección sobre v2: la lección se agrega al final de la sección 8.8,
+ * con el ancla del item 24 que es única.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
  */
 
-// ============================================================
-// Configuración
-// ============================================================
-
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
-// ============================================================
-// Cambios a aplicar
-// ============================================================
-
 $cambios = [
+
+    // ============================================================
+    // Aplicacion/ventana.html
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.html',
+        'descripcion' => 'ventana.html: estilos de corriendo',
+        'buscar' => [
+            '    .estado { font-size: 11px; color: #888; margin-bottom: 6px; }',
+        ],
+        'reemplazar' => [
+            '    .estado { font-size: 11px; color: #888; margin-bottom: 6px; }',
+            '    li.corriendo { background: #fff8e1; }',
+            '    li.corriendo .prueba-nombre::after {',
+            '      content: " (corriendo...)";',
+            '      font-weight: 400;',
+            '      color: #b06000;',
+            '      font-size: 11px;',
+            '    }',
+            '    li.corriendo .resultado { background: #fff3cd; color: #7a4f00; }',
+        ],
+    ],
+
+    // ============================================================
+    // Aplicacion/ventana.js
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: bump a 1.5plugin.4n',
+        'buscar' => [
+            ' * @version 1.5plugin.4m',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.4n',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: correr_seccion itera las pruebas en el popup',
+        'buscar' => [
+            '    async function correr_seccion(seccion, resumen_el) {',
+            '        const boton = seccion.querySelector(".btn-correr-todas");',
+            '        const botones_prueba = seccion.querySelectorAll(".btn-correr-prueba");',
+            '        boton.disabled = true;',
+            '        botones_prueba.forEach((b) => { b.disabled = true; });',
+            '        resumen_el.textContent = "Corriendo...";',
+            '        resumen_el.className = "seccion-resumen";',
+            '',
+            '        let resp;',
+            '        try {',
+            '            resp = await enviar({ tipo: "correr_seccion", id_seccion: seccion.dataset.idSeccion });',
+            '        } catch (e) {',
+            '            resumen_el.textContent = "Error: " + e.message;',
+            '            resumen_el.className = "seccion-resumen fallo";',
+            '            boton.disabled = false;',
+            '            botones_prueba.forEach((b) => { b.disabled = false; });',
+            '            return;',
+            '        }',
+            '',
+            '        if (!resp || !resp.exito) {',
+            '            resumen_el.textContent = "Error: " + (resp && resp.error ? resp.error : "desconocido");',
+            '            resumen_el.className = "seccion-resumen fallo";',
+            '            boton.disabled = false;',
+            '            botones_prueba.forEach((b) => { b.disabled = false; });',
+            '            return;',
+            '        }',
+            '',
+            '        (resp.resultados || []).forEach((r) => {',
+            '            const li = seccion.querySelector(`li[data-id-prueba="${r.id_prueba}"]`);',
+            '            if (!li) return;',
+            '            const el = li.querySelector(".resultado");',
+            '            aplicar_resultado(el, r);',
+            '        });',
+            '',
+            '        resumen_el.textContent = resp.ok + "/" + resp.total + " OK";',
+            '        resumen_el.className = "seccion-resumen " + (resp.fallo === 0 ? "ok" : "fallo");',
+            '        boton.disabled = false;',
+            '        botones_prueba.forEach((b) => { b.disabled = false; });',
+            '    }',
+        ],
+        'reemplazar' => [
+            '    async function correr_seccion(seccion, resumen_el) {',
+            '        const boton = seccion.querySelector(".btn-correr-todas");',
+            '        const botones_prueba = seccion.querySelectorAll(".btn-correr-prueba");',
+            '        boton.disabled = true;',
+            '        botones_prueba.forEach((b) => { b.disabled = true; });',
+            '',
+            '        const lis = Array.from(seccion.querySelectorAll("li[data-id-prueba]"));',
+            '        let ok = 0;',
+            '        let fallo = 0;',
+            '        const total = lis.length;',
+            '',
+            '        lis.forEach((li) => {',
+            '            const el = li.querySelector(".resultado");',
+            '            el.textContent = "—";',
+            '            el.className = "resultado";',
+            '            li.classList.remove("corriendo");',
+            '        });',
+            '',
+            '        for (let i = 0; i < lis.length; i++) {',
+            '            const li = lis[i];',
+            '            const id_prueba = li.dataset.idPrueba;',
+            '            const el = li.querySelector(".resultado");',
+            '',
+            '            li.classList.add("corriendo");',
+            '            el.textContent = "Corriendo...";',
+            '            el.className = "resultado";',
+            '            resumen_el.textContent = `Corriendo ${i + 1}/${total}...`;',
+            '            resumen_el.className = "seccion-resumen";',
+            '',
+            '            let resp;',
+            '            try {',
+            '                resp = await enviar({ tipo: "correr_prueba", id_prueba });',
+            '            } catch (e) {',
+            '                el.textContent = "Error: " + e.message;',
+            '                el.className = "resultado resultado-error";',
+            '                li.classList.remove("corriendo");',
+            '                fallo++;',
+            '                continue;',
+            '            }',
+            '',
+            '            aplicar_resultado(el, resp);',
+            '            li.classList.remove("corriendo");',
+            '',
+            '            if (resp && resp.exito && resp.resultado === "ok") ok++;',
+            '            else fallo++;',
+            '        }',
+            '',
+            '        resumen_el.textContent = ok + "/" + total + " OK";',
+            '        resumen_el.className = "seccion-resumen " + (fallo === 0 ? "ok" : "fallo");',
+            '        boton.disabled = false;',
+            '        botones_prueba.forEach((b) => { b.disabled = false; });',
+            '    }',
+        ],
+    ],
 
     // ============================================================
     // Aplicacion/servicio.js
@@ -29,327 +164,126 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: bump a 1.5plugin.4l',
+        'descripcion' => 'servicio.js: bump a 1.5plugin.4n',
         'buscar' => [
-            ' * @version 1.5plugin.4k',
+            ' * @version 1.5plugin.4m',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4l',
+            ' * @version 1.5plugin.4n',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: chequeo de viaje y micro sin window.',
+        'descripcion' => 'servicio.js: eliminar _correr_seccion',
         'buscar' => [
-            '            if (!window.viaje_seleccionado || !window.micro_seleccionado) {',
-            '                return { exito: false, error: "sin viaje o micro abierto" };',
-            '            }',
+            'async function _correr_seccion(id_seccion) {',
+            '    const seccion = SECCIONES.find((s) => s.id === id_seccion);',
+            '    if (!seccion) {',
+            '        return { exito: false, error: "Seccion no encontrada: " + id_seccion };',
+            '    }',
+            '    const resultados = [];',
+            '    let ok = 0;',
+            '    let fallo = 0;',
+            '    for (const prueba of seccion.pruebas) {',
+            '        const r = await _correr_prueba(prueba.id);',
+            '        resultados.push({ id_prueba: prueba.id, nombre: prueba.nombre, ...r });',
+            '        if (r.exito && r.resultado === "ok") ok++;',
+            '        else fallo++;',
+            '    }',
+            '    return {',
+            '        exito: true,',
+            '        id_seccion,',
+            '        total: seccion.pruebas.length,',
+            '        ok,',
+            '        fallo,',
+            '        resultados',
+            '    };',
+            '}',
+            '',
+            'async function _correr_prueba(id_prueba) {',
         ],
         'reemplazar' => [
-            '            if (typeof viaje_seleccionado === "undefined" || !viaje_seleccionado) {',
-            '                return { exito: false, error: "sin viaje abierto" };',
-            '            }',
-            '            if (typeof micro_seleccionado === "undefined" || !micro_seleccionado) {',
-            '                return { exito: false, error: "sin micro abierto" };',
-            '            }',
+            'async function _correr_prueba(id_prueba) {',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: const viaje sin window',
+        'descripcion' => 'servicio.js: eliminar caso correr_seccion',
         'buscar' => [
-            '            const viaje = window.viaje_seleccionado;',
+            '                case "correr_seccion":',
+            '                    sendResponse(await _correr_seccion(mensaje.id_seccion));',
+            '                    break;',
+            '',
         ],
         'reemplazar' => [
-            '            const viaje = viaje_seleccionado;',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: const micro sin window',
-        'buscar' => [
-            '            const micro = window.micro_seleccionado;',
-        ],
-        'reemplazar' => [
-            '            const micro = micro_seleccionado;',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: asignacion de estados_asientos_actuales sin window',
-        'buscar' => [
-            '                window.estados_asientos_actuales = datos.asientos;',
-        ],
-        'reemplazar' => [
-            '                estados_asientos_actuales = datos.asientos;',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: chequeo de actualizar_colores_asientos sin window',
-        'buscar' => [
-            '                if (typeof window.actualizar_colores_asientos === "function") {',
-        ],
-        'reemplazar' => [
-            '                if (typeof actualizar_colores_asientos === "function") {',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: llamada a actualizar_colores_asientos sin window',
-        'buscar' => [
-            '                    window.actualizar_colores_asientos(datos.asientos);',
-        ],
-        'reemplazar' => [
-            '                    actualizar_colores_asientos(datos.asientos);',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: chequeo de refrescar_info_asientos_propios sin window',
-        'buscar' => [
-            '                if (typeof window.refrescar_info_asientos_propios === "function") {',
-        ],
-        'reemplazar' => [
-            '                if (typeof refrescar_info_asientos_propios === "function") {',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: llamada a refrescar_info_asientos_propios sin window',
-        'buscar' => [
-            '                    window.refrescar_info_asientos_propios(true);',
-        ],
-        'reemplazar' => [
-            '                    refrescar_info_asientos_propios(true);',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: usuario_actual sin window',
-        'buscar' => [
-            '                                const usuario = window.usuario_actual;',
-            '                                if (!usuario) return { exito: false, error: "sin usuario_actual en el page" };',
-        ],
-        'reemplazar' => [
-            '                                if (typeof usuario_actual === "undefined" || !usuario_actual) {',
-            '                                    return { exito: false, error: "sin usuario_actual en el page" };',
-            '                                }',
-            '                                const usuario = usuario_actual;',
         ],
     ],
 
     // ============================================================
-    // Bumps varios
+    // Bumps
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: bump a 1.5plugin.4l',
+        'descripcion' => 'ConfPlugin.js: bump @version a 1.5plugin.4n',
         'buscar' => [
-            ' * @version 1.5plugin.4k',
+            ' * @version 1.5plugin.4',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4l',
+            ' * @version 1.5plugin.4n',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4l',
+        'descripcion' => 'ConfPlugin.js: VERSION_APP a 1.5plugin.4n',
         'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4k";',
+            '    Conf.VERSION_APP = "1.5plugin.4',
         ],
         'reemplazar' => [
-            '    Conf.VERSION_APP = "1.5plugin.4l";',
+            '    Conf.VERSION_APP = "1.5plugin.4n',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4l',
+        'descripcion' => 'ConfPlugin.js: VERSION_PLUGIN a 1.5plugin.4n',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4k";',
+            'export const VERSION_PLUGIN = "1.5plugin.4',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.4l";',
+            'export const VERSION_PLUGIN = "1.5plugin.4n',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'contenido.js: bump a 1.5plugin.4l',
+        'descripcion' => 'contenido.js: bump a 1.5plugin.4n',
         'buscar' => [
-            ' * @version 1.5plugin.4k',
+            ' * @version 1.5plugin.4',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo.js: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
+            ' * @version 1.5plugin.4n',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers.js: bump a 1.5plugin.4l',
+        'descripcion' => '_helpers.js: bump a 1.5plugin.4n',
         'buscar' => [
-            ' * @version 1.5plugin.4k',
+            ' * @version 1.5plugin.4',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_04_venta_cuotas.js',
-        'descripcion' => 'prueba_04: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_08_venta_ligadura_dni_igual.js',
-        'descripcion' => 'prueba_08: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_09_venta_comprador_lleno_pasajero_vacio.js',
-        'descripcion' => 'prueba_09: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_10_venta_dni_duplicado.js',
-        'descripcion' => 'prueba_10: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_11_venta_correccion_dni_pasajero.js',
-        'descripcion' => 'prueba_11: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_12_venta_correccion_dni_comprador.js',
-        'descripcion' => 'prueba_12: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_13_venta_monto_mayor_total.js',
-        'descripcion' => 'prueba_13: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_14_venta_monto_cero.js',
-        'descripcion' => 'prueba_14: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_15_venta_sin_comprador.js',
-        'descripcion' => 'prueba_15: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_16_venta_cancelar_reabrir.js',
-        'descripcion' => 'prueba_16: bump a 1.5plugin.4l',
-        'buscar' => [
-            ' * @version 1.5plugin.4k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.4l',
+            ' * @version 1.5plugin.4n',
         ],
     ],
 
@@ -360,45 +294,59 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: bump a v1.5plugin.4l',
+        'descripcion' => 'prompt plugin: bump a v1.5plugin.4n',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4k (crear',
+            '**Última actualización de este prompt:** v1.5plugin.4m (secciones',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.4l (acceder',
-            'a variables del page sin `window.`. Las variables top-level',
-            'del piloto (`usuario_actual`, `viaje_seleccionado`,',
-            '`micro_seleccionado`, `estados_asientos_actuales`) están',
-            'declaradas con `let`, que NO crea propiedades en `window`.',
-            'Hay que accederlas directamente y chequear con `typeof`.',
-            'Además: el refresh de asientos de v4g nunca funcionó,',
-            'retornaba "sin viaje o micro abierto" en silencio).',
-            'Antes: v1.5plugin.4k (crear',
+            '**Última actualización de este prompt:** v1.5plugin.4n (progreso',
+            'en vivo al correr una sección: la ventana itera las pruebas',
+            'y manda `correr_prueba` una por una, actualizando el estado',
+            'después de cada una. El SW ya no corre la sección entera;',
+            'el caso `correr_seccion` se eliminó. Se agrega estilo',
+            '`.corriendo` para la prueba en curso).',
+            'Antes: v1.5plugin.4m (secciones',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt plugin: leccion sobre let y window',
+        'descripcion' => 'prompt plugin: nota de secciones actualizada',
         'buscar' => [
-            '- **No adivinar nombres de usuario ni datos del entorno.** El',
+            'La ventana renderiza cada sección con un botón "Correr todas".',
+            'Para agregar una sección nueva, sumar un objeto a `SECCIONES`.',
         ],
         'reemplazar' => [
-            '- **`let`/`const` top-level NO crean propiedades en `window`.**',
-            '  En el page del piloto, `usuario_actual`, `viaje_seleccionado`,',
-            '  `micro_seleccionado` y `estados_asientos_actuales` están',
-            '  declaradas con `let`. `window.usuario_actual` es `undefined`',
-            '  aunque la variable exista. En código inyectado por',
-            '  `chrome.scripting.executeScript` en `world: "MAIN"`, hay',
-            '  que accederlas directamente (`usuario_actual`, no',
-            '  `window.usuario_actual`) y chequear con `typeof X !==',
-            '  "undefined"` por si no están en el scope. Bug en',
-            '  v1.5plugin.4k: `crear_pasajero_de_prueba` usaba',
-            '  `window.usuario_actual`. Bug latente en v1.5plugin.4g:',
-            '  `_refresh_asientos_main_world` usaba `window.viaje_seleccionado`,',
-            '  retornando error silencioso desde entonces.',
-            '- **No adivinar nombres de usuario ni datos del entorno.** El',
+            'La ventana renderiza cada sección con un botón "Correr todas".',
+            'Cuando se aprieta, la ventana itera las pruebas de la',
+            'sección y manda `correr_prueba` una por una, mostrando el',
+            'progreso en vivo: la prueba en curso se resalta y el',
+            'resumen dice "Corriendo N/total...". El SW no tiene un caso',
+            '`correr_seccion`; simplemente ejecuta cada prueba individual.',
+            'Para agregar una sección nueva, sumar un objeto a `SECCIONES`.',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt plugin: leccion 24 reemplazada por dos items',
+        'buscar' => [
+            '24. **Cuando un bloque `buscar` falla, copiarlo textual del',
+            '    archivo real, no de memoria.**',
+        ],
+        'reemplazar' => [
+            '24. **Cuando un bloque `buscar` falla, copiarlo textual del',
+            '    archivo real, no de memoria.**',
+            '25. **Cuando un flujo largo necesita progreso, iterarlo desde',
+            '    el lado que dibuja la UI.** Al correr una sección completa,',
+            '    la ventana itera las pruebas y manda `correr_prueba` una',
+            '    por una, actualizando el estado después de cada respuesta.',
+            '    Si el SW corriera todo y devolviera al final, la UI no',
+            '    podría mostrar progreso intermedio sin mensajería',
+            '    bidireccional. Bug en v1.5plugin.4m: "Correr todas"',
+            '    mostraba todo recién al final. Fix en v1.5plugin.4n.',
         ],
     ],
 

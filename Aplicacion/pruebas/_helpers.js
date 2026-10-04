@@ -3,7 +3,7 @@
  *
  * Todas las funciones reciben el `ctx` del service worker.
  *
- * @version 1.5plugin.4l
+ * @version 1.5plugin.4nml
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";

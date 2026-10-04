@@ -8,8 +8,8 @@ framework Iteradores JS para persistir su propia información.
 Vive en el propio proyecto, en
 `iteradoresJS/prompts/prompt_plugin_piloto.md`. El proyecto
 `iteradoresJS/` es un repo independiente del proyecto PHP; el
-prompt del framework Iteradores y el del sistema de scripts
-siguen viviendo en el proyecto PHP (`iteradores/prompts/`).
+prompt del framework Iteradores, el del piloto y el del sistema
+de scripts viven en el proyecto PHP (`iteradores/prompts/`).
 
 Se actualiza con **cada tanda de código**. La sección
 **Discusión actual** (al final) es la fuente de verdad sobre
@@ -27,11 +27,12 @@ PHP).
 ### 1.1 Objetivo
 
 Extensión de Chrome que permite correr pruebas automatizadas
-sobre la página del piloto PHP (agencia de viajes). El usuario
-abre la ventana del plugin (popup), ve una lista de pruebas
-disponibles, y aprieta un botón play en la que quiere correr.
-La extensión ejecuta la prueba contra la pestaña activa del
-piloto, y guarda el resultado en su propio grafo.
+sobre la página del piloto PHP. El usuario abre la ventana del
+plugin (popup), ve las pruebas agrupadas por secciones, y
+aprieta un botón play en la que quiere correr, o un botón
+"Correr todas" en una sección para correrla entera. La
+extensión ejecuta las pruebas contra la pestaña activa del
+piloto y guarda cada resultado en su propio grafo.
 
 ### 1.2 Objetivos secundarios
 
@@ -52,7 +53,9 @@ maneja como un usuario. Puede:
 - Hacer `fetch` a `index.php` con la sesión del usuario actual
   (las cookies viajan por estar en el mismo origen que la
   pestaña, siempre que el `fetch` se haga desde el script de
-  contenido).
+  contenido o desde código inyectado con `world: "MAIN"`).
+- Inyectar código en el page context con
+  `chrome.scripting.executeScript` y `world: "MAIN"`.
 
 ---
 
@@ -62,13 +65,11 @@ maneja como un usuario. Puede:
 
 - `manifest.json` — manifiesto MV3. **Debe estar en la raíz**
   del directorio cargado como extensión; Chrome no acepta
-  manifiestos anidados. El código apunta a `Aplicacion/...`
-  vía paths relativos.
+  manifiestos anidados.
 - Framework (`Nodos/`, `Iteradores/`, `Controlador/`,
   `Configuracion/`, `miscelaneas/`, `Persistencia/`, etc.) —
   sin tocar.
-- `index.html`, `index.js` — entrada web actual del framework,
-  sin tocar.
+- `index.html`, `index.js` — entrada web actual del framework.
 
 **`prompts/`:**
 
@@ -77,23 +78,20 @@ maneja como un usuario. Puede:
 **`Aplicacion/`:**
 
 - `servicio.js` — service worker. **Module** (`type: "module"`
-  en el manifest). Arranca el framework, importa el catálogo
-  de pruebas y las corre por pedido de la ventana.
+  en el manifest). Imports estáticos. Registra el listener
+  de mensajes al final.
 - `contenido.js` — script de contenido clásico. Se inyecta en
-  la página del piloto. Expone funciones vía mensajería.
-- `ventana.html` / `ventana.js` — interfaz de la ventana
-  (popup de Chrome). Lista las pruebas, muestra el resultado
-  de la última corrida.
-- `arranque.js` — arranque del framework en el service worker.
-  Fuerza `Entorno` a modo consola y `salida=consola`, y
-  configura `ConfPlugin`.
-- `ConfPlugin.js` — configuración propia del plugin (nombre de
-  app, nombre de la BD IndexedDB).
-- `GrafoPlugin.js` — capa fina sobre el framework: persistir
-  corridas, leer historial, etc.
-- `pruebas/` — catálogo de pruebas. Cada prueba es un módulo ES
-  que exporta un objeto `{id, nombre, descripcion, ejecutar}`.
-  `pruebas/catalogo.js` las lista.
+  la página del piloto.
+- `ventana.html` / `ventana.js` — interfaz del popup. Renderiza
+  las pruebas agrupadas por sección.
+- `arranque.js` — arranque del framework en el SW.
+- `ConfPlugin.js` — configuración propia del plugin.
+- `GrafoPlugin.js` — capa fina sobre el framework.
+- `pruebas/` — catálogo de pruebas.
+  - `catalogo.js` — agrupa las pruebas en `SECCIONES`. Expone
+    `CATALOGO` como array aplanado para compatibilidad.
+  - `_helpers.js` — helpers compartidos.
+  - `prueba_NN_*.js` — una por prueba.
 
 ---
 
@@ -102,74 +100,123 @@ maneja como un usuario. Puede:
 ### 3.1 Manifest en la raíz
 
 Chrome MV3 exige que `manifest.json` esté en la raíz del
-directorio que se carga como extensión. Como el plugin necesita
-importar `../Nodos/Nodo.js` y demás archivos del framework, el
-manifest tiene que estar un nivel arriba de `Aplicacion/`,
-esto es, en la raíz del proyecto `iteradoresJS/`.
+directorio que se carga como extensión. El código del plugin
+vive en `Aplicacion/` y usa paths relativos a la raíz.
 
-Los paths del manifest son relativos a esa raíz:
+### 3.2 Service worker: imports ESTÁTICOS
 
-    "background": { "service_worker": "Aplicacion/servicio.js", "type": "module" }
-    "action":     { "default_popup":    "Aplicacion/ventana.html" }
-    "content_scripts": [{ "js": ["Aplicacion/contenido.js"] }]
+Chrome prohíbe `import()` dinámico en service workers por
+spec: "import() is disallowed on ServiceWorkerGlobalScope by
+the HTML specification" (w3c/ServiceWorker#1356). Se decidió
+throw on dynamic imports para prevenir que un SW funcione
+online y rompa offline. **Todo import en `servicio.js` tiene
+que ser estático.**
 
-### 3.2 Service worker en modo consola
+### 3.3 Service worker en modo consola
 
-En un service worker no existe `document`. Los caminos HTML del
-framework (`_imprimir_errores_html`, `html_errores`,
-`_imprimir_alertas_html`, `html_alertas`, `Nodo._imprimir_html`,
-`Controlador.imprimir_superestructura`) tocan `document` y
-romperían. Se evitan asegurando que `Entorno.es_consola()`
-devuelva `true` en el arranque del SW.
+En un SW no existe `document`. Los caminos HTML del framework
+(`_imprimir_errores_html`, `html_errores`, etc.) romperían.
+Se evitan forzando `Entorno.es_consola()` en `arranque.js`.
 
-### 3.3 Script de contenido clásico
+### 3.4 Script de contenido clásico
 
-Los scripts de contenido de MV3 no pueden ser módulos ES. Se
-comunican con el service worker por mensajería:
+Los content scripts de MV3 no pueden ser módulos ES. Se
+comunican con el SW por `chrome.runtime.sendMessage` y
+`chrome.tabs.sendMessage`. El SW hace de orquestador.
 
-- SW → contenido: `chrome.tabs.sendMessage(pestana_id, { tipo, datos })`.
-- Contenido → SW: `chrome.runtime.sendMessage({ tipo, datos })`.
+### 3.5 Permiso `scripting` y `world: "MAIN"`
 
-El SW hace de orquestador: importa las pruebas, coordina las
-llamadas al script de contenido, persiste resultados.
+Para ejecutar código en el page context (necesario para tocar
+las variables del piloto), usar:
 
-### 3.4 Token de seguridad
+    chrome.scripting.executeScript({
+        target: { tabId: pestana_id },
+        world: "MAIN",
+        func: mi_funcion,
+        args: [arg1, arg2]
+    })
+
+Requiere el permiso `scripting` en el manifest. **No** usar
+`<script>` inline en el DOM: la página del piloto tiene CSP
+y bloquea scripts inline.
+
+### 3.6 CSP de la página
+
+La página del piloto tiene Content Security Policy. Bloquea
+scripts inline. Por eso `chrome.scripting.executeScript` con
+`world: "MAIN"` es la forma correcta (no pasa por el DOM).
+
+### 3.7 `let` top-level NO crea propiedades en `window`
+
+Esta es la trampa más grande del plugin. Las variables
+top-level del piloto están declaradas con `let`:
+
+- `usuario_actual`
+- `viaje_seleccionado`
+- `micro_seleccionado`
+- `estados_asientos_actuales`
+
+`let` NO crea propiedades en `window`. `window.usuario_actual`
+es `undefined` aunque la variable exista. En código inyectado
+con `world: "MAIN"`, hay que:
+
+- Accederlas directamente: `usuario_actual`, no
+  `window.usuario_actual`.
+- Chequear con `typeof X !== "undefined"` por si no están en
+  el scope.
+
+Las funciones y `var` sí crean propiedades en `window`; las
+declaraciones con `let`/`const` no.
+
+### 3.8 `confirm()` nativo
+
+Las extensiones no pueden manejar `confirm()` nativo. Para
+apretar un botón que dispare `confirm()`, sobrescribir
+temporalmente `window.confirm` con `() => true` antes del
+click y restaurarlo después, desde `world: "MAIN"`.
+
+### 3.9 Token de seguridad
 
 El plugin **no maneja el token** del framework. El Controlador
-lo recibe automáticamente cuando el módulo `Controlador` se
-evalúa (vía `Nodo.registrar_controlador`). Para código que
-necesite el token, se usa:
+lo recibe cuando el módulo `Controlador` se evalúa. Para
+código que necesite el token: `Controlador.ejecutar_prueba(cb)`.
 
-    await Controlador.ejecutar_prueba((token) => {
-        // usar token
-    });
+### 3.10 Motor (comandos + péndulo)
 
-### 3.5 Motor (comandos + péndulo)
+No se usa. Recordatorios:
 
-El motor y el sistema de comandos **no se usan en la primera
-versión**. Quedan disponibles para cuando haga falta ejecución
-por fases. Recordatorio sobre la config:
-
-- `MOTOR_MAX_CICLOS` — ciclos **totales** que ejecuta el motor
-  antes de detenerse. `0` = infinito.
-- `MOTOR_QUANTUM` — comandos ejecutados por ciclo.
+- `MOTOR_MAX_CICLOS` — ciclos **totales** antes de detenerse.
+  `0` = infinito.
+- `MOTOR_QUANTUM` — comandos por ciclo.
 - `MOTOR_CICLOS_POR_MINUTO` — frecuencia.
 
-### 3.6 Geolocalización
+### 3.11 Geolocalización
 
-`Controlador.inicializar()` intenta obtener coordenadas
-(navegador → IP → fallback). En el SW puede fallar. Ya tiene
-fallback a coordenadas predeterminadas en `Conf`, así que no
-es bloqueante.
+`Controlador.inicializar()` intenta obtener coordenadas. En
+el SW puede fallar. Tiene fallback. No es bloqueante.
 
-### 3.7 Vocabulario
+### 3.12 Regla del manifest
 
-Preferimos español para todo lo propio del plugin. Las palabras
-que Chrome impone (`manifest.json`, claves del manifest, API de
+**El `manifest.json` no se bumpea en cada letra.** Chrome en
+modo desarrollador recarga siempre que se aprieta el botón
+de la tarjeta, sin importar la versión. Solo hace falta
+bumpear `manifest.version` cuando:
+
+1. Se publica la extensión en la Chrome Web Store.
+2. Cambia `manifest_version` (raro).
+3. Hay que forzar una migración de IndexedDB (se hace con
+   `VERSION_BD` de IndexedDB, no con `manifest.version`).
+
+Mientras estemos en modo desarrollador, el manifest queda
+fijo en `1.5.6`.
+
+### 3.13 Vocabulario
+
+Español para todo lo propio del plugin. Las palabras que
+Chrome impone (`manifest.json`, claves del manifest, API de
 `chrome.*`) quedan como están. En comentarios se aceptan los
-términos técnicos del ecosistema: "service worker", "script de
-contenido" (o "content script"), "popup" (o "ventana"),
-"plugin". Los archivos propios llevan nombres en español:
+términos técnicos del ecosistema: "service worker", "script
+de contenido", "popup", "plugin". Los archivos propios:
 `arranque.js`, `servicio.js`, `contenido.js`, `ventana.html`,
 `ventana.js`.
 
@@ -177,29 +224,37 @@ contenido" (o "content script"), "popup" (o "ventana"),
 
 ## 4. FORMATO DE PRUEBA
 
+### 4.1 Estructura
+
 Cada prueba es un módulo ES con un objeto exportado:
 
     export const prueba = {
         id: "arranque",
         nombre: "Arranque: plugin y script de contenido",
-        descripcion: "Verifica que el script de contenido responde...",
+        descripcion: "Verifica que el script de contenido...",
         async ejecutar(ctx) {
-            // ctx.pestana_id  -> id de la pestaña del piloto
-            // ctx.enviar      -> envía un mensaje crudo al script de contenido
-            // ctx.clic        -> click sobre un selector
-            // ctx.escribir    -> escribe en un input
-            // ctx.esperar     -> espera a que exista un selector
-            // ctx.texto       -> devuelve el textContent de un selector
-            // ctx.html        -> devuelve el outerHTML de un selector
-            // ctx.pedir_post  -> POST urlencoded a index.php
-            // ctx.assert      -> aserción simple
+            // usar helpers de ctx
         }
     };
 
-`ctx` lo provee el service worker. La prueba no habla
-directamente con la API de Chrome; todo pasa por `ctx`.
+### 4.2 Secciones
 
-### 4.1 Resultado
+En `catalogo.js` las pruebas se agrupan en `SECCIONES`:
+
+    export const SECCIONES = [
+        { id: "base", nombre: "Base", pruebas: [arranque, login] },
+        { id: "ventas", nombre: "Ventas", pruebas: [...] }
+    ];
+
+La ventana renderiza cada sección con un botón "Correr todas".
+Cuando se aprieta, la ventana itera las pruebas de la
+sección y manda `correr_prueba` una por una, mostrando el
+progreso en vivo: la prueba en curso se resalta y el
+resumen dice "Corriendo N/total...". El SW no tiene un caso
+`correr_seccion`; simplemente ejecuta cada prueba individual.
+Para agregar una sección nueva, sumar un objeto a `SECCIONES`.
+
+### 4.3 Resultado
 
 Cada corrida persiste un nodo en el grafo del plugin con:
 
@@ -211,392 +266,285 @@ Cada corrida persiste un nodo en el grafo del plugin con:
 
 ---
 
-## 5. ESTADO ACTUAL
+## 5. HELPERS DE `ctx`
 
-**Proyecto en v1.5plugin.3e.** El esqueleto del plugin está
-armado y funcional, y ya tiene la primera prueba real (login
-de admin). Archivos:
+`ctx` lo provee el service worker. Lista de helpers
+disponibles:
 
-- `manifest.json` — manifiesto MV3 en la raíz.
-- `Aplicacion/servicio.js` — service worker (module, imports
-  estáticos).
-- `Aplicacion/contenido.js` — script de contenido clásico, con
-  comandos de visibilidad.
-- `Aplicacion/ventana.html` / `ventana.js` — interfaz de la
-  ventana (con reintentos de `sendMessage`).
-- `Aplicacion/arranque.js` — arranque del framework en el SW.
-- `Aplicacion/ConfPlugin.js` — configuración propia, URL del
-  piloto y códigos de usuario.
-- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.
-- `Aplicacion/pruebas/catalogo.js` — catálogo de pruebas.
-- `Aplicacion/pruebas/prueba_01_arranque.js` — prueba de
-  arranque.
-- `Aplicacion/pruebas/prueba_02_login.js` — prueba de login.
-- `Aplicacion/pruebas/_helpers.js` — helpers compartidos de
-  las pruebas de venta.
-- `Aplicacion/pruebas/prueba_03..17_venta_*.js` — 15 pruebas
-  de venta y casos borde.
-- `auditar_plugin.php` — auditoría con 6 secciones.
+**Navegación y sesión:**
+- `ctx.url_base` — URL del piloto.
+- `ctx.pestana_id` — id de la pestaña del piloto.
+- `ctx.cerrar_sesion()` — cierra la sesión si hay una activa.
+- `ctx.asegurar_login(codigo)` — cierra sesión y hace login.
+
+**Acciones sobre el DOM:**
+- `ctx.clic(sel)`
+- `ctx.escribir(sel, texto)`
+- `ctx.esperar(sel, timeout)` — espera a que exista el
+  elemento.
+- `ctx.esperar_visible(sel, timeout)`
+- `ctx.esperar_oculto(sel, timeout)`
+- `ctx.esta_visible(sel)` → bool.
+
+**Lectura del DOM:**
+- `ctx.texto(sel)` → textContent o null.
+- `ctx.valor(sel)` → value del input o null.
+- `ctx.html(sel)` → outerHTML o null.
+- `ctx.obtener_atributos(sel, attr)` → array de valores.
+- `ctx.leer_aviso()` → texto del toast actual.
+
+**Fetch y datos:**
+- `ctx.pedir_post(url, body)` → {exito, status, texto, json}.
+- `ctx.enviar(tipo, datos)` — mensaje crudo al content script.
+
+**Datos del page (via `chrome.scripting.executeScript` en
+MAIN world):**
+- `ctx.crear_pasajero_de_prueba(datos)` — crea un pasajero con
+  el dueño resuelto del page.
+- `ctx.liberar_asientos_propios()` — aprieta "Reiniciar
+  selección".
+- `ctx.refrescar_asientos_pagina()` — refresca el croquis.
+
+**Utilidades:**
+- `ctx.pausa(ms)` — espera.
+- `ctx.dni_unico()` — DNI único.
+- `ctx.texto_unico(prefijo)` — texto único.
+- `ctx.assert(cond, msg)` — lanza Error si `cond` es falsy.
 
 ---
 
-## 6. DISCUSIÓN ACTUAL
-
-**Última actualización de este prompt:** v1.5plugin.4l (acceder
-a variables del page sin `window.`. Las variables top-level
-del piloto (`usuario_actual`, `viaje_seleccionado`,
-`micro_seleccionado`, `estados_asientos_actuales`) están
-declaradas con `let`, que NO crea propiedades en `window`.
-Hay que accederlas directamente y chequear con `typeof`.
-Además: el refresh de asientos de v4g nunca funcionó,
-retornaba "sin viaje o micro abierto" en silencio).
-Antes: v1.5plugin.4k (crear
-pasajero de prueba sin nombre de dueño fijo:
-`NOMBRE_DUENO_PRUEBA = "carmen1"` estaba mal, era el código
-de acceso, no el nombre de usuario. El backend devolvía
-"Dueño no encontrado". Ahora el dueño lo resuelve el page
-(`window.usuario_actual.dueno`) vía `chrome.scripting.executeScript`
-en MAIN world. Se eliminó `NOMBRE_DUENO_PRUEBA` de
-`ConfPlugin.js`).
-Antes: v1.5plugin.4j (limpieza
-al final de las pruebas: helper `cerrar_form_venta_y_liberar`
-que cierra el formulario de venta y libera los asientos
-seleccionados con el botón "Reiniciar selección". El botón
-usa `confirm()` nativo; se sobrescribe con
-`chrome.scripting.executeScript` en MAIN world por el tiempo
-del click).
-Antes: v1.5plugin.4i (helpers
-`esperar_valor` y `esperar_valor_vacio` que hacen polling
-hasta que el valor del input sea el esperado. Usados en las
-4 pruebas que dependen del fetch del DNI (ligadura x2,
-corrección de DNI x2). Antes leían `ctx.valor` una sola vez
-tras una pausa fija de 800 ms, y fallaban intermitentemente
-cuando el fetch tardaba más).
-Antes: v1.5plugin.4h (verificar
-cupones por backend, no por DOM. La prueba `venta_cuotas`
-leía la tarjeta de la venta en el DOM, pero como en v4f
-dejamos de navegar a Vendidos, la tarjeta ya no está en el
-DOM. Ahora se pide el detalle de la venta por POST
-(`ventas/obtener`) y se verifican los cupones en el JSON.
-Nuevo helper `obtener_venta_por_id(ctx, id_venta)`).
-Antes: v1.5plugin.4g (cambio
-de técnica para refrescar el croquis: el `<script>` inline
-chocaba con el CSP de la página. Ahora se usa
-`chrome.scripting.executeScript` con `world: "MAIN"` desde
-el service worker, que no pasa por el DOM y no lo bloquea
-el CSP. Requiere el permiso `scripting` en el manifest).
-Antes: v1.5plugin.4f (no
-navegar a la pestaña Vendidos desde el helper
-`obtener_id_ultima_venta`: ahora pide el id por POST. Antes
-navegar cerraba el modal del viaje y mataba el polling,
-dejando el croquis congelado tras cancelar. Además,
-`cancelar_venta` ahora dispara un mensaje
-`refrescar_asientos_pagina` que inyecta un script en el
-page context para actualizar los colores del croquis).
-Antes: v1.5plugin.4e (reintento
-defensivo en `seleccionar_un_asiento_con_reintentos`: si un
-clic no queda registrado en el DOM al primer intento,
-reintenta hasta 3 veces. Verifica primero si ya está
-seleccionado, para no deseleccionar. Causa raíz del fallo:
-condición de carrera en el piloto entre el polling de asientos
-y el clic (corregida en piloto v1.5piloto.74e). Antes: v1.5plugin.4d (robustez
-de `seleccionar_n_asientos`: espera a que aparezcan N asientos
-con `seat-libre` antes de elegir, y verifica que cada asiento
-esté libre antes de hacer clic. Tolerante al bug del piloto
-donde el croquis tarda en actualizarse tras cancelar una venta
-— corregido en piloto v1.5piloto.74d, pero el plugin debe ser
-robusto igual). Antes: v1.5plugin.4c (fix de
-timing en `seleccionar_n_asientos`: después de cada clic espera
-a que el asiento pase a `seat-seleccionado-propio`. Antes
-esperaba 300 ms fijos y con 2+ asientos el segundo clic podía
-pisar el primero, fallando con "No apareció el botón Vender").
-Antes: v1.5plugin.4b (fix de
-apellidos en `datos_pasajero_aleatorio`: el helper generaba
-"Pasajero0", "Pasajero1", etc. y el validador del piloto
-rechaza números en apellidos. Ahora usa apellidos reales sin
-tildes ni números de un array rotativo). Antes: v1.5plugin.4a (fix de
-timing en `_helpers.js`: `llenar_pasajero` y `llenar_comprador`
-ahora esperan a que la búsqueda del DNI se resuelva antes de
-escribir el resto de los campos. Antes se escribían a los 600ms
-y si el fetch tardaba más, el piloto limpiaba los campos al
-recibir "no registrado", dejando apellido vacío y la venta
-fallando con "Apellido: Este campo es obligatorio").
-Antes: v1.5plugin.4 (pruebas de
-venta: 15 pruebas nuevas que cubren ventas básicas, cuotas,
-transferencia, múltiples asientos, ligaduras comprador-pasajero,
-DNI duplicado, corrección de DNI, montos inválidos, cancelar y
-reabrir. Antes: v1.5plugin.3f (fix de
-`_es_visible` para elementos `position:fixed`. La prueba de
-login fallaba con "No se pudo cerrar la sesión" porque el
-overlay de login tiene `position:fixed` y `offsetParent`
-devuelve `null` aunque esté visible). Infra de v1.5plugin.3e:
-mínima del catálogo + primera prueba real `login_admin` +
-fix de `servicio.js`: había usado `import()` dinámico,
-prohibido en service workers por spec. Volvió a imports
-estáticos. `CODIGO_ADMIN` corregido a "IDB". Regla nueva:
-el manifest no se bumpea en cada letra.).
-
-**Decisiones tomadas:**
-
-- Manifest en la raíz de `iteradoresJS/` (opción A).
-- Código del plugin en `Aplicacion/`.
-- Persistencia con `PerdurarSuperestructuraStringIndexedDB`.
-- Salida en modo consola dentro del service worker.
-- Script de contenido clásico, comunicación por mensajería.
-- Formato de prueba declarativo con objeto `{id, nombre,
-  ejecutar(ctx)}`.
-- El motor y los comandos no se usan en la primera versión.
-- Nombre de app del plugin: `IteradoresPluginPruebas`.
-- Prefijo de versión del plugin: `v1.5plugin.*`.
-- Español para nombres propios del plugin. "Plugin" se mantiene
-  (nombre muy conocido). Las palabras del ecosistema Chrome
-  (`manifest`, `service worker`, `content script`, `popup`)
-  se aceptan en comentarios y en el manifest.
-
-**Entorno de pruebas (v1.5plugin.3):**
+## 6. ENTORNO DE PRUEBAS
 
 - **URL del piloto:** `http://localhost/iteradores/codigo.worktrees/v1.5i/`.
   Vive en `Aplicacion/ConfPlugin.js` como `URL_PILOTO`.
-- **Códigos de usuario del piloto:**
-  - admin:    `IBD`
+- **Códigos de usuario del piloto** (son códigos de acceso,
+  **no** nombres de usuario):
+  - admin:    `IDB`
   - dueño:    `carmen1`
   - terminal: `carmen2`
   - terminal: `lujan2`
   - soporte:  `manolo3`
-- **Permisos del manifest:**
-  - `host_permissions`: `http://localhost/*` y
-    `http://127.0.0.1/*`. Cubre la URL del piloto.
-  - `permissions`: `activeTab`, `tabs`.
 
-**Vocabulario consolidado (v1.5plugin.2):**
+**El nombre de usuario del dueño NO se conoce de antemano.**
+Para crear pasajeros de prueba se resuelve desde el page con
+`ctx.crear_pasajero_de_prueba`, que lee
+`usuario_actual.dueno`.
 
-| Concepto | Nombre en el proyecto |
-|---|---|
-| Archivo de arranque | `arranque.js` |
-| Service worker | archivo `servicio.js` |
-| Content script | archivo `contenido.js` |
-| Popup | archivo `ventana.html` / `ventana.js` |
-| Mensaje de saludo SW→contenido | `"saludo"` (respuesta `respuesta`) |
-| Clic desde ctx | `ctx.clic(sel)` |
-| POST desde ctx | `ctx.pedir_post(url, body)` |
-| Prueba inicial | id `"arranque"` |
+---
 
-**Catálogo actual:**
+## 7. ESTADO ACTUAL
 
-- `arranque` — verifica SW ↔ contenido ↔ página.
-- `login_admin` — entra con código del admin, verifica nivel.
-- `venta_basica` — 1 asiento, efectivo, pago total.
-- `venta_cuotas` — 1 asiento, efectivo, 2 cuotas, pago parcial.
-- `venta_transferencia` — 1 asiento por transferencia.
-- `venta_dos_asientos` — 2 asientos, 2 pasajeros.
-- `venta_tres_asientos` — 3 asientos, 3 pasajeros.
-- `venta_ligadura_dni_igual` — comprador y pasajero mismo DNI.
-- `venta_comprador_lleno_pasajero_vacio` — pasajero primero.
-- `venta_dni_duplicado` — dos pasajeros mismo DNI.
-- `venta_correccion_dni_pasajero` — DNI registrado → no registrado.
-- `venta_correccion_dni_comprador` — idem comprador.
-- `venta_monto_mayor_total` — rechazo por monto.
-- `venta_monto_cero` — rechazo por monto cero.
-- `venta_sin_comprador` — rechazo por falta de datos.
-- `venta_cancelar_reabrir` — cancelar y reabrir el form.
-- `venta_sin_asientos` — botón Vender oculto.
+**Proyecto en v1.5plugin.4m.** El esqueleto del plugin está
+armado y funcional, tiene 17 pruebas (base + ventas) y las
+agrupa en secciones. Archivos:
+
+- `manifest.json` — manifiesto MV3 en la raíz.
+- `Aplicacion/servicio.js` — service worker (module, imports
+  estáticos).
+- `Aplicacion/contenido.js` — script de contenido clásico.
+- `Aplicacion/ventana.html` / `ventana.js` — interfaz del
+  popup con secciones.
+- `Aplicacion/arranque.js` — arranque del framework en el SW.
+- `Aplicacion/ConfPlugin.js` — configuración propia + URL del
+  piloto + códigos de usuario.
+- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.
+- `Aplicacion/pruebas/catalogo.js` — catálogo con secciones.
+- `Aplicacion/pruebas/_helpers.js` — helpers compartidos.
+- `Aplicacion/pruebas/prueba_01..17_*.js` — 17 pruebas.
+- `auditar_plugin.php` — auditoría con 6 secciones.
+
+**Secciones actuales:**
+
+- `base`: `arranque`, `login_admin`.
+- `ventas`: 15 pruebas (básica, cuotas, transferencia,
+  asientos múltiples, ligaduras, duplicado, corrección de
+  DNI, montos inválidos, sin comprador, cancelar-reabrir,
+  sin asientos).
+
+---
+
+## 8. LECCIONES APRENDIDAS A LA FUERZA
+
+Cada una costó al menos un ciclo de debugging. Van agrupadas
+por tema.
+
+### 8.1 Service worker
+
+1. **Imports estáticos siempre.** Chrome prohíbe `import()`
+   dinámico en SW.
+2. **"unknown error when fetching the script"** al registrar
+   un SW module casi siempre es un import roto en la cadena.
+   Diagnóstico: reducir `servicio.js` a un `console.log` y
+   agregar imports de a uno hasta que rompa.
+3. **"Could not establish connection. Receiving end does not
+   exist"** significa que el listener del SW NO está
+   registrado. Primer chequeo: que `servicio.js` no esté
+   comentado.
+4. **Verificar el nombre exacto del archivo en disco antes
+   de commitear.** Un archivo creado como `arranqu.js` (sin
+   la "e") da el mismo error genérico que un import roto.
+5. **Al renombrar un archivo, hacer un grep del nombre viejo
+   en todo `Aplicacion/`.** Actualizar **todas** las
+   referencias, no solo las de los archivos que se tocan
+   en la tanda.
+6. **`auditar_plugin.php` después de cada tanda que agregue
+   o renombre archivos.** Detecta imports rotos, paths de
+   manifest que no resuelven, y archivos sospechosamente
+   vacíos.
+
+### 8.2 Script de contenido y MAIN world
+
+7. **No usar `<script>` inline en el DOM.** La página del
+   piloto tiene CSP y bloquea scripts inline.
+8. **Usar `chrome.scripting.executeScript` con
+   `world: "MAIN"`** para tocar las variables del page.
+   Requiere el permiso `scripting` en el manifest.
+9. **`let` y `const` top-level NO crean propiedades en
+   `window`.** Acceder directamente y chequear con
+   `typeof X !== "undefined"`. Las variables top-level del
+   piloto (`usuario_actual`, `viaje_seleccionado`,
+   `micro_seleccionado`, `estados_asientos_actuales`) son
+   `let`.
+10. **`confirm()` nativo no se puede manejar desde la
+    extensión.** Sobrescribir `window.confirm` con
+    `() => true` por el tiempo del click, desde MAIN world.
+
+### 8.3 Formularios y autocompletado del piloto
+
+11. **Los helpers que llenan formularios con autocompletado
+    por DNI deben esperar a que la búsqueda se resuelva**
+    antes de escribir el resto. El piloto limpia los campos
+    del pasajero cuando el DNI no está registrado.
+    Esperar a que el aviso diga "no registrado" o "Datos
+    actualizados...".
+12. **No leer un valor después de un fetch con una pausa
+    fija.** El fetch del DNI tarda un tiempo variable. Usar
+    polling (`esperar_valor`, `esperar_valor_vacio`) hasta
+    que el valor sea el esperado.
+
+### 8.4 Timing y polling
+
+13. **Evitar timeouts fijos entre acciones del piloto.** El
+    piloto hace un `fetch` por cada clic. Esperar a que el
+    DOM refleje el cambio (polling de clase o atributo).
+14. **Cuando un clic puede perderse por condiciones de
+    carrera, usar reintentos con verificación previa.**
+    Verificar si ya está seleccionado antes de reintentar
+    el clic, para no deseleccionar.
+
+### 8.5 Navegación entre pestañas
+
+15. **No navegar de pestaña durante una prueba.**
+    `activar_pestana` en el piloto llama a
+    `ocultar_detalle_viaje`, que cierra el modal del viaje
+    y mata el polling. Si una prueba necesita leer datos de
+    otra pestaña, mejor pedirlos por POST.
+16. **El botón "Cancelar" del formulario de venta no
+    deselecciona los asientos.** Después de cerrar, apretar
+    "Reiniciar selección".
+
+### 8.6 Datos de prueba
+
+17. **Los datos generados deben pasar los validadores del
+    piloto.** Apellidos y nombres con
+    `/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü'\- \t]+$/`: solo letras,
+    espacios, apóstrofes y guiones. Nada de números, ni
+    siquiera como sufijo ("Pasajero0" no pasa).
+18. **No adivinar nombres de usuario ni datos del entorno.**
+    Los códigos de acceso no son nombres de usuario. Si un
+    helper necesita un dato del page, pedirlo desde el page
+    vía `chrome.scripting.executeScript` en MAIN world.
+
+### 8.7 Verificación
+
+19. **Preferir verificar por backend antes que por DOM.**
+    Cuando una prueba necesita confirmar algo del estado de
+    la app, pedir el detalle por POST (`ventas/obtener`,
+    etc.) en lugar de leer el DOM de otra pestaña.
+20. **`offsetParent` no sirve para chequear visibilidad de
+    elementos `position: fixed`.** En un overlay con
+    `position: fixed`, `offsetParent` es `null` aunque el
+    elemento esté visible. Usar `getComputedStyle` +
+    `getBoundingClientRect`.
+
+### 8.8 Estructura del código
+
+21. **Bumps de versión en archivos tocados y `?v=` en HTML.**
+22. **No bumpear el manifest en cada letra.**
+23. **Un `aplicar_cambios.php` por tanda y por proyecto.**
+24. **Cuando un bloque `buscar` falla, copiarlo textual del
+    archivo real, no de memoria.**
+25. **Cuando un flujo largo necesita progreso, iterarlo desde
+    el lado que dibuja la UI.** Al correr una sección completa,
+    la ventana itera las pruebas y manda `correr_prueba` una
+    por una, actualizando el estado después de cada respuesta.
+    Si el SW corriera todo y devolviera al final, la UI no
+    podría mostrar progreso intermedio sin mensajería
+    bidireccional. Bug en v1.5plugin.4m: "Correr todas"
+    mostraba todo recién al final. Fix en v1.5plugin.4n.
+
+---
+
+## 9. DISCUSIÓN ACTUAL
+
+**Última actualización de este prompt:** v1.5plugin.4n (progreso
+en vivo al correr una sección: la ventana itera las pruebas
+y manda `correr_prueba` una por una, actualizando el estado
+después de cada una. El SW ya no corre la sección entera;
+el caso `correr_seccion` se eliminó. Se agrega estilo
+`.corriendo` para la prueba en curso).
+Antes: v1.5plugin.4m (secciones
+en la ventana con botón "Correr todas"; prompt reescrito
+completo con todo lo aprendido a la fuerza).
+
+**Estado de la conversación:**
+
+- El plugin tiene 17 pruebas que corren OK contra el piloto
+  PHP.
+- En el proceso se encontraron y arreglaron varios bugs del
+  piloto: v74d (refresco del croquis tras cancelar venta),
+  v74e (condición de carrera en el polling de asientos),
+  v74f (modal del viaje abierto al cambiar de pestaña).
+- La ventana agrupa las pruebas en secciones y tiene botón
+  "Correr todas" por sección.
+
+**Decisiones tomadas:**
+
+- Manifest en la raíz de `iteradoresJS/`.
+- Código del plugin en `Aplicacion/`.
+- Persistencia con `PerdurarSuperestructuraStringIndexedDB`.
+- Salida en modo consola dentro del service worker.
+- Script de contenido clásico, comunicación por mensajería.
+- `chrome.scripting.executeScript` con `world: "MAIN"` para
+  tocar el page context (el `<script>` inline lo bloquea
+  CSP).
+- Formato de prueba declarativo con objeto
+  `{id, nombre, descripcion, ejecutar(ctx)}`.
+- Secciones en `catalogo.js` como array de
+  `{id, nombre, pruebas}`.
+- El motor y los comandos no se usan.
+- Nombre de app del plugin: `IteradoresPluginPruebas`.
+- Prefijo de versión del plugin: `v1.5plugin.*`.
+- Español para nombres propios del plugin. "Plugin" se
+  mantiene. Palabras del ecosistema Chrome se aceptan.
+- El manifest no se bumpea en cada letra.
 
 **Pendiente:**
 
-- **v1.5plugin.5 (opcional):** pruebas de altas (pasajero, viaje,
-  micro, terminal autorizada). Menos críticas ahora que las de
-  venta están.
-- **v1.5plugin.6 (opcional):** historial de corridas en la
-  ventana del plugin.
+- Más pruebas (altas de pasajero, viaje, micro, terminal).
+- Historial de corridas en la ventana.
 - Revisar los permisos del manifest cuando se pruebe contra
   un dominio real (hoy solo `localhost` / `127.0.0.1`).
+- Explorar el sistema de comandos y el motor para ejecución
+  por fases (opcional, si hace falta).
 
-**Notas sobre las pruebas de venta:**
+**Para el asistente de la próxima sesión:**
 
-- Usan el terminal `carmen2` (código `carmen2`).
-- El dueño de las terminales de prueba debe ser `carmen1`.
-  Si el nombre de usuario del dueño es distinto, ajustar
-  `NOMBRE_DUENO_PRUEBA` en `Aplicacion/ConfPlugin.js`.
-- Todas las ventas se cancelan al final (Opción B).
-- La prueba `venta_correccion_dni_pasajero` crea un pasajero
-  de prueba antes de empezar. La prueba `venta_correccion_dni_comprador`
-  también.
-
-**Lecciones aprendidas:**
-
-- Al renombrar un archivo del plugin, hacer un grep del nombre
-  viejo en todo `Aplicacion/` y actualizar **todas** las
-  referencias, no solo las de los archivos que se tocan en la
-  tanda. `GrafoPlugin.js` quedó apuntando a `./bootstrap.js`
-  tras el rename de v1.5plugin.2.
-- **Verificar el nombre exacto del archivo en disco antes de
-  commitear.** `arranque.js` se creó como `arranqu.js` (sin la
-  "e") y los imports apuntaban al nombre correcto. Chrome no
-  podía resolver la cadena y daba el mismo error genérico que
-  un import roto.
-- **Correr `auditar_plugin.php` tras cada tanda que agregue o
-  renombre archivos.** Detecta imports rotos, paths del
-  manifest que no resuelven, y referencias a nombres viejos
-  en comentarios y strings. Es rápido y evita perder tiempo
-  con el error genérico de Chrome.
-- Si Chrome muestra "unknown error when fetching the script" al
-  registrar un service worker module, casi siempre es un import
-  que no se puede resolver en la cadena (nombre mal escrito,
-  archivo faltante). Diagnóstico rápido: reducir `servicio.js`
-  a un `console.log` y agregar imports de a uno hasta que
-  rompa.
-- **Los service workers de Chrome (MV3) NO permiten `import()`**
-  **dinámico.** La spec lo prohíbe: "import() is disallowed on
-  ServiceWorkerGlobalScope by the HTML specification"
-  (https://github.com/w3c/ServiceWorker/issues/1356). Se decidió
-  "throw on dynamic imports" para prevenir que un SW funcione
-  online y rompa offline. Los imports deben ser ESTÁTICOS.
-- **Regla de diseño (v1.5plugin.3b):** el service worker usa
-  imports estáticos. La defensa contra archivos comentados es
-  la auditoría (sección 5: archivos sospechosamente vacíos).
-  No hay forma de registrar el listener antes de los imports
-  en un SW con módulos.
-- **Si `chrome.runtime.sendMessage` devuelve "Could not establish
-  connection. Receiving end does not exist", el listener del
-  service worker NO está registrado.** Primer chequeo: que
-  `Aplicacion/servicio.js` no esté comentado. En v1.5plugin.2b
-  un bloque de diagnóstico quedó pegado y comentó todo el
-  archivo; el SW se registraba sin error pero nunca llamaba a
-  `onMessage.addListener`, y el popup recibía el error de
-  conexión.
-- **`let`/`const` top-level NO crean propiedades en `window`.**
-  En el page del piloto, `usuario_actual`, `viaje_seleccionado`,
-  `micro_seleccionado` y `estados_asientos_actuales` están
-  declaradas con `let`. `window.usuario_actual` es `undefined`
-  aunque la variable exista. En código inyectado por
-  `chrome.scripting.executeScript` en `world: "MAIN"`, hay
-  que accederlas directamente (`usuario_actual`, no
-  `window.usuario_actual`) y chequear con `typeof X !==
-  "undefined"` por si no están en el scope. Bug en
-  v1.5plugin.4k: `crear_pasajero_de_prueba` usaba
-  `window.usuario_actual`. Bug latente en v1.5plugin.4g:
-  `_refresh_asientos_main_world` usaba `window.viaje_seleccionado`,
-  retornando error silencioso desde entonces.
-- **No adivinar nombres de usuario ni datos del entorno.** El
-  plugin no conoce el nombre de usuario del dueño de las
-  terminales de prueba. Lo que el usuario pasa son los
-  **códigos de acceso**, no los nombres de usuario. Si un
-  helper necesita un dato del page, pedirlo desde el page
-  (`window.usuario_actual`, `window.viaje_seleccionado`,
-  etc.) vía `chrome.scripting.executeScript` en MAIN world,
-  no hardcodearlo en `ConfPlugin.js`. Bug en v1.5plugin.4j:
-  `NOMBRE_DUENO_PRUEBA = "carmen1"` (código de acceso, no
-  nombre de usuario). Fix en v1.5plugin.4k.
-- **Las pruebas que cancelan el formulario de venta deben
-  liberar los asientos.** El botón "Cancelar" del piloto
-  oculta el form pero no deselecciona; los asientos quedan
-  seleccionados. Después de cerrar, apretar "Reiniciar
-  selección". Ese botón usa `confirm()` nativo, que las
-  extensiones no manejan: sobrescribir `window.confirm` con
-  `() => true` por el tiempo del click usando
-  `chrome.scripting.executeScript` en MAIN world. Bug en
-  v1.5plugin.4i: las pruebas 08-16 dejaban asientos
-  seleccionados al terminar. Fix en v1.5plugin.4j.
-- **Nunca leer un valor después de un fetch con una pausa
-  fija.** El fetch del DNI en el piloto tarda un tiempo
-  variable (JIT, carga del servidor, red). Leer después de
-  una pausa de 800 ms falla intermitentemente. Usar polling
-  (`esperar_valor`, `esperar_valor_vacio`) hasta que el valor
-  sea el esperado, con timeout de 5 s. Bug en v1.5plugin.4h:
-  las pruebas de ligadura y de corrección de DNI leían
-  `ctx.valor` una sola vez y fallaban intermitentemente.
-  Fix en v1.5plugin.4i.
-- **Preferir verificar por backend antes que por DOM.** Cuando
-  una prueba necesita confirmar algo del estado de la app
-  (por ejemplo, que una venta tiene cupones pendientes),
-  conviene pedir el detalle por POST (`ventas/obtener`, etc.)
-  en lugar de leer el DOM de otra pestaña. Evita depender de
-  la UI y de la navegación entre pestañas. Bug en
-  v1.5plugin.4g: la prueba `venta_cuotas` leía la tarjeta
-  de la venta en el DOM, pero ya no navegábamos a Vendidos.
-  Fix en v1.5plugin.4h: helper `obtener_venta_por_id`.
-- **No navegar de pestaña durante una prueba.** `activar_pestana`
-  en el piloto llama a `ocultar_detalle_viaje`, que cierra el
-  modal del viaje y mata el polling. Si una prueba necesita
-  leer datos de otra pestaña, mejor pedirlos por POST desde
-  el content script. Bug en v1.5plugin.4: el helper
-  `obtener_id_ultima_venta` navegaba a Vendidos y dejaba el
-  croquis congelado. Fix en v1.5plugin.4f: pedir el id por
-  POST.
-- **Para ejecutar código en el page context, usar
-  `chrome.scripting.executeScript` con `world: "MAIN"`.**
-  El content script no puede tocar las variables globales
-  del page por el aislamiento de mundos. La opción de
-  inyectar un `<script>` inline en el DOM falla si la página
-  tiene CSP (bug en v1.5plugin.4f: "Executing inline script
-  violates the following Content Security Policy directive").
-  Fix en v1.5plugin.4g: `chrome.scripting.executeScript` con
-  `world: "MAIN"` desde el service worker, que no pasa por
-  el DOM. Requiere el permiso `scripting` en el manifest.
-- **Cuando un clic puede perderse por condiciones de carrera**
-  **del piloto, usar reintentos con verificación previa.** El
-  bug del polling de asientos (v1.5piloto.74e) hacía que un
-  asiento recién seleccionado volviera a verse libre. Si el
-  clic se da por perdido, reintentar; pero antes verificar si
-  ya está seleccionado, para no deseleccionar por accidente.
-- **El plugin debe ser robusto ante bugs del piloto.** Cuando
-  el piloto tiene un bug (por ejemplo, el croquis no se
-  actualiza tras cancelar una venta — corregido en
-  piloto v1.5piloto.74d), las pruebas igual deben poder
-  esperar a que el estado se estabilice antes de fallar.
-  Los helpers usan polling de clases del DOM con timeouts
-  largos (5-10s) en lugar de timeouts fijos cortos.
-- **Evitar timeouts fijos entre acciones del piloto.** El piloto
-  hace un `fetch` por cada clic en un asiento. Los `pausa(300)`
-  fijos no alcanzan cuando el fetch tarda más. En cambio,
-  esperar a que el DOM refleje el cambio (polling de clase o
-  atributo). Bug en v1.5plugin.4: `seleccionar_n_asientos`
-  fallaba intermitentemente. Fix en v1.5plugin.4c:
-  `esperar_asiento_seleccionado` hace polling de la clase
-  `seat-seleccionado-propio` con timeout de 5 s.
-- **Los datos generados por el plugin deben pasar los validadores
-  del piloto.** El piloto valida apellidos y nombres con
-  `/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü'\- \t]+$/`: solo letras, espacios,
-  apóstrofes y guiones. Nada de números, ni siquiera como sufijo
-  ("Pasajero0" no pasa). Los helpers deben generar datos que
-  pasen. Bug en v1.5plugin.4: `datos_pasajero_aleatorio` generaba
-  `"Pasajero" + index`. Fix en v1.5plugin.4b: array rotativo de
-  apellidos sin tildes.
-- **Los helpers que llenan formularios con autocompletado por
-  DNI deben esperar a que la búsqueda se resuelva antes de
-  escribir el resto.** El piloto limpia los campos del pasajero
-  cuando el DNI no está registrado (`_limpiar_campos_pasajero`).
-  Si el helper escribe el apellido antes de que vuelva el fetch,
-  el piloto lo borra y la venta falla con "Apellido: Este campo
-  es obligatorio". Fix en v1.5plugin.4a: helper
-  `esperar_aviso_dni` que espera a que el aviso diga
-  "no registrado" o "Datos actualizados...".
-- **`offsetParent` no sirve para chequear visibilidad de
-  elementos `position:fixed`.** Un elemento con
-  `position: fixed` tiene `offsetParent === null` aunque
-  esté perfectamente visible. El helper `_es_visible` no debe
-  usar `offsetParent`; usar `getComputedStyle` (display,
-  visibility, opacity) + `getBoundingClientRect` (width/height
-  > 0). Los overlays tipo login casi siempre son
-  `position: fixed`.
-- **Regla del manifest (v1.5plugin.3e):** el `manifest.json`
-  **no se bumpea en cada letra**. Chrome en modo desarrollador
-  recarga siempre que se aprieta el botón de la tarjeta, sin
-  importar la versión. Solo hace falta bumpear el manifest
-  cuando:
-  1. Se publica la extensión en la Chrome Web Store.
-  2. Cambia `manifest_version` (raro).
-  3. Hay que forzar una migración de IndexedDB en el usuario
-     (se hace con `VERSION_BD` de IndexedDB, no con
-     `manifest.version`).
-  Mientras estemos en modo desarrollador, el manifest queda
-  fijo en `1.5.6`.
-- **`auditar_plugin.php` tiene una sección que detecta archivos
-  sospechosamente vacíos** (sección 5). Después de quitar
-  comentarios de línea y de bloque, si el archivo queda sin
-  líneas de código, lo reporta. También tiene la sección 6
-  que cruza `URL_PILOTO` con `host_permissions` y
-  `content_scripts.matches` del manifest.
+- Leer la sección "LECCIONES APRENDIDAS A LA FUERZA" antes de
+  escribir código. La mitad de las trampas están ahí.
+- Cuando un bloque `buscar` falle, pedir el fragmento exacto
+  del archivo y copiarlo textual.
+- No asumir indentación. Copiar del pegado real.
 
 ---
 
