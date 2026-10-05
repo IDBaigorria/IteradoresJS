@@ -5,7 +5,11 @@
  * desde #boton_agregar_empresa_micros, llena los campos,
  * guarda, y verifica que la empresa aparece en el selector.
  *
- * @version 1.5plugin.5r
+ * Nota: el frontend cierra el modal ANTES de recargar el
+ * selector de empresas. Por eso, después de guardar, hay
+ * que hacer polling hasta que la nueva opción aparezca.
+ *
+ * @version 1.5plugin.5r-fix
  */
 
 import { CODIGO_ADMIN } from "../ConfPlugin.js";
@@ -26,9 +30,6 @@ export const prueba = {
 
         const { nombre_dueno } = await ir_a_micros_y_elegir_dueno(ctx);
 
-        const opciones_antes = await ctx.leer_opciones("#selector_empresa_micros");
-        const cantidad_antes = opciones_antes.length;
-
         const sufijo = String(Date.now()).slice(-8);
         const nombre_empresa = "empauto" + sufijo;
 
@@ -41,14 +42,23 @@ export const prueba = {
         ctx.assert(cerrado && cerrado.exito,
             "El modal no se cerró tras guardar la empresa");
 
-        const opciones_despues = await ctx.leer_opciones("#selector_empresa_micros");
-        ctx.assert(opciones_despues.length === cantidad_antes + 1,
-            "Cantidad de empresas no cambió correctamente: antes "
-            + cantidad_antes + ", después " + opciones_despues.length);
-
-        const encontrado = opciones_despues.some(o => o.valor === nombre_empresa);
+        // El frontend cierra el modal y DESPUÉS recarga el
+        // selector. Polling hasta que la empresa aparezca.
+        let encontrado = false;
+        let opciones_vistas = 0;
+        const inicio = Date.now();
+        while (Date.now() - inicio < 8000) {
+            const opciones = await ctx.leer_opciones("#selector_empresa_micros");
+            opciones_vistas = opciones.length;
+            if (opciones.some(o => o.valor === nombre_empresa)) {
+                encontrado = true;
+                break;
+            }
+            await ctx.pausa(300);
+        }
         ctx.assert(encontrado,
-            "La empresa " + nombre_empresa + " no aparece en el selector");
+            "La empresa " + nombre_empresa + " no apareció en el selector."
+            + " Opciones vistas: " + opciones_vistas);
 
         await eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa);
     }

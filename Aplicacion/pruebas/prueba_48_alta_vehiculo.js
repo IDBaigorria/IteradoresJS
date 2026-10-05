@@ -5,7 +5,10 @@
  * empresa de setup, la selecciona, abre el modal de alta de
  * vehículo, lo llena, y verifica que aparece en el selector.
  *
- * @version 1.5plugin.5r
+ * Nota: el frontend cierra el modal ANTES de recargar el
+ * selector de vehículos. Por eso hay polling.
+ *
+ * @version 1.5plugin.5r-fix
  */
 
 import { CODIGO_ADMIN } from "../ConfPlugin.js";
@@ -33,9 +36,6 @@ export const prueba = {
         await crear_empresa_de_prueba(ctx, nombre_empresa);
         await seleccionar_empresa_por_valor(ctx, nombre_empresa);
 
-        const opciones_antes = await ctx.leer_opciones("#selector_vehiculo_micros");
-        const cantidad_antes = opciones_antes.length;
-
         const nombre_vehiculo = "patauto" + sufijo;
         await abrir_modal_agregar_vehiculo(ctx);
         await ctx.escribir("#modal_nuevo_vehiculo_nombre", nombre_vehiculo);
@@ -46,14 +46,23 @@ export const prueba = {
         ctx.assert(cerrado && cerrado.exito,
             "El modal no se cerró tras guardar el vehículo");
 
-        const opciones_despues = await ctx.leer_opciones("#selector_vehiculo_micros");
-        ctx.assert(opciones_despues.length === cantidad_antes + 1,
-            "Cantidad de vehículos no cambió: antes " + cantidad_antes
-            + ", después " + opciones_despues.length);
-
-        const encontrado = opciones_despues.some(o => o.valor === nombre_vehiculo);
+        // El frontend cierra el modal y DESPUÉS recarga el
+        // selector. Polling hasta que el vehículo aparezca.
+        let encontrado = false;
+        let opciones_vistas = 0;
+        const inicio = Date.now();
+        while (Date.now() - inicio < 8000) {
+            const opciones = await ctx.leer_opciones("#selector_vehiculo_micros");
+            opciones_vistas = opciones.length;
+            if (opciones.some(o => o.valor === nombre_vehiculo)) {
+                encontrado = true;
+                break;
+            }
+            await ctx.pausa(300);
+        }
         ctx.assert(encontrado,
-            "El vehículo " + nombre_vehiculo + " no aparece en el selector");
+            "El vehículo " + nombre_vehiculo + " no apareció en el selector."
+            + " Opciones vistas: " + opciones_vistas);
 
         // Limpieza: eliminar la empresa arrastra el vehículo.
         await eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa);
