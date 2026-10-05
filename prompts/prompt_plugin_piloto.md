@@ -733,6 +733,30 @@ por tema.
     una tanda aparte del piloto. Regla del plugin: aceptar
     timeouts largos como paliativo, pero anotar la causa
     raíz cuando se identifique.
+45. **Los módulos del enrutador con chequeo de nivel
+    exigen `nombre_solicitante`.** Los módulos
+    `administrador` y `grafo` del piloto leen
+    `$post['nombre_solicitante']`, resuelven el nivel del
+    usuario en el grafo y, si no es admin o soporte,
+    responden `{"exito": false, "error": "Permiso denegado"}`.
+    Estar logueado NO alcanza: el enrutador no deduce el
+    usuario de la sesión, lo recibe por POST. Regla: cualquier
+    `ctx.pedir_post` a esos módulos (o a cualquier módulo
+    con chequeo de nivel) tiene que pasar
+    `nombre_solicitante`. El nombre no se conoce de antemano
+    (los códigos de acceso NO son nombres de usuario, ver
+    §6): se resuelve con `ctx.nombre_usuario_actual()`
+    (nuevo helper en 5f), que lee
+    `usuario_actual.nombre_usuario` del page context.
+46. **Verificar el nombre real de la acción antes de
+    escribir un POST.** `viajes/agregar` no existe en el
+    enrutador: la acción real es `viajes/guardar` (alta o
+    edición unificada, llama a `guardar_viaje_completo`).
+    Antes de escribir un test que toque el backend, leer
+    el `switch ($subaccion)` del módulo correspondiente
+    en `Aplicacion/Enrutador.php`. La sección 6 de este
+    prompt tiene los códigos de acceso, pero no las
+    acciones: para acciones, siempre leer el Enrutador.
 
 ---
 
@@ -771,14 +795,19 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5e
-(prueba espejo de v1.5piloto.74r: `eliminar_viaje_limpia_nodos`,
-primera prueba de la sección "grafo". Verifica que eliminar
-un viaje destruye el subárbol completo, midiendo nodos
-antes y después con `grafo/resumen`. Corre toda con admin,
-sin cambio de sesión, todo POST. Nuevo aprendizaje 45:
-los comandos del grafo permiten verificar fugas de nodos
-desde las pruebas del plugin.).
+**Última actualización de este prompt:** v1.5plugin.5f
+(fix de `eliminar_viaje_limpia_nodos`: el módulo
+`administrador` y el módulo `grafo` del enrutador del
+piloto exigen `nombre_solicitante` con nivel admin o
+soporte en cada POST. La prueba ahora lee el nombre de
+usuario del admin desde el page context con el nuevo
+helper `ctx.nombre_usuario_actual()` (MAIN world, lee
+`usuario_actual.nombre_usuario`), y lo pasa en los 4
+POST. Además, la acción para crear viaje es
+`viajes/guardar`, no `viajes/agregar`. Nuevo aprendizaje
+45: los módulos del enrutador con chequeo de nivel
+exigen `nombre_solicitante`; sin él, responden
+"Permiso denegado" aunque haya sesión activa.).
 Antes: v1.5plugin.5c (suben
 los timeouts del flujo de venta. `confirmar_venta` espera
 hasta 25s al panel `#opciones_impresion` y acepta el toast

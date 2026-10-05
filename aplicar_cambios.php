@@ -2,12 +2,15 @@
 /**
  * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda V1.5plugin.5e:
- *   - Prueba espejo de la Fase 2 del plan de optimización del piloto
- *     (v1.5piloto.74r): verifica que eliminar_viaje destruye el
- *     subárbol completo del viaje, no solo lo desenlaza.
- *   - Nueva sección "grafo" en el catálogo.
- *   - Bump de ConfPlugin, catálogo y prompt del plugin.
+ * Tanda V1.5plugin.5f:
+ *   - Fix de la prueba eliminar_viaje_limpia_nodos:
+ *     * Nuevo helper ctx.nombre_usuario_actual() en servicio.js
+ *       (lee usuario_actual.nombre_usuario del page via MAIN world).
+ *     * Los POST a administrador/listar_duenos, grafo/resumen,
+ *       viajes/guardar y viajes/eliminar pasan nombre_solicitante.
+ *     * Se cambia viajes/agregar por viajes/guardar (la acción real
+ *       del enrutador).
+ *   - Bump de ConfPlugin, catálogo y prompt.
  *
  * Uso:
  *   php aplicar_cambios.php
@@ -32,190 +35,123 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // --------------------------------------------------------
-    // ConfPlugin.js: bump de versión
+    // ConfPlugin.js
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'Bump VERSION_APP y VERSION_PLUGIN a 5e',
+        'descripcion' => 'Bump VERSION_APP a 5f',
         'buscar' => [
-            'export function configurar_conf(Conf) {',
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.5d";',
-            '    Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
-            '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
-            '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
-            '}',
+            '    Conf.VERSION_APP = "1.5plugin.5e";',
         ],
         'reemplazar' => [
-            'export function configurar_conf(Conf) {',
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.5e";',
-            '    Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
-            '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
-            '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
-            '}',
+            '    Conf.VERSION_APP = "1.5plugin.5f";',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'Bump VERSION_PLUGIN a 5e',
+        'descripcion' => 'Bump VERSION_PLUGIN a 5f',
         'buscar' => [
-            'export const NOMBRE_GRAFO = "plugin_pruebas";',
-            'export const VERSION_PLUGIN = "1.5plugin.5d";',
-        ],
-        'reemplazar' => [
-            'export const NOMBRE_GRAFO = "plugin_pruebas";',
             'export const VERSION_PLUGIN = "1.5plugin.5e";',
         ],
+        'reemplazar' => [
+            'export const VERSION_PLUGIN = "1.5plugin.5f";',
+        ],
     ],
 
     // --------------------------------------------------------
-    // catalogo.js: bump + import + sección
+    // servicio.js: bump + helper nuevo
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'Bump @version de catalogo.js',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'Bump @version de servicio.js',
         'buscar' => [
             ' * @version 1.5plugin.4z',
             ' */',
             '',
-            'import { prueba as arranque } from "./prueba_01_arranque.js";',
+            'import { URL_PILOTO } from "./ConfPlugin.js";',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.5e',
+            ' * @version 1.5plugin.5f',
             ' */',
             '',
-            'import { prueba as arranque } from "./prueba_01_arranque.js";',
+            'import { URL_PILOTO } from "./ConfPlugin.js";',
         ],
     ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'Agregar helper nombre_usuario_actual en _crear_ctx',
+        'buscar' => [
+            '        liberar_asientos_propios: async () => {',
+        ],
+        'reemplazar' => [
+            '        nombre_usuario_actual: async () => {',
+            '            // Lee el nombre de usuario del usuario logueado',
+            '            // desde el page context. Necesario para pasar',
+            '            // `nombre_solicitante` en los POST que lo exigen',
+            '            // (módulos administrador y grafo, y el chequeo',
+            '            // global de permiso sobre dueño).',
+            '            //',
+            '            // El nombre de usuario no se conoce de antemano:',
+            '            // los códigos de acceso del prompt (§6) NO son',
+            '            // nombres de usuario. Se resuelve desde el page,',
+            '            // igual que crear_pasajero_de_prueba resuelve el',
+            '            // dueño desde usuario_actual.dueno.',
+            '            try {',
+            '                const r = await chrome.scripting.executeScript({',
+            '                    target: { tabId: pestana_id },',
+            '                    world: "MAIN",',
+            '                    func: () => {',
+            '                        if (typeof usuario_actual === "undefined" || !usuario_actual) {',
+            '                            return { exito: false, error: "sin usuario_actual en el page" };',
+            '                        }',
+            '                        const nombre = usuario_actual.nombre_usuario;',
+            '                        if (!nombre) {',
+            '                            return { exito: false, error: "usuario_actual no tiene nombre_usuario" };',
+            '                        }',
+            '                        return { exito: true, nombre_usuario: nombre };',
+            '                    }',
+            '                });',
+            '                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };',
+            '            } catch (e) {',
+            '                return { exito: false, error: e.message };',
+            '            }',
+            '        },',
+            '        liberar_asientos_propios: async () => {',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // catalogo.js: bump
+    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'Agregar import de la prueba 30',
+        'descripcion' => 'Bump @version de catalogo.js a 5f',
         'buscar' => [
-            'import { prueba as venta_sin_asientos } from "./prueba_17_venta_sin_asientos.js";',
-            '',
-            'export const SECCIONES = [',
+            ' * @version 1.5plugin.5e',
         ],
         'reemplazar' => [
-            'import { prueba as venta_sin_asientos } from "./prueba_17_venta_sin_asientos.js";',
-            'import { prueba as eliminar_viaje_limpia_nodos } from "./prueba_30_eliminar_viaje_limpia_nodos.js";',
-            '',
-            'export const SECCIONES = [',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'Agregar sección grafo al final',
-        'buscar' => [
-            '            venta_cancelar_reabrir,',
-            '            venta_sin_asientos',
-            '        ]',
-            '    }',
-            '];',
-        ],
-        'reemplazar' => [
-            '            venta_cancelar_reabrir,',
-            '            venta_sin_asientos',
-            '        ]',
-            '    },',
-            '    {',
-            '        id: "grafo",',
-            '        nombre: "Grafo",',
-            '        pruebas: [',
-            '            eliminar_viaje_limpia_nodos',
-            '        ]',
-            '    }',
-            '];',
+            ' * @version 1.5plugin.5f',
         ],
     ],
 
     // --------------------------------------------------------
-    // Prompt del plugin
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: actualizar estado a 5e con 30 pruebas',
-        'buscar' => [
-            '**Proyecto en v1.5plugin.5d.** El esqueleto del plugin está',
-            'armado y funcional, tiene 29 pruebas (base + autocompletado',
-            '+ puntos de venta + viajes + micros + ventas) y las agrupa',
-            'en secciones.',
-        ],
-        'reemplazar' => [
-            '**Proyecto en v1.5plugin.5e.** El esqueleto del plugin está',
-            'armado y funcional, tiene 30 pruebas (base + autocompletado',
-            '+ puntos de venta + viajes + micros + ventas + grafo) y las agrupa',
-            'en secciones.',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: agregar sección grafo a la lista',
-        'buscar' => [
-            '- `ventas`: 15 pruebas (básica, cuotas, transferencia,',
-            '  asientos múltiples, ligaduras, duplicado, corrección de',
-            '  DNI, montos inválidos, sin comprador, cancelar-reabrir,',
-            '  sin asientos).',
-        ],
-        'reemplazar' => [
-            '- `ventas`: 15 pruebas (básica, cuotas, transferencia,',
-            '  asientos múltiples, ligaduras, duplicado, corrección de',
-            '  DNI, montos inválidos, sin comprador, cancelar-reabrir,',
-            '  sin asientos).',
-            '- `grafo`: 1 prueba. `eliminar_viaje_limpia_nodos`',
-            '  verifica que `eliminar_viaje` del piloto (v1.5piloto.74r)',
-            '  destruye el subárbol completo del viaje. Mide nodos',
-            '  antes y después con `grafo/resumen` y compara.',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: Última actualización',
-        'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5d (suben',
-            'los timeouts del listado de viajes: 40s para la lista, 30s',
-            'para el modal del viaje y 30s para los micros. Paliativo',
-            'mientras el piloto se aliviana con la limpieza de viajes de',
-            'prueba (v74n del piloto). Nuevo aprendizaje 44: la causa',
-            'raíz está en `formatear_viaje` del piloto, que escala con',
-            'V × W).',
-        ],
-        'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5e',
-            '(prueba espejo de v1.5piloto.74r: `eliminar_viaje_limpia_nodos`,',
-            'primera prueba de la sección "grafo". Verifica que eliminar',
-            'un viaje destruye el subárbol completo, midiendo nodos',
-            'antes y después con `grafo/resumen`. Corre toda con admin,',
-            'sin cambio de sesión, todo POST. Nuevo aprendizaje 45:',
-            'los comandos del grafo permiten verificar fugas de nodos',
-            'desde las pruebas del plugin.).',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // Nueva prueba (tipo crear)
+    // Prueba 30: reescribir entera (sobrescritura)
     // --------------------------------------------------------
 
     [
         'tipo' => 'crear',
         'archivo' => 'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
-        'descripcion' => 'Prueba 30: eliminar viaje limpia nodos',
+        'descripcion' => 'Prueba 30 reescrita: usa viajes/guardar y nombre_solicitante',
         'contenido' => [
             '/**',
             ' * Prueba: eliminar_viaje limpia el subárbol completo.',
@@ -238,7 +174,7 @@ $cambios = [
             ' * de micros + copia de vehículo + asientos se verifica',
             ' * aparte (pendiente).',
             ' *',
-            ' * @version 1.5plugin.5e',
+            ' * @version 1.5plugin.5f',
             ' */',
             '',
             'import { CODIGO_ADMIN } from "../ConfPlugin.js";',
@@ -248,21 +184,24 @@ $cambios = [
             '// ============================================================',
             '',
             '// Pide grafo/resumen y devuelve el total de nodos.',
-            '// Acepta varias formas de la respuesta por si el comando',
-            '// devuelve el resumen anidado o plano.',
-            'async function _contar_nodos(ctx) {',
-            '    const r = await ctx.pedir_post("index.php", { accion: "grafo/resumen" });',
+            '// El módulo `grafo` del enrutador exige nombre_solicitante',
+            '// con nivel admin o soporte.',
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
             '    if (!r || !r.exito) {',
             '        throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));',
             '    }',
             '    if (!r.json || !r.json.exito) {',
-            '        throw new Error("grafo/resumen devolvió error: " + (r.json && r.json.error ? r.json.error : "(sin detalle)")',
-            '            + " — ¿está logueado el admin?");',
+            '        throw new Error("grafo/resumen devolvió error: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));',
             '    }',
             '    const j = r.json;',
             '    let total = null;',
-            '    if (typeof j.total_nodos === "number") total = j.total_nodos;',
-            '    else if (j.resumen && typeof j.resumen.total_nodos === "number") total = j.resumen.total_nodos;',
+            '    if (j.resumen && typeof j.resumen.total_nodos === "number") total = j.resumen.total_nodos;',
+            '    else if (typeof j.resumen.total === "number") total = j.resumen.total;',
+            '    else if (typeof j.total_nodos === "number") total = j.total_nodos;',
             '    else if (typeof j.total === "number") total = j.total;',
             '    if (total === null || total <= 0) {',
             '        throw new Error("No se pudo leer el total de nodos. Respuesta: " + JSON.stringify(j).slice(0, 200));',
@@ -271,9 +210,13 @@ $cambios = [
             '}',
             '',
             '// Pide administrador/listar_duenos y devuelve el nombre del',
-            '// primer dueño. Acepta varias formas de la respuesta.',
-            'async function _primer_dueno(ctx) {',
-            '    const r = await ctx.pedir_post("index.php", { accion: "administrador/listar_duenos" });',
+            '// primer dueño. El módulo `administrador` exige',
+            '// nombre_solicitante con nivel admin o soporte.',
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
             '    if (!r || !r.exito) {',
             '        throw new Error("Error de red al listar dueños: " + (r && r.error ? r.error : "(sin detalle)"));',
             '    }',
@@ -289,7 +232,7 @@ $cambios = [
             '    const primero = lista[0];',
             '    const nombre = typeof primero === "string"',
             '        ? primero',
-            '        : (primero.nombre || primero.usuario || primero.nombre_usuario);',
+            '        : (primero.nombre_usuario || primero.nombre || primero.usuario);',
             '    if (!nombre) {',
             '        throw new Error("No se pudo determinar el nombre del dueño. Formato inesperado: "',
             '            + JSON.stringify(primero).slice(0, 200));',
@@ -316,39 +259,61 @@ $cambios = [
             '    async ejecutar(ctx) {',
             '        await ctx.asegurar_login(CODIGO_ADMIN);',
             '',
-            '        const nombre_dueno = await _primer_dueno(ctx);',
-            '        const N0 = await _contar_nodos(ctx);',
+            '        // El nombre de usuario del admin no se conoce de antemano.',
+            '        // Se lee del page context (usuario_actual.nombre_usuario).',
+            '        const r_nombre = await ctx.nombre_usuario_actual();',
+            '        if (!r_nombre || !r_nombre.exito) {',
+            '            throw new Error("No se pudo leer el nombre de usuario del admin: "',
+            '                + (r_nombre && r_nombre.error ? r_nombre.error : "(sin detalle)"));',
+            '        }',
+            '        const nombre_admin = r_nombre.nombre_usuario;',
             '',
-            '        // Crear viaje de prueba.',
+            '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+            '        const N0 = await _contar_nodos(ctx, nombre_admin);',
+            '',
+            '        // Crear viaje de prueba. La acción del enrutador es',
+            '        // viajes/guardar (alta o edición unificada).',
             '        const sufijo = String(Date.now()).slice(-8);',
             '        const nombre_viaje = "viajelimpia" + sufijo;',
             '',
             '        const rc = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/agregar",',
+            '            accion: "viajes/guardar",',
+            '            nombre_solicitante: nombre_admin,',
             '            nombre_dueno,',
             '            nombre_viaje,',
             '            nombre: "Viaje de prueba (limpieza de nodos)",',
             '            fecha: _fecha_manana(),',
             '            hora: "08:00",',
             '            origen: "Origen Test",',
-            '            destino: "Destino Test"',
+            '            destino: "Destino Test",',
+            '            // Defaults de opciones avanzadas (los exige',
+            '            // guardar_viaje_completo).',
+            '            restriccion_edad: "0",',
+            '            edad_minima: "18",',
+            '            edad_maxima: "80",',
+            '            permite_efectivo: "1",',
+            '            cuotas_efectivo_max: "3",',
+            '            permite_transferencia: "1",',
+            '            cuotas_transferencia_max: "1",',
+            '            mostrar_dj_en_terminales: "0"',
             '        });',
             '        if (!rc || !rc.exito) {',
             '            throw new Error("Error de red al crear viaje: " + (rc && rc.error ? rc.error : "(sin detalle)"));',
             '        }',
             '        if (!rc.json || !rc.json.exito) {',
-            '            throw new Error("viajes/agregar devolvió error: "',
+            '            throw new Error("viajes/guardar devolvió error: "',
             '                + (rc.json && rc.json.error ? rc.json.error : "(sin detalle)"));',
             '        }',
             '',
-            '        const N1 = await _contar_nodos(ctx);',
+            '        const N1 = await _contar_nodos(ctx, nombre_admin);',
             '        ctx.assert(N1 > N0,',
             '            "Crear el viaje no agregó nodos (N0=" + N0 + ", N1=" + N1 + ")."',
-            '            + " ¿La acción viajes/agregar es la correcta?");',
+            '            + " ¿La acción viajes/guardar es la correcta?");',
             '',
             '        // Eliminar el viaje.',
             '        const rd = await ctx.pedir_post("index.php", {',
             '            accion: "viajes/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
             '            nombre_dueno,',
             '            nombre_viaje',
             '        });',
@@ -360,7 +325,7 @@ $cambios = [
             '                + (rd.json && rd.json.error ? rd.json.error : "(sin detalle)"));',
             '        }',
             '',
-            '        const N2 = await _contar_nodos(ctx);',
+            '        const N2 = await _contar_nodos(ctx, nombre_admin);',
             '        const dif = N2 - N0;',
             '        ctx.assert(N2 === N0,',
             '            "eliminar_viaje no limpió todos los nodos. "',
@@ -371,6 +336,103 @@ $cambios = [
             '                : " ¿Se creó o destruyó algo inesperado?"));',
             '    }',
             '};',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // Prompt del plugin
+    // --------------------------------------------------------
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'Prompt plugin: última actualización a 5f',
+        'buscar' => [
+            '**Última actualización de este prompt:** v1.5plugin.5e',
+            '(prueba espejo de v1.5piloto.74r: `eliminar_viaje_limpia_nodos`,',
+            'primera prueba de la sección "grafo". Verifica que eliminar',
+            'un viaje destruye el subárbol completo, midiendo nodos',
+            'antes y después con `grafo/resumen`. Corre toda con admin,',
+            'sin cambio de sesión, todo POST. Nuevo aprendizaje 45:',
+            'los comandos del grafo permiten verificar fugas de nodos',
+            'desde las pruebas del plugin.).',
+        ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.5f',
+            '(fix de `eliminar_viaje_limpia_nodos`: el módulo',
+            '`administrador` y el módulo `grafo` del enrutador del',
+            'piloto exigen `nombre_solicitante` con nivel admin o',
+            'soporte en cada POST. La prueba ahora lee el nombre de',
+            'usuario del admin desde el page context con el nuevo',
+            'helper `ctx.nombre_usuario_actual()` (MAIN world, lee',
+            '`usuario_actual.nombre_usuario`), y lo pasa en los 4',
+            'POST. Además, la acción para crear viaje es',
+            '`viajes/guardar`, no `viajes/agregar`. Nuevo aprendizaje',
+            '45: los módulos del enrutador con chequeo de nivel',
+            'exigen `nombre_solicitante`; sin él, responden',
+            '"Permiso denegado" aunque haya sesión activa.).',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'Prompt plugin: agregar aprendizaje 45 y 46',
+        'buscar' => [
+            '44. **Los timeouts largos son una curita, no una solución.**',
+            '    Cada vez que subimos timeouts (5b, 5c, 5d) es porque el',
+            '    piloto se puso más lento por acumulación de datos en el',
+            '    grafo. La causa raíz está en `formatear_viaje` del',
+            '    piloto: escala con V × W (viajes × ventas), porque por',
+            '    cada viaje recorre todas las ventas del dueño dos veces',
+            '    (`viaje_tiene_ventas` y `vendidos_por_micro`). Con 21',
+            '    viajes × 24 ventas, eso son ~500 iteraciones por cada',
+            '    listado. La limpieza de viajes de prueba (v74n del',
+            '    piloto) alivia el problema. La optimización real',
+            '    (índice de ventas por viaje, cacheo de contadores) es',
+            '    una tanda aparte del piloto. Regla del plugin: aceptar',
+            '    timeouts largos como paliativo, pero anotar la causa',
+            '    raíz cuando se identifique.',
+        ],
+        'reemplazar' => [
+            '44. **Los timeouts largos son una curita, no una solución.**',
+            '    Cada vez que subimos timeouts (5b, 5c, 5d) es porque el',
+            '    piloto se puso más lento por acumulación de datos en el',
+            '    grafo. La causa raíz está en `formatear_viaje` del',
+            '    piloto: escala con V × W (viajes × ventas), porque por',
+            '    cada viaje recorre todas las ventas del dueño dos veces',
+            '    (`viaje_tiene_ventas` y `vendidos_por_micro`). Con 21',
+            '    viajes × 24 ventas, eso son ~500 iteraciones por cada',
+            '    listado. La limpieza de viajes de prueba (v74n del',
+            '    piloto) alivia el problema. La optimización real',
+            '    (índice de ventas por viaje, cacheo de contadores) es',
+            '    una tanda aparte del piloto. Regla del plugin: aceptar',
+            '    timeouts largos como paliativo, pero anotar la causa',
+            '    raíz cuando se identifique.',
+            '45. **Los módulos del enrutador con chequeo de nivel',
+            '    exigen `nombre_solicitante`.** Los módulos',
+            '    `administrador` y `grafo` del piloto leen',
+            '    `$post[\'nombre_solicitante\']`, resuelven el nivel del',
+            '    usuario en el grafo y, si no es admin o soporte,',
+            '    responden `{"exito": false, "error": "Permiso denegado"}`.',
+            '    Estar logueado NO alcanza: el enrutador no deduce el',
+            '    usuario de la sesión, lo recibe por POST. Regla: cualquier',
+            '    `ctx.pedir_post` a esos módulos (o a cualquier módulo',
+            '    con chequeo de nivel) tiene que pasar',
+            '    `nombre_solicitante`. El nombre no se conoce de antemano',
+            '    (los códigos de acceso NO son nombres de usuario, ver',
+            '    §6): se resuelve con `ctx.nombre_usuario_actual()`',
+            '    (nuevo helper en 5f), que lee',
+            '    `usuario_actual.nombre_usuario` del page context.',
+            '46. **Verificar el nombre real de la acción antes de',
+            '    escribir un POST.** `viajes/agregar` no existe en el',
+            '    enrutador: la acción real es `viajes/guardar` (alta o',
+            '    edición unificada, llama a `guardar_viaje_completo`).',
+            '    Antes de escribir un test que toque el backend, leer',
+            '    el `switch ($subaccion)` del módulo correspondiente',
+            '    en `Aplicacion/Enrutador.php`. La sección 6 de este',
+            '    prompt tiene los códigos de acceso, pero no las',
+            '    acciones: para acciones, siempre leer el Enrutador.',
         ],
     ],
 

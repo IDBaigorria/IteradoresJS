@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.4z
+ * @version 1.5plugin.5f
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -168,6 +168,38 @@ function _crear_ctx(pestana_id) {
                         })();
                     },
                     args: [datos]
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        nombre_usuario_actual: async () => {
+            // Lee el nombre de usuario del usuario logueado
+            // desde el page context. Necesario para pasar
+            // `nombre_solicitante` en los POST que lo exigen
+            // (módulos administrador y grafo, y el chequeo
+            // global de permiso sobre dueño).
+            //
+            // El nombre de usuario no se conoce de antemano:
+            // los códigos de acceso del prompt (§6) NO son
+            // nombres de usuario. Se resuelve desde el page,
+            // igual que crear_pasajero_de_prueba resuelve el
+            // dueño desde usuario_actual.dueno.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        if (typeof usuario_actual === "undefined" || !usuario_actual) {
+                            return { exito: false, error: "sin usuario_actual en el page" };
+                        }
+                        const nombre = usuario_actual.nombre_usuario;
+                        if (!nombre) {
+                            return { exito: false, error: "usuario_actual no tiene nombre_usuario" };
+                        }
+                        return { exito: true, nombre_usuario: nombre };
+                    }
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
             } catch (e) {
