@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5o.** El esqueleto del plugin está
-armado y funcional, tiene 42 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5p.** El esqueleto del plugin está
+armado y funcional, tiene 43 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -379,8 +379,8 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 13 pruebas. Cada una verifica la Fase 2 del
-  plan de optimización del grafo:
+- `grafo`: 14 pruebas. Cada una verifica la Fase 2 o
+  Fase 3 del plan de optimización del grafo:
   - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
     piloto (v1.5piloto.74r) destruye el subárbol completo
     del viaje.
@@ -435,6 +435,14 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     `_guardar_paradas_intermedias` (v1.5piloto.75a)
     destruye la hoja `hora_estimada` al quitarle la
     hora a una parada, en lugar de solo desenlazarla.
+  - `listar_viajes_indice_comportamiento`: Fase 3
+    (v1.5piloto.76a). Verifica que el índice
+    precalculado de ventas por viaje no cambia el
+    comportamiento observable de `listar_viajes_*`:
+    `tiene_ventas` sigue siendo "0"/"1" correcto, y
+    `vendidos_aqui` sigue reflejando las ventas de la
+    terminal. La mejora de performance en sí no es
+    verificable de forma estable desde el plugin.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -849,7 +857,15 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5o
+**Última actualización de este prompt:** v1.5plugin.5p
+(prueba espejo de v1.5piloto.76a:
+`listar_viajes_indice_comportamiento`. Verifica que el
+índice precalculado de ventas por viaje no cambió el
+comportamiento observable de `listar_viajes_*`
+(`tiene_ventas` y `vendidos_aqui` correctos). La
+mejora de performance en sí no es verificable de forma
+estable. La sección "grafo" pasa a 14 pruebas.).
+Antes: v1.5plugin.5o
 (prueba espejo de v1.5piloto.75a:
 `editar_paradas_sin_hora_limpia_nodos`. Cubre el fix de
 `hora_estimada`. Los otros 4 fixes de v75a quedan sin
