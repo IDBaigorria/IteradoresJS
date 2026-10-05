@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5i.** El esqueleto del plugin está
-armado y funcional, tiene 34 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5j.** El esqueleto del plugin está
+armado y funcional, tiene 36 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -399,6 +399,17 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     `eliminar_hmi` no los alcanzaba), cupones con sus
     campos, campos hoja del nodo venta, y el sub-nodo
     `opciones_cobro` con sus 4 hijos.
+  - `deseleccionar_asiento_limpia_nodos`:
+    `deseleccionar_asiento_micro` (v1.5piloto.74x)
+    destruye el asiento-en-venta del asiento que se
+    deselecciona (antes se filtraba fuera de la lista
+    sin destruirlo).
+  - `cambiar_micro_a_mitad_limpia_nodos`:
+    `seleccionar_asiento_micro` (v1.5piloto.74x), en el
+    bloque de cambio de micro a mitad de selección
+    (`limpiar_lista = true`), destruye los
+    asientos-en-venta viejos. Requiere un viaje con 2
+    micros.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -813,7 +824,16 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5i
+**Última actualización de este prompt:** v1.5plugin.5j
+(pruebas espejo de v1.5piloto.74x:
+`deseleccionar_asiento_limpia_nodos` y
+`cambiar_micro_a_mitad_limpia_nodos`. Verifican que
+`deseleccionar_asiento_micro` destruye el asiento-en-venta
+deseleccionado, y que `seleccionar_asiento_micro` destruye
+los asientos-en-venta viejos al cambiar de micro a mitad
+de selección. Miden huérfanos con `grafo/resumen`. La
+sección "grafo" pasa a 7 pruebas.).
+Antes: v1.5plugin.5i
 (prueba espejo de v1.5piloto.74v: `cancelar_venta_limpia_nodos`.
 Verifica que cancelar una venta no deja nodos huérfanos. Mide
 huérfanos con `grafo/resumen` antes, después de crear la venta,
