@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5p.** El esqueleto del plugin está
-armado y funcional, tiene 43 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5q.** El esqueleto del plugin está
+armado y funcional, tiene 44 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -364,7 +364,7 @@ con la limpieza de viajes de prueba de v74n). Archivos:
 
 **Secciones actuales:**
 
-- `base`: `arranque`, `login`.
+- `base`: `arranque`, `login`, `cerrar_sesion_cierra_modales`.
 - `autocompletado`: `autocompletado_dni_terminal_clientes`.
 - `puntos_de_venta`: `alta_terminal`.
 - `viajes`: `alta_viaje`.
@@ -857,7 +857,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5p
+**Última actualización de este prompt:** v1.5plugin.5q
+(prueba espejo de v1.5piloto.76b:
+`cerrar_sesion_cierra_modales`. Verifica que al cerrar
+sesión con un modal abierto, todos los overlays quedan
+ocultos: `#modal_generico`, `#modal_apilado`,
+`#opciones_impresion` y los `.modal-chico`. La sección
+"base" pasa a 3 pruebas.).
+Antes: v1.5plugin.5p
 (prueba espejo de v1.5piloto.76a:
 `listar_viajes_indice_comportamiento`. Verifica que el
 índice precalculado de ventas por viaje no cambió el
