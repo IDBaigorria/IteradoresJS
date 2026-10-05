@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5h.** El esqueleto del plugin está
-armado y funcional, tiene 33 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5i.** El esqueleto del plugin está
+armado y funcional, tiene 34 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -392,6 +392,13 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   - `editar_paradas_limpia_nodos`: `_guardar_paradas_intermedias`
     (v1.5piloto.74u) destruye las paradas viejas que no se
     reutilizan al editar el viaje.
+  - `cancelar_venta_limpia_nodos`: `cancelar_venta` del
+    piloto (v1.5piloto.74v) destruye el subárbol de la
+    venta: asientos-en-venta (la lista cuelga con
+    `primer`/`siguiente`, no con `hmi`/`hd`, así que
+    `eliminar_hmi` no los alcanzaba), cupones con sus
+    campos, campos hoja del nodo venta, y el sub-nodo
+    `opciones_cobro` con sus 4 hijos.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -806,7 +813,16 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5h
+**Última actualización de este prompt:** v1.5plugin.5i
+(prueba espejo de v1.5piloto.74v: `cancelar_venta_limpia_nodos`.
+Verifica que cancelar una venta no deja nodos huérfanos. Mide
+huérfanos con `grafo/resumen` antes, después de crear la venta,
+y después de cancelarla. Asserts: H1 === H0, H2 === H0. Todo el
+flujo con admin haciendo de terminal (POST directo), sin cambios
+de sesión. Nuevo aprendizaje: `grafo/resumen` devuelve `huerfanos`,
+`total` y `alcanzables`, lo que permite medir fugas que crean
+nodos intencionales.).
+Antes: v1.5plugin.5h
 (pruebas espejo de v1.5piloto.74u: `eliminar_terminal_limpia_nodos`
 y `editar_paradas_limpia_nodos`. La primera verifica que
 `eliminar_terminal_autorizada` destruye el TerminalViaje; la
