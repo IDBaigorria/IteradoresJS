@@ -334,9 +334,9 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5d.** El esqueleto del plugin está
-armado y funcional, tiene 29 pruebas (base + autocompletado
-+ puntos de venta + viajes + micros + ventas) y las agrupa
+**Proyecto en v1.5plugin.5e.** El esqueleto del plugin está
+armado y funcional, tiene 30 pruebas (base + autocompletado
++ puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
 croquis y espera activamente por asientos libres. El viaje
@@ -379,6 +379,10 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
+- `grafo`: 1 prueba. `eliminar_viaje_limpia_nodos`
+  verifica que `eliminar_viaje` del piloto (v1.5piloto.74r)
+  destruye el subárbol completo del viaje. Mide nodos
+  antes y después con `grafo/resumen` y compara.
 
 ---
 
@@ -767,13 +771,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5d (suben
-los timeouts del listado de viajes: 40s para la lista, 30s
-para el modal del viaje y 30s para los micros. Paliativo
-mientras el piloto se aliviana con la limpieza de viajes de
-prueba (v74n del piloto). Nuevo aprendizaje 44: la causa
-raíz está en `formatear_viaje` del piloto, que escala con
-V × W).
+**Última actualización de este prompt:** v1.5plugin.5e
+(prueba espejo de v1.5piloto.74r: `eliminar_viaje_limpia_nodos`,
+primera prueba de la sección "grafo". Verifica que eliminar
+un viaje destruye el subárbol completo, midiendo nodos
+antes y después con `grafo/resumen`. Corre toda con admin,
+sin cambio de sesión, todo POST. Nuevo aprendizaje 45:
+los comandos del grafo permiten verificar fugas de nodos
+desde las pruebas del plugin.).
 Antes: v1.5plugin.5c (suben
 los timeouts del flujo de venta. `confirmar_venta` espera
 hasta 25s al panel `#opciones_impresion` y acepta el toast

@@ -1,211 +1,193 @@
 <?php
 /**
- * Aplicador de cambios automáticos — proyecto iteradoresJS (plugin Chrome).
+ * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda v1.5plugin.5d: timeouts más largos mientras el piloto se
- * aliviana con la limpieza de viajes de prueba.
+ * Tanda V1.5plugin.5e:
+ *   - Prueba espejo de la Fase 2 del plan de optimización del piloto
+ *     (v1.5piloto.74r): verifica que eliminar_viaje destruye el
+ *     subárbol completo del viaje, no solo lo desenlaza.
+ *   - Nueva sección "grafo" en el catálogo.
+ *   - Bump de ConfPlugin, catálogo y prompt del plugin.
  *
- * Uso (parado en la raíz de iteradoresJS/):
+ * Uso:
  *   php aplicar_cambios.php
+ *
+ * Si PHP no está en el PATH del sistema:
+ *   C:\xampp\php\php.exe aplicar_cambios.php
+ *
+ * Correr parado en la raíz de iteradoresJS/.
  */
+
+// ============================================================
+// Configuración
+// ============================================================
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
+// ============================================================
+// Cambios a aplicar
+// ============================================================
+
 $cambios = [
 
     // --------------------------------------------------------
-    // _helpers.js — timeouts más largos
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers: subir timeouts del listado de viajes',
-        'buscar' => [
-            '    // El primer load de la lista de viajes puede tardar bastante',
-            '    // si el grafo acumulo muchos datos de corridas anteriores',
-            '    // (viajes, ventas, micros). En la primera prueba de la corrida',
-            '    // el fetch puede tardar 10-15s. Damos 25s para no fallar por',
-            '    // timing.',
-            '    const hay = await ctx.esperar(".btn-detalle-viaje", 25000);',
-            '    if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");',
-            '',
-            '    await ctx.clic(".btn-detalle-viaje");',
-            '    const modal = await ctx.esperar_visible("#modal_generico", 10000);',
-            '    if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");',
-            '    const micros = await ctx.esperar(".btn-ver-pasaje", 15000);',
-            '    if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");',
-        ],
-        'reemplazar' => [
-            '    // Timeouts largos para tolerar grafos grandes. El fetch del',
-            '    // listado tarda segundos cuando hay muchos viajes y ventas,',
-            '    // porque formatear_viaje escala con V x W (viajes x ventas).',
-            '    // Con la limpieza de viajes de prueba del piloto (v74n)',
-            '    // esto se va a aliviar, pero los timeouts quedan como red',
-            '    // de seguridad.',
-            '    const hay = await ctx.esperar(".btn-detalle-viaje", 40000);',
-            '    if (!hay || !hay.exito) throw new Error("No hay viajes disponibles");',
-            '',
-            '    await ctx.clic(".btn-detalle-viaje");',
-            '    const modal = await ctx.esperar_visible("#modal_generico", 30000);',
-            '    if (!modal || !modal.exito) throw new Error("No se abrio el modal del viaje");',
-            '    const micros = await ctx.esperar(".btn-ver-pasaje", 30000);',
-            '    if (!micros || !micros.exito) throw new Error("El viaje no tiene micros");',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // _helpers.js — bump version interna
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => '_helpers: bump @version a 1.5plugin.5d',
-        'buscar' => [
-            ' * @version 1.5plugin.5c',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.5d',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // ConfPlugin.js — bumps a 5d
+    // ConfPlugin.js: bump de versión
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_APP a 1.5plugin.5d',
+        'descripcion' => 'Bump VERSION_APP y VERSION_PLUGIN a 5e',
         'buscar' => [
-            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
-            '    Conf.VERSION_APP = "1.5plugin.5c";',
-        ],
-        'reemplazar' => [
+            'export function configurar_conf(Conf) {',
             '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
             '    Conf.VERSION_APP = "1.5plugin.5d";',
+            '    Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
+            '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
+            '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
+            '}',
+        ],
+        'reemplazar' => [
+            'export function configurar_conf(Conf) {',
+            '    Conf.NOMBRE_APP = "IteradoresPluginPruebas";',
+            '    Conf.VERSION_APP = "1.5plugin.5e";',
+            '    Conf.NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
+            '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = "IteradoresPluginPruebas";',
+            '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
+            '}',
         ],
     ],
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'ConfPlugin: bump VERSION_PLUGIN a 1.5plugin.5d',
+        'descripcion' => 'Bump VERSION_PLUGIN a 5e',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.5c";',
+            'export const NOMBRE_GRAFO = "plugin_pruebas";',
+            'export const VERSION_PLUGIN = "1.5plugin.5d";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.5d";',
+            'export const NOMBRE_GRAFO = "plugin_pruebas";',
+            'export const VERSION_PLUGIN = "1.5plugin.5e";',
         ],
     ],
 
     // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §7
+    // catalogo.js: bump + import + sección
+    // --------------------------------------------------------
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'Bump @version de catalogo.js',
+        'buscar' => [
+            ' * @version 1.5plugin.4z',
+            ' */',
+            '',
+            'import { prueba as arranque } from "./prueba_01_arranque.js";',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.5e',
+            ' */',
+            '',
+            'import { prueba as arranque } from "./prueba_01_arranque.js";',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'Agregar import de la prueba 30',
+        'buscar' => [
+            'import { prueba as venta_sin_asientos } from "./prueba_17_venta_sin_asientos.js";',
+            '',
+            'export const SECCIONES = [',
+        ],
+        'reemplazar' => [
+            'import { prueba as venta_sin_asientos } from "./prueba_17_venta_sin_asientos.js";',
+            'import { prueba as eliminar_viaje_limpia_nodos } from "./prueba_30_eliminar_viaje_limpia_nodos.js";',
+            '',
+            'export const SECCIONES = [',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'Agregar sección grafo al final',
+        'buscar' => [
+            '            venta_cancelar_reabrir,',
+            '            venta_sin_asientos',
+            '        ]',
+            '    }',
+            '];',
+        ],
+        'reemplazar' => [
+            '            venta_cancelar_reabrir,',
+            '            venta_sin_asientos',
+            '        ]',
+            '    },',
+            '    {',
+            '        id: "grafo",',
+            '        nombre: "Grafo",',
+            '        pruebas: [',
+            '            eliminar_viaje_limpia_nodos',
+            '        ]',
+            '    }',
+            '];',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // Prompt del plugin
     // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §7 bump a 5d',
+        'descripcion' => 'Prompt plugin: actualizar estado a 5e con 30 pruebas',
         'buscar' => [
-            '**Proyecto en v1.5plugin.5c.** El esqueleto del plugin está',
-            'armado y funcional, tiene 29 pruebas (base + autocompletado',
-            '+ puntos de venta + viajes + micros + ventas) y las agrupa',
-            'en secciones. Las pruebas de venta son independientes: cada',
-            'una cierra los modales al terminar, fuerza el refresh del',
-            'croquis y espera activamente por asientos libres. El viaje',
-            'de setup tiene 2 micros de 44 asientos cada uno (88 en',
-            'total). `ir_a_tab` no clickea la tab si ya está activa',
-            '(evita reiniciar la carga de datos). Timeouts del primer',
-            'load: 25s para la lista de viajes, 10s para el modal, 15s',
-            'para los micros. Timeouts del flujo de venta: 25s para el',
-            'panel de opciones de impresión, 15s para abrir el modal de',
-            'confirmación, 12s para el botón Vender.',
-        ],
-        'reemplazar' => [
             '**Proyecto en v1.5plugin.5d.** El esqueleto del plugin está',
             'armado y funcional, tiene 29 pruebas (base + autocompletado',
             '+ puntos de venta + viajes + micros + ventas) y las agrupa',
-            'en secciones. Las pruebas de venta son independientes: cada',
-            'una cierra los modales al terminar, fuerza el refresh del',
-            'croquis y espera activamente por asientos libres. El viaje',
-            'de setup tiene 2 micros de 44 asientos cada uno (88 en',
-            'total). `ir_a_tab` no clickea la tab si ya está activa',
-            '(evita reiniciar la carga de datos). Timeouts: lista de',
-            'viajes 40s, modal del viaje 30s, micros 30s (subidos en 5d',
-            'para tolerar grafos grandes mientras el piloto se aliviana',
-            'con la limpieza de viajes de prueba de v74n).',
+            'en secciones.',
+        ],
+        'reemplazar' => [
+            '**Proyecto en v1.5plugin.5e.** El esqueleto del plugin está',
+            'armado y funcional, tiene 30 pruebas (base + autocompletado',
+            '+ puntos de venta + viajes + micros + ventas + grafo) y las agrupa',
+            'en secciones.',
         ],
     ],
-
-    // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §8.8 aprendizaje 44
-    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §8.8 agregar aprendizaje 44',
+        'descripcion' => 'Prompt plugin: agregar sección grafo a la lista',
         'buscar' => [
-            '43. **El flujo de confirmación de venta tiene dos fetch',
-            '    en serie.** Después de mostrar el toast "Venta',
-            '    confirmada", el piloto hace `solicitar_estado_asientos`',
-            '    y después `refrescar_contadores_viaje_actual`, y recién',
-            '    después muestra el panel `#opciones_impresion`. Con el',
-            '    grafo grande, cada fetch puede tardar 5-10s. Regla:',
-            '    esperar el panel con timeout de 25s, y aceptar el toast',
-            '    como señal alternativa (el toast aparece antes). Si el',
-            '    toast aparece pero el panel no, hacer una espera corta',
-            '    extra para que el panel termine de aparecer y',
-            '    `obtener_id_ultima_venta` lo pueda cerrar.',
+            '- `ventas`: 15 pruebas (básica, cuotas, transferencia,',
+            '  asientos múltiples, ligaduras, duplicado, corrección de',
+            '  DNI, montos inválidos, sin comprador, cancelar-reabrir,',
+            '  sin asientos).',
         ],
         'reemplazar' => [
-            '43. **El flujo de confirmación de venta tiene dos fetch',
-            '    en serie.** Después de mostrar el toast "Venta',
-            '    confirmada", el piloto hace `solicitar_estado_asientos`',
-            '    y después `refrescar_contadores_viaje_actual`, y recién',
-            '    después muestra el panel `#opciones_impresion`. Con el',
-            '    grafo grande, cada fetch puede tardar 5-10s. Regla:',
-            '    esperar el panel con timeout de 25s, y aceptar el toast',
-            '    como señal alternativa (el toast aparece antes). Si el',
-            '    toast aparece pero el panel no, hacer una espera corta',
-            '    extra para que el panel termine de aparecer y',
-            '    `obtener_id_ultima_venta` lo pueda cerrar.',
-            '44. **Los timeouts largos son una curita, no una solución.**',
-            '    Cada vez que subimos timeouts (5b, 5c, 5d) es porque el',
-            '    piloto se puso más lento por acumulación de datos en el',
-            '    grafo. La causa raíz está en `formatear_viaje` del',
-            '    piloto: escala con V × W (viajes × ventas), porque por',
-            '    cada viaje recorre todas las ventas del dueño dos veces',
-            '    (`viaje_tiene_ventas` y `vendidos_por_micro`). Con 21',
-            '    viajes × 24 ventas, eso son ~500 iteraciones por cada',
-            '    listado. La limpieza de viajes de prueba (v74n del',
-            '    piloto) alivia el problema. La optimización real',
-            '    (índice de ventas por viaje, cacheo de contadores) es',
-            '    una tanda aparte del piloto. Regla del plugin: aceptar',
-            '    timeouts largos como paliativo, pero anotar la causa',
-            '    raíz cuando se identifique.',
+            '- `ventas`: 15 pruebas (básica, cuotas, transferencia,',
+            '  asientos múltiples, ligaduras, duplicado, corrección de',
+            '  DNI, montos inválidos, sin comprador, cancelar-reabrir,',
+            '  sin asientos).',
+            '- `grafo`: 1 prueba. `eliminar_viaje_limpia_nodos`',
+            '  verifica que `eliminar_viaje` del piloto (v1.5piloto.74r)',
+            '  destruye el subárbol completo del viaje. Mide nodos',
+            '  antes y después con `grafo/resumen` y compara.',
         ],
     ],
-
-    // --------------------------------------------------------
-    // prompt_plugin_piloto.md — §9 cabecera
-    // --------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'prompt: §9 cabecera bump a 5d',
+        'descripcion' => 'Prompt plugin: Última actualización',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5c (suben',
-            'los timeouts del flujo de venta. `confirmar_venta` espera',
-            'hasta 25s al panel `#opciones_impresion` y acepta el toast',
-            '"Venta confirmada" como señal alternativa. `abrir_modal_confirmacion`',
-            '15s, botón Vender 12s. Nuevo aprendizaje 43).',
-        ],
-        'reemplazar' => [
             '**Última actualización de este prompt:** v1.5plugin.5d (suben',
             'los timeouts del listado de viajes: 40s para la lista, 30s',
             'para el modal del viaje y 30s para los micros. Paliativo',
@@ -213,11 +195,182 @@ $cambios = [
             'prueba (v74n del piloto). Nuevo aprendizaje 44: la causa',
             'raíz está en `formatear_viaje` del piloto, que escala con',
             'V × W).',
-            'Antes: v1.5plugin.5c (suben',
-            'los timeouts del flujo de venta. `confirmar_venta` espera',
-            'hasta 25s al panel `#opciones_impresion` y acepta el toast',
-            '"Venta confirmada" como señal alternativa. `abrir_modal_confirmacion`',
-            '15s, botón Vender 12s. Nuevo aprendizaje 43).',
+        ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.5e',
+            '(prueba espejo de v1.5piloto.74r: `eliminar_viaje_limpia_nodos`,',
+            'primera prueba de la sección "grafo". Verifica que eliminar',
+            'un viaje destruye el subárbol completo, midiendo nodos',
+            'antes y después con `grafo/resumen`. Corre toda con admin,',
+            'sin cambio de sesión, todo POST. Nuevo aprendizaje 45:',
+            'los comandos del grafo permiten verificar fugas de nodos',
+            'desde las pruebas del plugin.).',
+        ],
+    ],
+
+    // --------------------------------------------------------
+    // Nueva prueba (tipo crear)
+    // --------------------------------------------------------
+
+    [
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
+        'descripcion' => 'Prueba 30: eliminar viaje limpia nodos',
+        'contenido' => [
+            '/**',
+            ' * Prueba: eliminar_viaje limpia el subárbol completo.',
+            ' *',
+            ' * Verifica la Fase 2 del plan de optimización del grafo',
+            ' * (v1.5piloto.74r). Antes, `eliminar_viaje` solo',
+            ' * desenlazaba el viaje del contenedor del dueño: el nodo',
+            ' * viaje, sus micros, copias de vehículo, asientos,',
+            ' * TerminalViaje, paradas, DJs y opciones avanzadas',
+            ' * quedaban huérfanos. Ahora los destruye.',
+            ' *',
+            ' * Mide el total de nodos antes y después con',
+            ' * `grafo/resumen`, y compara. Se corre entera con admin',
+            ' * logueado: el admin tiene acceso al grafo y puede crear',
+            ' * y eliminar viajes de cualquier dueño vía POST.',
+            ' *',
+            ' * Nota: la prueba crea un viaje sin micros. Alcanza para',
+            ' * verificar que la destrucción del subárbol del viaje',
+            ' * (contenedores, campos, DJs, opciones) funciona. La parte',
+            ' * de micros + copia de vehículo + asientos se verifica',
+            ' * aparte (pendiente).',
+            ' *',
+            ' * @version 1.5plugin.5e',
+            ' */',
+            '',
+            'import { CODIGO_ADMIN } from "../ConfPlugin.js";',
+            '',
+            '// ============================================================',
+            '// Helpers internos',
+            '// ============================================================',
+            '',
+            '// Pide grafo/resumen y devuelve el total de nodos.',
+            '// Acepta varias formas de la respuesta por si el comando',
+            '// devuelve el resumen anidado o plano.',
+            'async function _contar_nodos(ctx) {',
+            '    const r = await ctx.pedir_post("index.php", { accion: "grafo/resumen" });',
+            '    if (!r || !r.exito) {',
+            '        throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));',
+            '    }',
+            '    if (!r.json || !r.json.exito) {',
+            '        throw new Error("grafo/resumen devolvió error: " + (r.json && r.json.error ? r.json.error : "(sin detalle)")',
+            '            + " — ¿está logueado el admin?");',
+            '    }',
+            '    const j = r.json;',
+            '    let total = null;',
+            '    if (typeof j.total_nodos === "number") total = j.total_nodos;',
+            '    else if (j.resumen && typeof j.resumen.total_nodos === "number") total = j.resumen.total_nodos;',
+            '    else if (typeof j.total === "number") total = j.total;',
+            '    if (total === null || total <= 0) {',
+            '        throw new Error("No se pudo leer el total de nodos. Respuesta: " + JSON.stringify(j).slice(0, 200));',
+            '    }',
+            '    return total;',
+            '}',
+            '',
+            '// Pide administrador/listar_duenos y devuelve el nombre del',
+            '// primer dueño. Acepta varias formas de la respuesta.',
+            'async function _primer_dueno(ctx) {',
+            '    const r = await ctx.pedir_post("index.php", { accion: "administrador/listar_duenos" });',
+            '    if (!r || !r.exito) {',
+            '        throw new Error("Error de red al listar dueños: " + (r && r.error ? r.error : "(sin detalle)"));',
+            '    }',
+            '    if (!r.json || !r.json.exito) {',
+            '        throw new Error("administrador/listar_duenos devolvió error: "',
+            '            + (r.json && r.json.error ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '    const j = r.json;',
+            '    const lista = j.duenos || j.usuarios || j.lista || [];',
+            '    if (!Array.isArray(lista) || lista.length === 0) {',
+            '        throw new Error("No hay dueños disponibles para la prueba. Creá uno desde el panel admin.");',
+            '    }',
+            '    const primero = lista[0];',
+            '    const nombre = typeof primero === "string"',
+            '        ? primero',
+            '        : (primero.nombre || primero.usuario || primero.nombre_usuario);',
+            '    if (!nombre) {',
+            '        throw new Error("No se pudo determinar el nombre del dueño. Formato inesperado: "',
+            '            + JSON.stringify(primero).slice(0, 200));',
+            '    }',
+            '    return nombre;',
+            '}',
+            '',
+            '// Arma una fecha YYYY-MM-DD para mañana.',
+            'function _fecha_manana() {',
+            '    const d = new Date(Date.now() + 24 * 60 * 60 * 1000);',
+            '    return d.getFullYear() + "-"',
+            '        + String(d.getMonth() + 1).padStart(2, "0") + "-"',
+            '        + String(d.getDate()).padStart(2, "0");',
+            '}',
+            '',
+            '// ============================================================',
+            '// Prueba',
+            '// ============================================================',
+            '',
+            'export const prueba = {',
+            '    id: "eliminar_viaje_limpia_nodos",',
+            '    nombre: "Grafo: eliminar viaje limpia los nodos",',
+            '    descripcion: "Verifica que eliminar un viaje destruye el subárbol completo (Fase 2 del plan de optimización, v1.5piloto.74r). Mide el total de nodos con grafo/resumen antes y después, y compara.",',
+            '    async ejecutar(ctx) {',
+            '        await ctx.asegurar_login(CODIGO_ADMIN);',
+            '',
+            '        const nombre_dueno = await _primer_dueno(ctx);',
+            '        const N0 = await _contar_nodos(ctx);',
+            '',
+            '        // Crear viaje de prueba.',
+            '        const sufijo = String(Date.now()).slice(-8);',
+            '        const nombre_viaje = "viajelimpia" + sufijo;',
+            '',
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/agregar",',
+            '            nombre_dueno,',
+            '            nombre_viaje,',
+            '            nombre: "Viaje de prueba (limpieza de nodos)",',
+            '            fecha: _fecha_manana(),',
+            '            hora: "08:00",',
+            '            origen: "Origen Test",',
+            '            destino: "Destino Test"',
+            '        });',
+            '        if (!rc || !rc.exito) {',
+            '            throw new Error("Error de red al crear viaje: " + (rc && rc.error ? rc.error : "(sin detalle)"));',
+            '        }',
+            '        if (!rc.json || !rc.json.exito) {',
+            '            throw new Error("viajes/agregar devolvió error: "',
+            '                + (rc.json && rc.json.error ? rc.json.error : "(sin detalle)"));',
+            '        }',
+            '',
+            '        const N1 = await _contar_nodos(ctx);',
+            '        ctx.assert(N1 > N0,',
+            '            "Crear el viaje no agregó nodos (N0=" + N0 + ", N1=" + N1 + ")."',
+            '            + " ¿La acción viajes/agregar es la correcta?");',
+            '',
+            '        // Eliminar el viaje.',
+            '        const rd = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar",',
+            '            nombre_dueno,',
+            '            nombre_viaje',
+            '        });',
+            '        if (!rd || !rd.exito) {',
+            '            throw new Error("Error de red al eliminar viaje: " + (rd && rd.error ? rd.error : "(sin detalle)"));',
+            '        }',
+            '        if (!rd.json || !rd.json.exito) {',
+            '            throw new Error("viajes/eliminar devolvió error: "',
+            '                + (rd.json && rd.json.error ? rd.json.error : "(sin detalle)"));',
+            '        }',
+            '',
+            '        const N2 = await _contar_nodos(ctx);',
+            '        const dif = N2 - N0;',
+            '        ctx.assert(N2 === N0,',
+            '            "eliminar_viaje no limpió todos los nodos. "',
+            '            + "N0=" + N0 + ", N1=" + N1 + ", N2=" + N2',
+            '            + ", diferencia=" + dif + "."',
+            '            + (dif > 0',
+            '                ? " Quedaron " + dif + " nodos huérfanos."',
+            '                : " ¿Se creó o destruyó algo inesperado?"));',
+            '    }',
+            '};',
         ],
     ],
 
