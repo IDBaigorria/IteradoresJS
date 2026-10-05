@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5l.** El esqueleto del plugin está
-armado y funcional, tiene 39 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5m.** El esqueleto del plugin está
+armado y funcional, tiene 40 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -379,7 +379,7 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 10 pruebas. Cada una verifica la Fase 2 del
+- `grafo`: 11 pruebas. Cada una verifica la Fase 2 del
   plan de optimización del grafo:
   - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
     piloto (v1.5piloto.74r) destruye el subárbol completo
@@ -421,6 +421,10 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     `limpiar_viajes_de_prueba` (v1.5piloto.74z) destruye
     el subárbol completo de cada viaje antes de
     desenlazarlo. Usa el endpoint `viajes/limpiar_prueba`.
+  - `eliminar_usuario_limpia_nodos`: `eliminar_usuario`
+    (v1.5piloto.75) destruye los campos del nodo usuario,
+    el banco con sus hijos, el nodo credencial con sus
+    campos, y las sesiones activas del usuario.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -835,7 +839,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5l
+**Última actualización de este prompt:** v1.5plugin.5m
+(prueba espejo de v1.5piloto.75:
+`eliminar_usuario_limpia_nodos`. Verifica que
+`eliminar_usuario` destruye los campos del nodo usuario,
+el banco con sus hijos, el nodo credencial con sus
+campos, y las sesiones activas. Mide huérfanos con
+`grafo/resumen`. La sección "grafo" pasa a 11 pruebas.).
+Antes: v1.5plugin.5l
 (prueba espejo de v1.5piloto.74z:
 `limpiar_viajes_prueba_limpia_nodos`. Verifica que
 `limpiar_viajes_de_prueba` destruye el subárbol completo
