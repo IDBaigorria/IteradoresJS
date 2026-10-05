@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5e.** El esqueleto del plugin está
-armado y funcional, tiene 30 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5g.** El esqueleto del plugin está
+armado y funcional, tiene 31 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -379,10 +379,14 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 1 prueba. `eliminar_viaje_limpia_nodos`
+- `grafo`: 2 pruebas. `eliminar_viaje_limpia_nodos`
   verifica que `eliminar_viaje` del piloto (v1.5piloto.74r)
-  destruye el subárbol completo del viaje. Mide nodos
-  antes y después con `grafo/resumen` y compara.
+  destruye el subárbol completo del viaje.
+  `eliminar_micro_limpia_nodos` verifica que
+  `eliminar_micro_de_viaje` del piloto (v1.5piloto.74s)
+  destruye el micro completo (copia de vehículo, pisos,
+  asientos, campos). Ambas miden nodos con
+  `grafo/resumen` antes y después, y comparan.
 
 ---
 
@@ -795,7 +799,18 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5f
+**Última actualización de este prompt:** v1.5plugin.5g
+(prueba espejo de v1.5piloto.74s: `eliminar_micro_limpia_nodos`.
+Verifica que eliminar un micro destruye el subárbol completo
+(copia de vehículo, pisos, asientos, campos). Mide nodos
+en tres estados: antes de crear nada (N0), después de crear
+el viaje (N1), después de agregar el micro (N2), después de
+eliminar el micro (N3), y después de eliminar el viaje (N4).
+Asserts: N2 > N1, N3 === N1, N4 === N0. La prueba itera
+empresas × vehículos del dueño hasta encontrar uno con
+asientos configurados. Si ninguno anda, falla con mensaje
+claro.).
+Antes: v1.5plugin.5f
 (fix de `eliminar_viaje_limpia_nodos`: el módulo
 `administrador` y el módulo `grafo` del enrutador del
 piloto exigen `nombre_solicitante` con nivel admin o
