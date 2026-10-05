@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5k.** El esqueleto del plugin está
-armado y funcional, tiene 38 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5l.** El esqueleto del plugin está
+armado y funcional, tiene 39 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -379,7 +379,7 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 4 pruebas. Cada una verifica la Fase 2 del
+- `grafo`: 10 pruebas. Cada una verifica la Fase 2 del
   plan de optimización del grafo:
   - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
     piloto (v1.5piloto.74r) destruye el subárbol completo
@@ -417,6 +417,10 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   - `eliminar_empresa_limpia_nodos`: `eliminar_empresa`
     (v1.5piloto.74y) destruye la empresa y todos sus
     vehículos completos.
+  - `limpiar_viajes_prueba_limpia_nodos`:
+    `limpiar_viajes_de_prueba` (v1.5piloto.74z) destruye
+    el subárbol completo de cada viaje antes de
+    desenlazarlo. Usa el endpoint `viajes/limpiar_prueba`.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -831,7 +835,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5k
+**Última actualización de este prompt:** v1.5plugin.5l
+(prueba espejo de v1.5piloto.74z:
+`limpiar_viajes_prueba_limpia_nodos`. Verifica que
+`limpiar_viajes_de_prueba` destruye el subárbol completo
+de cada viaje de prueba antes de desenlazarlo. Mide
+huérfanos con `grafo/resumen`. La sección "grafo" pasa a
+10 pruebas.).
+Antes: v1.5plugin.5k
 (pruebas espejo de v1.5piloto.74y:
 `eliminar_vehiculo_limpia_nodos` y
 `eliminar_empresa_limpia_nodos`. Verifican que
