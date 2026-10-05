@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5j.** El esqueleto del plugin está
-armado y funcional, tiene 36 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5k.** El esqueleto del plugin está
+armado y funcional, tiene 38 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -410,6 +410,13 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     (`limpiar_lista = true`), destruye los
     asientos-en-venta viejos. Requiere un viaje con 2
     micros.
+  - `eliminar_vehiculo_limpia_nodos`: `eliminar_vehiculo`
+    (v1.5piloto.74y) destruye el vehículo completo
+    (asientos, pisos, listas circulares de asientos,
+    campos).
+  - `eliminar_empresa_limpia_nodos`: `eliminar_empresa`
+    (v1.5piloto.74y) destruye la empresa y todos sus
+    vehículos completos.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -824,7 +831,15 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5j
+**Última actualización de este prompt:** v1.5plugin.5k
+(pruebas espejo de v1.5piloto.74y:
+`eliminar_vehiculo_limpia_nodos` y
+`eliminar_empresa_limpia_nodos`. Verifican que
+`eliminar_vehiculo` destruye el vehículo completo, y que
+`eliminar_empresa` destruye la empresa con todos sus
+vehículos. Miden huérfanos con `grafo/resumen`. La
+sección "grafo" pasa a 9 pruebas.).
+Antes: v1.5plugin.5j
 (pruebas espejo de v1.5piloto.74x:
 `deseleccionar_asiento_limpia_nodos` y
 `cambiar_micro_a_mitad_limpia_nodos`. Verifican que
