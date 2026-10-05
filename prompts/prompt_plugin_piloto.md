@@ -334,10 +334,10 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5q.** El esqueleto del plugin está
-armado y funcional, tiene 44 pruebas (base + autocompletado
-+ puntos de venta + viajes + micros + ventas + grafo) y las agrupa
-en secciones. Las pruebas de venta son independientes: cada
+**Proyecto en v1.5plugin.5r.** El esqueleto del plugin está
+armado y funcional, tiene 50 pruebas (base + autocompletado
++ puntos de venta + viajes + micros + ventas + empresas
++ vehículos + grafo) y las agrupa en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
 croquis y espera activamente por asientos libres. El viaje
 de setup tiene 2 micros de 44 asientos cada uno (88 en
@@ -365,6 +365,14 @@ con la limpieza de viajes de prueba de v74n). Archivos:
 **Secciones actuales:**
 
 - `base`: `arranque`, `login`, `cerrar_sesion_cierra_modales`.
+- `empresas`: 3 pruebas. `alta_empresa` (flujo feliz del modal
+  de v1.5piloto.76c), `empresa_nombre_vacio` (validación local
+  rechaza guardar sin nombre), `empresa_cancelar` (Cancelar
+  cierra sin crear nada).
+- `vehiculos`: 3 pruebas. `alta_vehiculo` (flujo feliz),
+  `vehiculo_patente_vacia` (validación local),
+  `vehiculo_cancelar`. Crea una empresa de setup para cada
+  prueba y la elimina al final (arrastra el vehículo).
 - `autocompletado`: `autocompletado_dni_terminal_clientes`.
 - `puntos_de_venta`: `alta_terminal`.
 - `viajes`: `alta_viaje`.
@@ -857,7 +865,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5q
+**Última actualización de este prompt:** v1.5plugin.5r
+(pruebas espejo de v1.5piloto.76c: sección "empresas" con 3
+pruebas (alta, nombre vacío, cancelar) y sección "vehículos"
+con 3 pruebas (alta, patente vacía, cancelar). Nuevo archivo
+de helpers `_empresas_helpers.js`. La sección "base" sigue
+con 3 pruebas, "grafo" con 14, y se suman las dos nuevas
+secciones.).
+Antes: v1.5plugin.5q
 (prueba espejo de v1.5piloto.76b:
 `cerrar_sesion_cierra_modales`. Verifica que al cerrar
 sesión con un modal abierto, todos los overlays quedan

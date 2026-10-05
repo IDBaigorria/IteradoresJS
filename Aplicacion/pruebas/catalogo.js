@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.5q
+ * @version 1.5plugin.5r
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -59,6 +59,12 @@ import { prueba as eliminar_pasajero_limpia_nodos } from "./prueba_41_eliminar_p
 import { prueba as editar_paradas_sin_hora_limpia_nodos } from "./prueba_42_editar_paradas_sin_hora_limpia_nodos.js";
 import { prueba as listar_viajes_indice_comportamiento } from "./prueba_43_listar_viajes_indice_comportamiento.js";
 import { prueba as cerrar_sesion_cierra_modales } from "./prueba_44_cerrar_sesion_cierra_modales.js";
+import { prueba as alta_empresa } from "./prueba_45_alta_empresa.js";
+import { prueba as empresa_nombre_vacio } from "./prueba_46_empresa_nombre_vacio.js";
+import { prueba as empresa_cancelar } from "./prueba_47_empresa_cancelar.js";
+import { prueba as alta_vehiculo } from "./prueba_48_alta_vehiculo.js";
+import { prueba as vehiculo_patente_vacia } from "./prueba_49_vehiculo_patente_vacia.js";
+import { prueba as vehiculo_cancelar } from "./prueba_50_vehiculo_cancelar.js";
 
 export const SECCIONES = [
     {
@@ -125,6 +131,24 @@ export const SECCIONES = [
             venta_sin_comprador,
             venta_cancelar_reabrir,
             venta_sin_asientos
+        ]
+    },
+    {
+        id: "empresas",
+        nombre: "Empresas",
+        pruebas: [
+            alta_empresa,
+            empresa_nombre_vacio,
+            empresa_cancelar
+        ]
+    },
+    {
+        id: "vehiculos",
+        nombre: "Vehículos",
+        pruebas: [
+            alta_vehiculo,
+            vehiculo_patente_vacia,
+            vehiculo_cancelar
         ]
     },
     {
