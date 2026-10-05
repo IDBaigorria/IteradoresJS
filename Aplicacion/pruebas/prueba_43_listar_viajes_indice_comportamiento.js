@@ -17,7 +17,8 @@
  *
  * Pasos:
  *   1. Crear viaje A sin ventas.
- *   2. Crear viaje B con una venta (1 asiento).
+ *   2. Crear viaje B con una venta (1 asiento), y
+ *      autorizar la terminal en el viaje B.
  *   3. `viajes/listar_por_dueno` → A.tiene_ventas="0",
  *      B.tiene_ventas="1".
  *   4. `viajes/listar_por_terminal` → B está en la lista
@@ -206,7 +207,21 @@ export const prueba = {
                 + ((rB && rB.json && rB.json.error) ? rB.json.error : "(sin detalle)"));
         }
 
-        // 3. Agregar micro al viaje B.
+        // 3. Autorizar la terminal en el viaje B. Sin esto,
+        //    listar_por_terminal filtra el viaje B y no aparece.
+        const rT = await ctx.pedir_post("index.php", {
+            accion: "viajes/agregar_terminal",
+            nombre_solicitante: nombre_admin,
+            nombre_dueno,
+            nombre_viaje: viaje_b,
+            nombre_terminal
+        });
+        if (!rT || !rT.exito || !rT.json || !rT.json.exito) {
+            throw new Error("No se pudo autorizar la terminal en viaje B: "
+                + ((rT && rT.json && rT.json.error) ? rT.json.error : "(sin detalle)"));
+        }
+
+        // 4. Agregar micro al viaje B.
         const empresas = await _empresas_del_dueno(ctx, nombre_admin, nombre_dueno);
         if (empresas.length === 0) {
             throw new Error("El dueño " + nombre_dueno + " no tiene empresas.");
@@ -239,7 +254,7 @@ export const prueba = {
             throw new Error("Ningún vehículo pudo agregarse como micro: " + ultimo_error);
         }
 
-        // 4. Seleccionar asiento y confirmar venta.
+        // 5. Seleccionar asiento y confirmar venta.
         const asiento = await _primer_asiento_libre(ctx, nombre_admin, nombre_dueno, viaje_b, nombre_micro);
         const rs = await ctx.pedir_post("index.php", {
             accion: "viajes/seleccionar_asiento",
@@ -289,7 +304,7 @@ export const prueba = {
         }
         const id_venta = rv.json.id_venta;
 
-        // 5. Listar por dueño y verificar tiene_ventas.
+        // 6. Listar por dueño y verificar tiene_ventas.
         const rl = await ctx.pedir_post("index.php", {
             accion: "viajes/listar_por_dueno",
             nombre_solicitante: nombre_admin,
@@ -317,7 +332,7 @@ export const prueba = {
             "El viaje B tiene ventas pero tiene_ventas=\"" + info_b.tiene_ventas + "\". "
             + "Esperado: \"1\".");
 
-        // 6. Listar por terminal y verificar vendidos_aqui.
+        // 7. Listar por terminal y verificar vendidos_aqui.
         const rt = await ctx.pedir_post("index.php", {
             accion: "viajes/listar_por_terminal",
             nombre_solicitante: nombre_admin,
@@ -345,7 +360,7 @@ export const prueba = {
         ctx.assert(encontrado_micro_con_venta,
             "Ningún micro del viaje B tiene vendidos_aqui > 0 en listar_por_terminal.");
 
-        // 7. Limpieza: cancelar la venta y eliminar los viajes.
+        // 8. Limpieza: cancelar la venta y eliminar los viajes.
         await ctx.pedir_post("index.php", {
             accion: "ventas/cancelar",
             nombre_solicitante: nombre_admin,
