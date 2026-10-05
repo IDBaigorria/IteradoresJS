@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.5g
+ * @version 1.5plugin.5h
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -46,6 +46,8 @@ import { prueba as venta_cancelar_reabrir } from "./prueba_16_venta_cancelar_rea
 import { prueba as venta_sin_asientos } from "./prueba_17_venta_sin_asientos.js";
 import { prueba as eliminar_viaje_limpia_nodos } from "./prueba_30_eliminar_viaje_limpia_nodos.js";
 import { prueba as eliminar_micro_limpia_nodos } from "./prueba_31_eliminar_micro_limpia_nodos.js";
+import { prueba as eliminar_terminal_limpia_nodos } from "./prueba_32_eliminar_terminal_limpia_nodos.js";
+import { prueba as editar_paradas_limpia_nodos } from "./prueba_33_editar_paradas_limpia_nodos.js";
 
 export const SECCIONES = [
     {
@@ -118,7 +120,9 @@ export const SECCIONES = [
         nombre: "Grafo",
         pruebas: [
             eliminar_viaje_limpia_nodos,
-            eliminar_micro_limpia_nodos
+            eliminar_micro_limpia_nodos,
+            eliminar_terminal_limpia_nodos,
+            editar_paradas_limpia_nodos
         ]
     }
 ];

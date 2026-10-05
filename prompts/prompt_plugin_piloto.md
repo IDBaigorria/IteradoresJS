@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5g.** El esqueleto del plugin está
-armado y funcional, tiene 31 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5h.** El esqueleto del plugin está
+armado y funcional, tiene 33 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -379,14 +379,21 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 2 pruebas. `eliminar_viaje_limpia_nodos`
-  verifica que `eliminar_viaje` del piloto (v1.5piloto.74r)
-  destruye el subárbol completo del viaje.
-  `eliminar_micro_limpia_nodos` verifica que
-  `eliminar_micro_de_viaje` del piloto (v1.5piloto.74s)
-  destruye el micro completo (copia de vehículo, pisos,
-  asientos, campos). Ambas miden nodos con
-  `grafo/resumen` antes y después, y comparan.
+- `grafo`: 4 pruebas. Cada una verifica la Fase 2 del
+  plan de optimización del grafo:
+  - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
+    piloto (v1.5piloto.74r) destruye el subárbol completo
+    del viaje.
+  - `eliminar_micro_limpia_nodos`: `eliminar_micro_de_viaje`
+    (v1.5piloto.74s) destruye el micro completo (copia de
+    vehículo, pisos, asientos, campos).
+  - `eliminar_terminal_limpia_nodos`: `eliminar_terminal_autorizada`
+    (v1.5piloto.74u) destruye el TerminalViaje.
+  - `editar_paradas_limpia_nodos`: `_guardar_paradas_intermedias`
+    (v1.5piloto.74u) destruye las paradas viejas que no se
+    reutilizan al editar el viaje.
+  Todas miden nodos con `grafo/resumen` antes y después,
+  y comparan.
 
 ---
 
@@ -799,7 +806,15 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5g
+**Última actualización de este prompt:** v1.5plugin.5h
+(pruebas espejo de v1.5piloto.74u: `eliminar_terminal_limpia_nodos`
+y `editar_paradas_limpia_nodos`. La primera verifica que
+`eliminar_terminal_autorizada` destruye el TerminalViaje; la
+segunda, que `_guardar_paradas_intermedias` destruye las paradas
+viejas no reutilizadas al editar el viaje. Requisito de entorno
+para la primera: el dueño elegido debe tener al menos una terminal
+autorizable. La sección "grafo" pasa a 4 pruebas.).
+Antes: v1.5plugin.5g
 (prueba espejo de v1.5piloto.74s: `eliminar_micro_limpia_nodos`.
 Verifica que eliminar un micro destruye el subárbol completo
 (copia de vehículo, pisos, asientos, campos). Mide nodos
