@@ -334,8 +334,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5n.** El esqueleto del plugin está
-armado y funcional, tiene 41 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5o.** El esqueleto del plugin está
+armado y funcional, tiene 42 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + grafo) y las agrupa
 en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
@@ -379,7 +379,7 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 12 pruebas. Cada una verifica la Fase 2 del
+- `grafo`: 13 pruebas. Cada una verifica la Fase 2 del
   plan de optimización del grafo:
   - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
     piloto (v1.5piloto.74r) destruye el subárbol completo
@@ -431,6 +431,10 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     DJ adjunta con sus 4 sub-campos). No cubre la
     subida/reemplazo/eliminación de la DJ — pendiente,
     requiere subir archivos desde el plugin.
+  - `editar_paradas_sin_hora_limpia_nodos`:
+    `_guardar_paradas_intermedias` (v1.5piloto.75a)
+    destruye la hoja `hora_estimada` al quitarle la
+    hora a una parada, en lugar de solo desenlazarla.
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -845,7 +849,17 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5n
+**Última actualización de este prompt:** v1.5plugin.5o
+(prueba espejo de v1.5piloto.75a:
+`editar_paradas_sin_hora_limpia_nodos`. Cubre el fix de
+`hora_estimada`. Los otros 4 fixes de v75a quedan sin
+cobertura automática por razones justificadas:
+`bloqueado_hasta` (requiere esperar la expiración del
+bloqueo), `metodo_pago` del cupón (requiere flujo
+completo de venta + pago cambiando método), `foto`
+(requiere subir archivo). La sección "grafo" pasa a
+13 pruebas.).
+Antes: v1.5plugin.5n
 (prueba espejo de v1.5piloto.76:
 `eliminar_pasajero_limpia_nodos`. Verifica que
 `eliminar_pasajero` destruye el subárbol del pasajero
