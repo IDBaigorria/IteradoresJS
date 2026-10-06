@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.5s
+ * @version 1.5plugin.5u
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -68,6 +68,8 @@ import { prueba as vehiculo_cancelar } from "./prueba_50_vehiculo_cancelar.js";
 import { prueba as dj_pasajero_subir } from "./prueba_51_dj_pasajero_subir.js";
 import { prueba as dj_pasajero_reemplazar } from "./prueba_52_dj_pasajero_reemplazar.js";
 import { prueba as dj_pasajero_eliminar } from "./prueba_53_dj_pasajero_eliminar.js";
+import { prueba as bloqueo_expirado_permite_login } from "./prueba_54_bloqueo_expirado_permite_login.js";
+import { prueba as subir_foto_reemplazo_limpia_nodos } from "./prueba_55_subir_foto_reemplazo_limpia_nodos.js";
 
 export const SECCIONES = [
     {
@@ -137,6 +139,13 @@ export const SECCIONES = [
         ]
     },
     {
+        id: "autenticacion",
+        nombre: "Autenticación",
+        pruebas: [
+            bloqueo_expirado_permite_login
+        ]
+    },
+    {
         id: "empresas",
         nombre: "Empresas",
         pruebas: [
@@ -151,7 +160,8 @@ export const SECCIONES = [
         pruebas: [
             alta_vehiculo,
             vehiculo_patente_vacia,
-            vehiculo_cancelar
+            vehiculo_cancelar,
+            subir_foto_reemplazo_limpia_nodos
         ]
     },
     {

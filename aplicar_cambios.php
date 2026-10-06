@@ -1,15 +1,14 @@
 <?php
 /**
- * Aplicador de cambios automáticos — Proyecto JS (framework + plugin).
+ * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
  *
- * Tanda V1.5i.7h (framework) / V1.5plugin.5t (plugin):
- *   - Separar la configuración del framework (`Conf`) de la
- *     configuración del plugin (`ConfiguracionApli`).
- *   - Renombrar `Aplicacion/ConfPlugin.js` a
- *     `Aplicacion/ConfiguracionApli.js`.
- *   - Espejar las constantes del piloto + métodos conmutados
- *     de auth.
- *   - Actualizar imports en 41 archivos.
+ * Tanda V1.5plugin.5u (C2 — cobertura de fixes v75a):
+ *   - Prueba 54: bloqueo de autenticación conmutable (2s en modo
+ *     pruebas). Verifica el comportamiento del rate limiting.
+ *   - Prueba 55: reemplazo de foto de vehículo (fix v75a de
+ *     `foto`). Mide huérfanos con grafo/resumen.
+ *   - El fix de `metodo_pago` del cupón queda como excepción
+ *     justificada (no alcanzable desde la API pública).
  *
  * Uso:
  *   php aplicar_cambios.php
@@ -24,433 +23,364 @@
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
-// Lista de archivos del plugin que importan ConfPlugin.js.
-// Generada desde el Select-String del usuario.
-$archivos_con_import_confplugin = [
-    'Aplicacion/arranque.js',
-    'Aplicacion/GrafoPlugin.js',
-    'Aplicacion/servicio.js',
-    'Aplicacion/pruebas/_helpers.js',
-    'Aplicacion/pruebas/prueba_02_login.js',
-    'Aplicacion/pruebas/prueba_18_autocompletado_dni_terminal_clientes.js',
-    'Aplicacion/pruebas/prueba_19_alta_terminal.js',
-    'Aplicacion/pruebas/prueba_20_alta_viaje.js',
-    'Aplicacion/pruebas/prueba_21_alta_micro.js',
-    'Aplicacion/pruebas/prueba_22_micro_sin_empresa.js',
-    'Aplicacion/pruebas/prueba_23_micro_sin_vehiculo.js',
-    'Aplicacion/pruebas/prueba_24_micro_monto_vacio.js',
-    'Aplicacion/pruebas/prueba_25_micro_monto_negativo.js',
-    'Aplicacion/pruebas/prueba_26_micro_cancelar.js',
-    'Aplicacion/pruebas/prueba_27_micro_mismo_vehiculo.js',
-    'Aplicacion/pruebas/prueba_28_micro_vehiculo_sin_asientos.js',
-    'Aplicacion/pruebas/prueba_29_micro_colision_numeracion.js',
-    'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_39_limpiar_viajes_prueba_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_40_eliminar_usuario_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_41_eliminar_pasajero_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-    'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-    'Aplicacion/pruebas/prueba_44_cerrar_sesion_cierra_modales.js',
-    'Aplicacion/pruebas/prueba_45_alta_empresa.js',
-    'Aplicacion/pruebas/prueba_46_empresa_nombre_vacio.js',
-    'Aplicacion/pruebas/prueba_47_empresa_cancelar.js',
-    'Aplicacion/pruebas/prueba_48_alta_vehiculo.js',
-    'Aplicacion/pruebas/prueba_49_vehiculo_patente_vacia.js',
-    'Aplicacion/pruebas/prueba_50_vehiculo_cancelar.js',
-    'Aplicacion/pruebas/prueba_51_dj_pasajero_subir.js',
-    'Aplicacion/pruebas/prueba_52_dj_pasajero_reemplazar.js',
-    'Aplicacion/pruebas/prueba_53_dj_pasajero_eliminar.js',
-];
-
 // ============================================================
 // Cambios a aplicar
 // ============================================================
 
-$cambios = [];
+$cambios = [
 
-// ------------------------------------------------------------
-// FRAMEWORK — Configuracion/Configuracion.js
-// ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // ConfPlugin/ConfiguracionApli — bump a 5u
+    // ------------------------------------------------------------
 
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Configuracion/Configuracion.js',
-    'descripcion' => 'Configuracion.js: agregar header + bump a 1.5i.7h',
-    'buscar' => [
-        '/**',
-        ' * Clase de configuración global de la aplicación.',
-        ' * Todas las propiedades son estáticas e inmutables.',
-        ' *',
-        ' * @author Ignacio David Baigorria',
-        ' * ',
-        ' * @class',
-        ' * @memberof Configuracion',
-        ' *',
-        ' */',
-        'class Conf {',
-    ],
-    'reemplazar' => [
-        '/**',
-        ' * Clase de configuración del framework.',
-        ' * Todas las propiedades son estáticas.',
-        ' *',
-        ' * Solo contiene constantes propias del framework. Las constantes',
-        ' * específicas de una aplicación viven en su propio módulo de',
-        ' * configuración (por ejemplo, `Aplicacion/ConfiguracionApli.js`).',
-        ' *',
-        ' * @author Ignacio David Baigorria',
-        ' * @version 1.5i.7h',
-        ' * @since 1.5i.7h',
-        ' * @class',
-        ' * @memberof Configuracion',
-        ' */',
-        'class Conf {',
-    ],
-];
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Configuracion/Configuracion.js',
-    'descripcion' => 'Configuracion.js: quitar constantes del piloto',
-    'buscar' => [
-        '  /**',
-        '   * Nombre de la aplicación ',
-        '   * @type {string}  */',
-        '  static NOMBRE_APP = "MiSuperApp";',
-        '',
-        '  /**',
-        '   * Versión de la aplicación ',
-        '   * @type {string}  */',
-        '  static VERSION_APP = "0.0.0";',
-        '',
-        '  /**',
-        '   * Autor de la aplicación  ',
-        '   * @type {string}*/',
-        '  static AUTOR_APP = "Ignacio David Baigorria";',
-        '',
-        '  /**',
-        '   * Prefijo de sesión basado en el nombre de la app',
-        '   *  @type {string}  */',
-        '  static PREFIJO_SESSION = Conf.NOMBRE_APP + "_";',
-        '',
-        '  /** ',
-        '   * Si se ejecuta en localhost',
-        '   * @type {boolean}  */',
-        '  static LOCAL = true;',
-    ],
-    'reemplazar' => [
-        '  /** ',
-        '   * Si se ejecuta en localhost',
-        '   * @type {boolean}  */',
-        '  static LOCAL = true;',
-        '',
-        '  // Nota (v1.5plugin.5t): las constantes propias de la',
-        '  // aplicación (NOMBRE_APP, VERSION_APP, AUTOR_APP,',
-        '  // PREFIJO_SESSION, NOMBRE_APP_CREDENCIALES) se movieron al',
-        '  // módulo `Aplicacion/ConfiguracionApli.js`. Este archivo',
-        '  // contiene solo las del framework.',
-    ],
-];
-
-// ------------------------------------------------------------
-// FRAMEWORK — Configuracion/Entorno.js
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Configuracion/Entorno.js',
-    'descripcion' => 'Entorno.js: bump a 1.3.7',
-    'buscar' => [
-        ' * @author Ignacio David Baigorria',
-        ' * @version 1.3.6',
-        ' * @since 1.2.6',
-    ],
-    'reemplazar' => [
-        ' * @author Ignacio David Baigorria',
-        ' * @version 1.3.7',
-        ' * @since 1.2.6',
-    ],
-];
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Configuracion/Entorno.js',
-    'descripcion' => 'Entorno.js: agregar prefijo_sesion (getter/setter)',
-    'buscar' => [
-        '    /**',
-        '     * Verifica si la persistencia es XML.',
-        '     * @returns {boolean}',
-        '     */',
-        '    es_persistencia_xml() {',
-        '        return this.persistencia() === this.PERSISTENCIA_XML;',
-        '    },',
-        '',
-        '   // ═══════════════════════════════════════════════════════════',
-        '    // UBICACIÓN GEOGRÁFICA (v1.3.6)',
-        '    // ═══════════════════════════════════════════════════════════',
-    ],
-    'reemplazar' => [
-        '    /**',
-        '     * Verifica si la persistencia es XML.',
-        '     * @returns {boolean}',
-        '     */',
-        '    es_persistencia_xml() {',
-        '        return this.persistencia() === this.PERSISTENCIA_XML;',
-        '    },',
-        '',
-        '    // ══════════════════════════════════════════════',
-        '    // PREFIJO DE SESIÓN (v1.5i.7h)',
-        '    // ══════════════════════════════════════════════',
-        '',
-        '    /**',
-        '     * Prefijo usado para las claves de sesión que el framework',
-        '     * guarda. El framework no conoce el nombre de la aplicación;',
-        '     * el piloto llama a `establecer_prefijo_sesion()` al arrancar',
-        '     * para alinear las claves con su propio nombre.',
-        '     *',
-        '     * @type {string}',
-        '     * @since 1.5i.7h',
-        '     */',
-        '    _prefijo_sesion: \'iteradores_\',',
-        '',
-        '    /**',
-        '     * Define el prefijo de sesión que el framework usará.',
-        '     *',
-        '     * @param {string} prefijo',
-        '     * @returns {void}',
-        '     * @since 1.5i.7h',
-        '     */',
-        '    establecer_prefijo_sesion(prefijo) {',
-        '        this._prefijo_sesion = prefijo;',
-        '    },',
-        '',
-        '    /**',
-        '     * Devuelve el prefijo de sesión actual.',
-        '     *',
-        '     * @returns {string}',
-        '     * @since 1.5i.7h',
-        '     */',
-        '    prefijo_sesion() {',
-        '        return this._prefijo_sesion;',
-        '    },',
-        '',
-        '   // ═══════════════════════════════════════════════════════════',
-        '    // UBICACIÓN GEOGRÁFICA (v1.3.6)',
-        '    // ═══════════════════════════════════════════════════════════',
-    ],
-];
-
-// ------------------------------------------------------------
-// Aplicacion/arranque.js
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/arranque.js',
-    'descripcion' => 'arranque.js: bump a 1.5plugin.5t',
-    'buscar' => [' * @version 1.5plugin.2b'],
-    'reemplazar' => [' * @version 1.5plugin.5t'],
-];
-
-// ------------------------------------------------------------
-// Aplicacion/servicio.js
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/servicio.js',
-    'descripcion' => 'servicio.js: bump a 1.5plugin.5t',
-    'buscar' => [' * @version 1.5plugin.5s'],
-    'reemplazar' => [' * @version 1.5plugin.5t'],
-];
-
-// ------------------------------------------------------------
-// Aplicacion/GrafoPlugin.js
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'GrafoPlugin.js: bump a 1.5plugin.5t',
-    'buscar' => [' * @version 1.5plugin.2a'],
-    'reemplazar' => [' * @version 1.5plugin.5t'],
-];
-
-// ------------------------------------------------------------
-// Aplicacion/pruebas/_helpers.js
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/pruebas/_helpers.js',
-    'descripcion' => '_helpers.js: bump a 1.5plugin.5t',
-    'buscar' => [' * @version 1.5plugin.5d'],
-    'reemplazar' => [' * @version 1.5plugin.5t'],
-];
-
-// ------------------------------------------------------------
-// Aplicacion/pruebas/prueba_45_alta_empresa.js
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/pruebas/prueba_45_alta_empresa.js',
-    'descripcion' => 'prueba_45: bump a 1.5plugin.5t',
-    'buscar' => [' * @version 1.5plugin.5r-fix'],
-    'reemplazar' => [' * @version 1.5plugin.5t'],
-];
-
-// ------------------------------------------------------------
-// Renombrar imports: ConfPlugin.js -> ConfiguracionApli.js
-// (41 archivos, con 'todos' => true porque pueden aparecer
-//  una sola vez en cada uno, pero es más robusto así)
-// ------------------------------------------------------------
-
-foreach ($archivos_con_import_confplugin as $arch) {
-    $cambios[] = [
+    [
         'tipo' => 'reemplazar',
-        'archivo' => $arch,
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'ConfiguracionApli: @version y VERSION_APP a 5u',
         'todos' => true,
-        'descripcion' => "Import ConfPlugin -> ConfiguracionApli en $arch",
-        'buscar' => ['ConfPlugin.js'],
-        'reemplazar' => ['ConfiguracionApli.js'],
-    ];
-}
-
-// ------------------------------------------------------------
-// Aplicacion/ConfiguracionApli.js (nuevo)
-// ------------------------------------------------------------
-
-$cambios[] = [
-    'tipo' => 'crear',
-    'archivo' => 'Aplicacion/ConfiguracionApli.js',
-    'descripcion' => 'ConfiguracionApli.js (nuevo, espejo del PHP)',
-    'contenido' => [
-        '/**',
-        ' * Configuración propia de la aplicación plugin de pruebas.',
-        ' *',
-        ' * Espejo de `Aplicacion/ConfiguracionApli.php` del proyecto PHP.',
-        ' * Contiene las constantes que describen a la aplicación concreta',
-        ' * (nombre, credenciales, rate limiting de autenticación, prefijo',
-        ' * de sesión) más las constantes específicas del plugin',
-        ' * (nombre del grafo, URL del piloto, códigos de acceso).',
-        ' *',
-        ' * El plugin no usa el rate limiting de autenticación (no tiene',
-        ' * login propio), pero las constantes se mantienen por espejo',
-        ' * con el piloto PHP.',
-        ' *',
-        ' * La función `configurar_conf(Conf)` aplica al `Conf` del',
-        ' * framework los valores que el framework sí necesita conocer',
-        ' * (nombre de la app, método de persistencia, nombre de la BD).',
-        ' *',
-        ' * @version 1.5plugin.5t',
-        ' * @since 1.5plugin.5t',
-        ' */',
-        '',
-        'import { Entorno } from "../Configuracion/Entorno.js";',
-        '',
-        '// ═══════════════════════════════════════════════════════════',
-        '// CONSTANTES DEL PILOTO (espejo del ConfiguracionApli.php)',
-        '// ═══════════════════════════════════════════════════════════',
-        '',
-        'export const NOMBRE_APP = "IteradoresPluginPruebas";',
-        'export const NOMBRE_APP_CREDENCIALES = "IteradoresPluginPruebas_credenciales";',
-        'export const VERSION_APP = "1.5plugin.5t";',
-        'export const AUTOR_APP = "Ignacio David Baigorria";',
-        'export const PREFIJO_SESSION = "IteradoresPluginPruebas_";',
-        '',
-        'export const INTENTOS_MAXIMOS_AUTENTICACION = 5;',
-        'export const BLOQUEO_AUTENTICACION_SEGUNDOS = 900;',
-        'export const INTENTOS_MAXIMOS_AUTENTICACION_PRUEBAS = 5;',
-        'export const BLOQUEO_AUTENTICACION_SEGUNDOS_PRUEBAS = 2;',
-        'export const HASH_DUMMY_AUTENTICACION = \'$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi\';',
-        'export const NOMBRE_ADMIN = "Administrador";',
-        '',
-        '/**',
-        ' * Devuelve el máximo de intentos fallidos según el modo actual.',
-        ' * @returns {number}',
-        ' * @since 1.5plugin.5t',
-        ' */',
-        'export function intentos_maximos_autenticacion() {',
-        '    return Entorno.es_pruebas()',
-        '        ? INTENTOS_MAXIMOS_AUTENTICACION_PRUEBAS',
-        '        : INTENTOS_MAXIMOS_AUTENTICACION;',
-        '}',
-        '',
-        '/**',
-        ' * Devuelve la duración del bloqueo (segundos) según el modo',
-        ' * actual.',
-        ' * @returns {number}',
-        ' * @since 1.5plugin.5t',
-        ' */',
-        'export function bloqueo_autenticacion_segundos() {',
-        '    return Entorno.es_pruebas()',
-        '        ? BLOQUEO_AUTENTICACION_SEGUNDOS_PRUEBAS',
-        '        : BLOQUEO_AUTENTICACION_SEGUNDOS;',
-        '}',
-        '',
-        '// ═══════════════════════════════════════════════════════════',
-        '// CONFIGURACIÓN DEL FRAMEWORK',
-        '// ═══════════════════════════════════════════════════════════',
-        '',
-        '/**',
-        ' * Aplica al `Conf` del framework los valores que necesita',
-        ' * conocer. Se llama desde `arranque.js` ANTES de importar',
-        ' * el Controlador, para que la persistencia tome el nombre',
-        ' * de la BD correcto.',
-        ' *',
-        ' * @param {typeof Conf} Conf Clase `Conf` del framework.',
-        ' * @returns {void}',
-        ' */',
-        'export function configurar_conf(Conf) {',
-        '    Conf.NOMBRE_APP = NOMBRE_APP;',
-        '    Conf.VERSION_APP = VERSION_APP;',
-        '    Conf.NOMBRE_BD_INDEXEDDB = NOMBRE_APP;',
-        '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = NOMBRE_APP;',
-        '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
-        '}',
-        '',
-        '// ═══════════════════════════════════════════════════════════',
-        '// CONSTANTES PROPIAS DEL PLUGIN',
-        '// ═══════════════════════════════════════════════════════════',
-        '',
-        'export const NOMBRE_GRAFO = "plugin_pruebas";',
-        'export const VERSION_PLUGIN = "1.5plugin.5t";',
-        '',
-        '// URL del piloto PHP. Debe estar cubierta por host_permissions',
-        '// y content_scripts.matches en manifest.json.',
-        'export const URL_PILOTO = "http://localhost/iteradores/codigo.worktrees/v1.5i/";',
-        '',
-        '// Códigos de acceso de los usuarios del piloto, para las pruebas.',
-        'export const CODIGO_ADMIN     = "IDB";',
-        'export const CODIGO_DUENO     = "carmen1";',
-        'export const CODIGO_TERMINAL1 = "carmen2";',
-        'export const CODIGO_TERMINAL2 = "lujan2";',
-        'export const CODIGO_SOPORTE   = "manolo3";',
-        '',
-        '// El nombre de usuario del dueño de las terminales de prueba',
-        '// no se conoce de antemano. Para crear pasajeros de prueba se',
-        '// resuelve desde el page (`window.usuario_actual.dueno`), ver',
-        '// `ctx.crear_pasajero_de_prueba` en `servicio.js`.',
+        'buscar' => ['1.5plugin.5t'],
+        'reemplazar' => ['1.5plugin.5u'],
     ],
-];
 
-// ------------------------------------------------------------
-// Eliminar ConfPlugin.js
-// ------------------------------------------------------------
+    // ------------------------------------------------------------
+    // catalogo.js — imports + secciones
+    // ------------------------------------------------------------
 
-$cambios[] = [
-    'tipo' => 'eliminar',
-    'archivo' => 'Aplicacion/ConfPlugin.js',
-    'descripcion' => 'ConfPlugin.js renombrado a ConfiguracionApli.js',
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: bump @version a 5u',
+        'buscar' => [' * @version 1.5plugin.5s'],
+        'reemplazar' => [' * @version 1.5plugin.5u'],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: agregar imports de pruebas 54 y 55',
+        'buscar' => [
+            'import { prueba as dj_pasajero_eliminar } from "./prueba_53_dj_pasajero_eliminar.js";',
+        ],
+        'reemplazar' => [
+            'import { prueba as dj_pasajero_eliminar } from "./prueba_53_dj_pasajero_eliminar.js";',
+            'import { prueba as bloqueo_expirado_permite_login } from "./prueba_54_bloqueo_expirado_permite_login.js";',
+            'import { prueba as subir_foto_reemplazo_limpia_nodos } from "./prueba_55_subir_foto_reemplazo_limpia_nodos.js";',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: agregar sección autenticacion',
+        'buscar' => [
+            '    {',
+            '        id: "empresas",',
+        ],
+        'reemplazar' => [
+            '    {',
+            '        id: "autenticacion",',
+            '        nombre: "Autenticación",',
+            '        pruebas: [',
+            '            bloqueo_expirado_permite_login',
+            '        ]',
+            '    },',
+            '    {',
+            '        id: "empresas",',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo: sumar prueba 55 a sección vehiculos',
+        'buscar' => [
+            '        pruebas: [',
+            '            alta_vehiculo,',
+            '            vehiculo_patente_vacia,',
+            '            vehiculo_cancelar',
+            '        ]',
+            '    },',
+            '    {',
+            '        id: "declaraciones_juradas",',
+        ],
+        'reemplazar' => [
+            '        pruebas: [',
+            '            alta_vehiculo,',
+            '            vehiculo_patente_vacia,',
+            '            vehiculo_cancelar,',
+            '            subir_foto_reemplazo_limpia_nodos',
+            '        ]',
+            '    },',
+            '    {',
+            '        id: "declaraciones_juradas",',
+        ],
+    ],
+
+    // ------------------------------------------------------------
+    // Prueba 54: bloqueo conmutable
+    // ------------------------------------------------------------
+
+    [
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'Prueba 54: bloqueo expira y permite login',
+        'contenido' => [
+            '/**',
+            ' * Prueba: bloqueo por intentos fallidos y expiración.',
+            ' *',
+            ' * Verifica el rate limiting de autenticación con el tiempo',
+            ' * de bloqueo conmutable (ConfiguracionApli::',
+            ' * bloqueo_autenticacion_segundos() = 2s en modo pruebas).',
+            ' *',
+            ' * Flujo:',
+            ' *   1. Crear un usuario de prueba con contraseña conocida.',
+            ' *   2. Hacer 5 intentos fallidos consecutivos (llega al máximo).',
+            ' *   3. Verificar que el login correcto falla (bloqueado).',
+            ' *   4. Esperar 3s a que expire el bloqueo.',
+            ' *   5. Verificar que el login correcto ahora pasa.',
+            ' *   6. Limpiar: eliminar el usuario de prueba.',
+            ' *',
+            ' * No mide huérfanos: el fix de `bloqueado_hasta` vive en',
+            ' * el grafo de credenciales, y `grafo/resumen` solo mide la',
+            ' * app. La verificación de que la hoja se destruye queda',
+            ' * pendiente (requiere endpoint de credenciales).',
+            ' *',
+            ' * @version 1.5plugin.5u',
+            ' * @since 1.5plugin.5u',
+            ' */',
+            '',
+            'import { CODIGO_ADMIN } from "../ConfiguracionApli.js";',
+            'import { cerrar_modales_si_abiertos } from "./_helpers.js";',
+            '',
+            'export const prueba = {',
+            '    id: "bloqueo_expirado_permite_login",',
+            '    nombre: "Autenticación: bloqueo expira y permite login",',
+            '    descripcion: "Verifica que tras N intentos fallidos el usuario queda bloqueado, y que tras el tiempo de bloqueo (2s en modo pruebas) puede loguearse de nuevo.",',
+            '    async ejecutar(ctx) {',
+            '        await ctx.asegurar_login(CODIGO_ADMIN);',
+            '        await cerrar_modales_si_abiertos(ctx);',
+            '',
+            '        const r_nombre = await ctx.nombre_usuario_actual();',
+            '        if (!r_nombre || !r_nombre.exito) {',
+            '            throw new Error("No se pudo leer el nombre del admin");',
+            '        }',
+            '        const nombre_admin = r_nombre.nombre_usuario;',
+            '',
+            '        const sufijo = String(Date.now()).slice(-8);',
+            '        const nombre_prueba = "bloq" + sufijo;',
+            '        const contrasena_correcta = "testpass1234";',
+            '',
+            '        // El alta de usuario puede disparar alert() con el',
+            '        // código asignado. Activar modo prueba + override.',
+            '        await ctx.sobrescribir_alertas();',
+            '        await ctx.activar_modo_prueba();',
+            '',
+            '        try {',
+            '            // 1. Crear usuario de prueba.',
+            '            const r_crear = await ctx.pedir_post("index.php", {',
+            '                accion: "administrador/agregar_usuario",',
+            '                nombre_solicitante: nombre_admin,',
+            '                nombre_usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta,',
+            '                nivel: "dueno",',
+            '                nombre_real: "Prueba Bloqueo"',
+            '            });',
+            '            ctx.assert(r_crear && r_crear.exito && r_crear.json && r_crear.json.exito,',
+            '                "No se pudo crear el usuario de prueba: "',
+            '                + (r_crear && r_crear.json && r_crear.json.error ? r_crear.json.error : "(sin detalle)"));',
+            '',
+            '            // 2. Cinco intentos fallidos consecutivos.',
+            '            const intentos_maximos = 5;',
+            '            for (let i = 0; i < intentos_maximos; i++) {',
+            '                const r = await ctx.pedir_post("index.php", {',
+            '                    accion: "autenticar/verificar",',
+            '                    usuario: nombre_prueba,',
+            '                    contrasena: "mala_" + i + "_" + sufijo',
+            '                });',
+            '                ctx.assert(r && r.exito && r.json && r.json.exito === false,',
+            '                    "El intento fallido " + (i + 1) + " no devolvió error.");',
+            '            }',
+            '',
+            '            // 3. Con el bloqueo activo, el login correcto debe fallar.',
+            '            const r_bloqueado = await ctx.pedir_post("index.php", {',
+            '                accion: "autenticar/verificar",',
+            '                usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta',
+            '            });',
+            '            ctx.assert(r_bloqueado && r_bloqueado.exito && r_bloqueado.json && r_bloqueado.json.exito === false,',
+            '                "El usuario bloqueado pudo loguearse: el rate limiting no funciona.");',
+            '',
+            '            // 4. Esperar a que expire el bloqueo (2s + margen).',
+            '            await ctx.pausa(3000);',
+            '',
+            '            // 5. Ahora sí, el login correcto debe pasar.',
+            '            const r_ok = await ctx.pedir_post("index.php", {',
+            '                accion: "autenticar/verificar",',
+            '                usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta',
+            '            });',
+            '            ctx.assert(r_ok && r_ok.exito && r_ok.json && r_ok.json.exito === true,',
+            '                "El login falló tras esperar el bloqueo: "',
+            '                + (r_ok && r_ok.json && r_ok.json.error ? r_ok.json.error : "(sin detalle)"));',
+            '',
+            '        } finally {',
+            '            // 6. Limpieza.',
+            '            try {',
+            '                await ctx.pedir_post("index.php", {',
+            '                    accion: "administrador/eliminar_usuario",',
+            '                    nombre_solicitante: nombre_admin,',
+            '                    nombre_usuario: nombre_prueba',
+            '                });',
+            '            } catch (e) {',
+            '                console.warn("No se pudo eliminar el usuario de prueba:", e);',
+            '            }',
+            '            await ctx.restaurar_alertas();',
+            '            await ctx.desactivar_modo_prueba();',
+            '        }',
+            '    }',
+            '};',
+        ],
+    ],
+
+    // ------------------------------------------------------------
+    // Prueba 55: reemplazo de foto de vehículo
+    // ------------------------------------------------------------
+
+    [
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'Prueba 55: reemplazo de foto de vehículo',
+        'contenido' => [
+            '/**',
+            ' * Prueba: subir foto a un vehículo y reemplazarla.',
+            ' *',
+            ' * Verifica el fix v75a: al subir una foto nueva a un',
+            ' * vehículo que ya tenía una, la hoja `foto` vieja se',
+            ' * destruye (no queda huérfana).',
+            ' *',
+            ' * Flujo:',
+            ' *   1. Crear empresa + vehículo de prueba.',
+            ' *   2. Subir foto A (PNG).',
+            ' *   3. Medir huérfanos (H1).',
+            ' *   4. Subir foto B (otro PNG).',
+            ' *   5. Medir huérfanos (H2). H2 debe ser == H1.',
+            ' *   6. Verificar que el vehículo tiene la foto B.',
+            ' *   7. Limpieza: eliminar la empresa (arrastra el vehículo).',
+            ' *',
+            ' * @version 1.5plugin.5u',
+            ' * @since 1.5plugin.5u',
+            ' */',
+            '',
+            'import { CODIGO_ADMIN } from "../ConfiguracionApli.js";',
+            'import { cerrar_modales_si_abiertos } from "./_helpers.js";',
+            'import { PNG_TRANSPARENTE_B64, PNG_ALTERNATIVO_B64 } from "./_pasajeros_helpers.js";',
+            'import { ir_a_micros_y_elegir_dueno, eliminar_empresa_por_post } from "./_empresas_helpers.js";',
+            '',
+            'async function _contar_huerfanos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo consultar grafo/resumen: "',
+            '            + (r && r.json && r.json.error ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '    return r.json.resumen.huerfanos;',
+            '}',
+            '',
+            'export const prueba = {',
+            '    id: "subir_foto_reemplazo_limpia_nodos",',
+            '    nombre: "Vehículos: reemplazo de foto destruye la vieja",',
+            '    descripcion: "Verifica que subir una foto nueva destruye la hoja `foto` vieja (fix v75a).",',
+            '    async ejecutar(ctx) {',
+            '        await ctx.asegurar_login(CODIGO_ADMIN);',
+            '        await cerrar_modales_si_abiertos(ctx);',
+            '',
+            '        const r_nombre = await ctx.nombre_usuario_actual();',
+            '        if (!r_nombre || !r_nombre.exito) {',
+            '            throw new Error("No se pudo leer el nombre del admin");',
+            '        }',
+            '        const nombre_admin = r_nombre.nombre_usuario;',
+            '',
+            '        const { nombre_dueno } = await ir_a_micros_y_elegir_dueno(ctx);',
+            '',
+            '        const sufijo = String(Date.now()).slice(-8);',
+            '        const nombre_empresa = "fotoauto" + sufijo;',
+            '        const nombre_vehiculo = "FOTO" + sufijo;',
+            '',
+            '        const r_emp = await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_dueno,',
+            '            nombre_empresa,',
+            '            nombre_real: "Empresa Foto Test"',
+            '        });',
+            '        ctx.assert(r_emp && r_emp.exito && r_emp.json && r_emp.json.exito,',
+            '            "No se pudo crear la empresa: "',
+            '            + (r_emp && r_emp.json && r_emp.json.error ? r_emp.json.error : "(sin detalle)"));',
+            '',
+            '        try {',
+            '            const r_veh = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/agregar",',
+            '                nombre_solicitante: nombre_admin,',
+            '                nombre_dueno,',
+            '                nombre_empresa,',
+            '                nombre_vehiculo,',
+            '                nombre_real: "Vehiculo Foto Test"',
+            '            });',
+            '            ctx.assert(r_veh && r_veh.exito && r_veh.json && r_veh.json.exito,',
+            '                "No se pudo crear el vehículo: "',
+            '                + (r_veh && r_veh.json && r_veh.json.error ? r_veh.json.error : "(sin detalle)"));',
+            '',
+            '            // 1. Subir foto A.',
+            '            const r_foto_a = await ctx.subir_archivo(',
+            '                "vehiculos/subir_foto",',
+            '                { nombre_empresa, nombre_vehiculo },',
+            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
+            '            );',
+            '            ctx.assert(r_foto_a && r_foto_a.exito && r_foto_a.json && r_foto_a.json.exito,',
+            '                "Falló la subida de la foto A: "',
+            '                + (r_foto_a && r_foto_a.json && r_foto_a.json.error ? r_foto_a.json.error : "(sin detalle)"));',
+            '',
+            '            const H1 = await _contar_huerfanos(ctx, nombre_admin);',
+            '',
+            '            // 2. Subir foto B (reemplaza la A).',
+            '            const r_foto_b = await ctx.subir_archivo(',
+            '                "vehiculos/subir_foto",',
+            '                { nombre_empresa, nombre_vehiculo },',
+            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
+            '            );',
+            '            ctx.assert(r_foto_b && r_foto_b.exito && r_foto_b.json && r_foto_b.json.exito,',
+            '                "Falló la subida de la foto B: "',
+            '                + (r_foto_b && r_foto_b.json && r_foto_b.json.error ? r_foto_b.json.error : "(sin detalle)"));',
+            '',
+            '            const H2 = await _contar_huerfanos(ctx, nombre_admin);',
+            '            ctx.assert(H2 === H1,',
+            '                "Reemplazar la foto dejó huérfanos (el nodo viejo no se destruyó). "',
+            '                + "H1=" + H1 + ", H2=" + H2 + ", dif=" + (H2 - H1));',
+            '',
+            '            // 3. Verificar que el vehículo tiene la foto B.',
+            '            const r_listar = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/listar",',
+            '                nombre_empresa',
+            '            });',
+            '            ctx.assert(r_listar && r_listar.exito && r_listar.json && r_listar.json.exito,',
+            '                "No se pudieron listar los vehículos: "',
+            '                + (r_listar && r_listar.json && r_listar.json.error ? r_listar.json.error : "(sin detalle)"));',
+            '            const veh = (r_listar.json.vehiculos || []).find(v => v.nombre_vehiculo === nombre_vehiculo);',
+            '            ctx.assert(veh && veh.foto,',
+            '                "El vehículo no tiene foto tras la subida.");',
+            '            ctx.assert(veh.foto.indexOf("fotoB_") !== -1,',
+            '                "La foto del vehículo no es la B. Ruta: " + veh.foto);',
+            '',
+            '        } finally {',
+            '            await eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa);',
+            '        }',
+            '    }',
+            '};',
+        ],
+    ],
+
 ];
 
 // ============================================================

@@ -15,8 +15,8 @@
  * framework los valores que el framework sí necesita conocer
  * (nombre de la app, método de persistencia, nombre de la BD).
  *
- * @version 1.5plugin.5t
- * @since 1.5plugin.5t
+ * @version 1.5plugin.5u
+ * @since 1.5plugin.5u
  */
 
 import { Entorno } from "../Configuracion/Entorno.js";
@@ -27,7 +27,7 @@ import { Entorno } from "../Configuracion/Entorno.js";
 
 export const NOMBRE_APP = "IteradoresPluginPruebas";
 export const NOMBRE_APP_CREDENCIALES = "IteradoresPluginPruebas_credenciales";
-export const VERSION_APP = "1.5plugin.5t";
+export const VERSION_APP = "1.5plugin.5u";
 export const AUTOR_APP = "Ignacio David Baigorria";
 export const PREFIJO_SESSION = "IteradoresPluginPruebas_";
 
@@ -41,7 +41,7 @@ export const NOMBRE_ADMIN = "Administrador";
 /**
  * Devuelve el máximo de intentos fallidos según el modo actual.
  * @returns {number}
- * @since 1.5plugin.5t
+ * @since 1.5plugin.5u
  */
 export function intentos_maximos_autenticacion() {
     return Entorno.es_pruebas()
@@ -53,7 +53,7 @@ export function intentos_maximos_autenticacion() {
  * Devuelve la duración del bloqueo (segundos) según el modo
  * actual.
  * @returns {number}
- * @since 1.5plugin.5t
+ * @since 1.5plugin.5u
  */
 export function bloqueo_autenticacion_segundos() {
     return Entorno.es_pruebas()
@@ -87,7 +87,7 @@ export function configurar_conf(Conf) {
 // ═══════════════════════════════════════════════════════════
 
 export const NOMBRE_GRAFO = "plugin_pruebas";
-export const VERSION_PLUGIN = "1.5plugin.5t";
+export const VERSION_PLUGIN = "1.5plugin.5u";
 
 // URL del piloto PHP. Debe estar cubierta por host_permissions
 // y content_scripts.matches en manifest.json.

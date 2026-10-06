@@ -177,7 +177,8 @@
                             fd.append(k, campos[k]);
                         }
                     }
-                    fd.append("archivo", blob, datos.archivo.nombre);
+                    const nombre_campo = datos.archivo.nombre_campo || "archivo";
+                    fd.append(nombre_campo, blob, datos.archivo.nombre);
 
                     const resp = await fetch("index.php", {
                         method: "POST",
