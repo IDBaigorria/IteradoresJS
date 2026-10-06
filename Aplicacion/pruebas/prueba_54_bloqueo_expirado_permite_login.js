@@ -18,12 +18,24 @@
  * app. La verificación de que la hoja se destruye queda
  * pendiente (requiere endpoint de credenciales).
  *
- * @version 1.5plugin.5u
+ * @version 1.5plugin.5v
  * @since 1.5plugin.5u
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 import { cerrar_modales_si_abiertos } from "./_helpers.js";
+
+async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {
+    const r = await ctx.pedir_post("index.php", {
+        accion: "grafo/resumen_credenciales",
+        nombre_solicitante
+    });
+    if (!r || !r.exito || !r.json || !r.json.exito) {
+        throw new Error("No se pudo consultar grafo/resumen_credenciales: "
+            + (r && r.json && r.json.error ? r.json.error : "(sin detalle)"));
+    }
+    return r.json.resumen.huerfanos;
+}
 
 export const prueba = {
     id: "bloqueo_expirado_permite_login",
@@ -42,6 +54,11 @@ export const prueba = {
         const sufijo = String(Date.now()).slice(-8);
         const nombre_prueba = "bloq" + sufijo;
         const contrasena_correcta = "testpass1234";
+
+        // Medir huérfanos en credenciales antes de crear el
+        // usuario. La prueba verifica que el ciclo de bloqueo
+        // no deja nodos huérfanos (fix v75a de `bloqueado_hasta`).
+        const H0 = await _contar_huerfanos_credenciales(ctx, nombre_admin);
 
         // El alta de usuario puede disparar alert() con el
         // código asignado. Activar modo prueba + override.
@@ -62,6 +79,10 @@ export const prueba = {
                 "No se pudo crear el usuario de prueba: "
                 + (r_crear && r_crear.json && r_crear.json.error ? r_crear.json.error : "(sin detalle)"));
 
+            const H1 = await _contar_huerfanos_credenciales(ctx, nombre_admin);
+            ctx.assert(H1 === H0,
+                "Crear un usuario dejó huérfanos en credenciales. H0=" + H0 + ", H1=" + H1);
+
             // 2. Cinco intentos fallidos consecutivos.
             const intentos_maximos = 5;
             for (let i = 0; i < intentos_maximos; i++) {
@@ -73,6 +94,10 @@ export const prueba = {
                 ctx.assert(r && r.exito && r.json && r.json.exito === false,
                     "El intento fallido " + (i + 1) + " no devolvió error.");
             }
+
+            const H2 = await _contar_huerfanos_credenciales(ctx, nombre_admin);
+            ctx.assert(H2 === H0,
+                "Los 5 intentos fallidos dejaron huérfanos. H0=" + H0 + ", H2=" + H2);
 
             // 3. Con el bloqueo activo, el login correcto debe fallar.
             const r_bloqueado = await ctx.pedir_post("index.php", {
@@ -95,6 +120,13 @@ export const prueba = {
             ctx.assert(r_ok && r_ok.exito && r_ok.json && r_ok.json.exito === true,
                 "El login falló tras esperar el bloqueo: "
                 + (r_ok && r_ok.json && r_ok.json.error ? r_ok.json.error : "(sin detalle)"));
+
+            // 6. Verificar que la hoja `bloqueado_hasta` se destruyó
+            //    (fix v75a). Sin el fix, quedaría huérfana y H3 > H0.
+            const H3 = await _contar_huerfanos_credenciales(ctx, nombre_admin);
+            ctx.assert(H3 === H0,
+                "El ciclo de bloqueo dejó huérfanos (la hoja `bloqueado_hasta` no se destruyó). "
+                + "H0=" + H0 + ", H3=" + H3);
 
         } finally {
             // 6. Limpieza.

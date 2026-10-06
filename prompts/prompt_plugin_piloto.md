@@ -298,6 +298,20 @@ disponibles:
 - `ctx.enviar(tipo, datos)` — mensaje crudo al content script.
 - `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
   archivo por multipart al piloto. `archivo_info` es
+  `{nombre, tipo, contenido_base64, nombre_campo}`. El fetch lo
+  hace el content script (las cookies del piloto solo viajan
+  desde el origen del piloto).
+
+**Endpoint de diagnóstico:**
+- `grafo/resumen_credenciales` → mismo resumen que
+  `grafo/resumen` pero del grafo de credenciales. Solo en modo
+  pruebas. Requiere `nombre_solicitante` con nivel admin o
+  soporte. Se usa en `bloqueo_expirado_permite_login` para
+  verificar que el ciclo de bloqueo no deja huérfanos en
+  credenciales (fix v75a de `bloqueado_hasta`).
+
+- `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
+  archivo por multipart al piloto. `archivo_info` es
   `{nombre, tipo, contenido_base64}`. El fetch lo hace el
   content script (las cookies del piloto solo viajan desde
   el origen del piloto).
@@ -876,7 +890,11 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5s
+**Última actualización de este prompt:** v1.5plugin.5v
+(prueba 54 extendida: mide huérfanos del grafo de
+credenciales con el endpoint `grafo/resumen_credenciales`
+del piloto. Verifica el fix v75a de `bloqueado_hasta`.).
+Antes: v1.5plugin.5s
 (helper multipart `ctx.subir_archivo` + sección
 "declaraciones_juradas" con 3 pruebas: subir, reemplazar y
 eliminar la DJ del pasajero. Cubre el fix de v1.5piloto.76
