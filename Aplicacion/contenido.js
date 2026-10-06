@@ -9,7 +9,7 @@
  * basicas sobre el DOM de la pagina. Todas las respuestas
  * son objetos `{ exito, ... }`.
  *
- * @version 1.5plugin.4nml
+ * @version 1.5plugin.5s
  */
 
 (function () {
@@ -145,6 +145,43 @@
                         headers: { "Content-Type": "application/x-www-form-urlencoded" },
                         body: new URLSearchParams(datos.body || {}).toString(),
                         credentials: "same-origin"
+                    });
+                    const texto = await resp.text();
+                    let json = null;
+                    try { json = JSON.parse(texto); } catch (e) { /* no era JSON */ }
+                    return { exito: true, status: resp.status, texto, json };
+                } catch (e) {
+                    return { exito: false, error: e.message };
+                }
+            }
+
+            case "subir_archivo": {
+                // Sube un archivo al piloto vía multipart.
+                // Recibe { accion, campos, archivo: { nombre, tipo, contenido_base64 } }.
+                // Decodifica el base64, arma un Blob y hace el fetch.
+                // Corre en el content script para que las cookies
+                // del piloto viajen con la petición.
+                try {
+                    const binario = atob(datos.archivo.contenido_base64);
+                    const bytes = new Uint8Array(binario.length);
+                    for (let i = 0; i < binario.length; i++) {
+                        bytes[i] = binario.charCodeAt(i);
+                    }
+                    const blob = new Blob([bytes], { type: datos.archivo.tipo });
+
+                    const fd = new FormData();
+                    fd.append("accion", datos.accion);
+                    const campos = datos.campos || {};
+                    for (const k in campos) {
+                        if (Object.prototype.hasOwnProperty.call(campos, k)) {
+                            fd.append(k, campos[k]);
+                        }
+                    }
+                    fd.append("archivo", blob, datos.archivo.nombre);
+
+                    const resp = await fetch("index.php", {
+                        method: "POST",
+                        body: fd
                     });
                     const texto = await resp.text();
                     let json = null;

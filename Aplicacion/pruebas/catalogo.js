@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.5r
+ * @version 1.5plugin.5s
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -65,6 +65,9 @@ import { prueba as empresa_cancelar } from "./prueba_47_empresa_cancelar.js";
 import { prueba as alta_vehiculo } from "./prueba_48_alta_vehiculo.js";
 import { prueba as vehiculo_patente_vacia } from "./prueba_49_vehiculo_patente_vacia.js";
 import { prueba as vehiculo_cancelar } from "./prueba_50_vehiculo_cancelar.js";
+import { prueba as dj_pasajero_subir } from "./prueba_51_dj_pasajero_subir.js";
+import { prueba as dj_pasajero_reemplazar } from "./prueba_52_dj_pasajero_reemplazar.js";
+import { prueba as dj_pasajero_eliminar } from "./prueba_53_dj_pasajero_eliminar.js";
 
 export const SECCIONES = [
     {
@@ -149,6 +152,15 @@ export const SECCIONES = [
             alta_vehiculo,
             vehiculo_patente_vacia,
             vehiculo_cancelar
+        ]
+    },
+    {
+        id: "declaraciones_juradas",
+        nombre: "Declaraciones juradas",
+        pruebas: [
+            dj_pasajero_subir,
+            dj_pasajero_reemplazar,
+            dj_pasajero_eliminar
         ]
     },
     {

@@ -296,6 +296,11 @@ disponibles:
 **Fetch y datos:**
 - `ctx.pedir_post(url, body)` → {exito, status, texto, json}.
 - `ctx.enviar(tipo, datos)` — mensaje crudo al content script.
+- `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
+  archivo por multipart al piloto. `archivo_info` es
+  `{nombre, tipo, contenido_base64}`. El fetch lo hace el
+  content script (las cookies del piloto solo viajan desde
+  el origen del piloto).
 
 **Datos del page (via `chrome.scripting.executeScript` en
 MAIN world):**
@@ -334,10 +339,11 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5r.** El esqueleto del plugin está
-armado y funcional, tiene 50 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.5s.** El esqueleto del plugin está
+armado y funcional, tiene 53 pruebas (base + autocompletado
 + puntos de venta + viajes + micros + ventas + empresas
-+ vehículos + grafo) y las agrupa en secciones. Las pruebas de venta son independientes: cada
++ vehículos + declaraciones juradas + grafo) y las agrupa
+en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
 croquis y espera activamente por asientos libres. El viaje
 de setup tiene 2 micros de 44 asientos cada uno (88 en
@@ -373,6 +379,11 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   `vehiculo_patente_vacia` (validación local),
   `vehiculo_cancelar`. Crea una empresa de setup para cada
   prueba y la elimina al final (arrastra el vehículo).
+- `declaraciones_juradas`: 3 pruebas. `dj_pasajero_subir`
+  (flujo feliz con multipart), `dj_pasajero_reemplazar`
+  (subir una DJ nueva destruye la vieja),
+  `dj_pasajero_eliminar` (destruye el nodo y limpia el
+  enlace). Usan el helper `ctx.subir_archivo`.
 - `autocompletado`: `autocompletado_dni_terminal_clientes`.
 - `puntos_de_venta`: `alta_terminal`.
 - `viajes`: `alta_viaje`.
@@ -865,7 +876,14 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5r
+**Última actualización de este prompt:** v1.5plugin.5s
+(helper multipart `ctx.subir_archivo` + sección
+"declaraciones_juradas" con 3 pruebas: subir, reemplazar y
+eliminar la DJ del pasajero. Cubre el fix de v1.5piloto.76
+que destruye el nodo DJ con sus 4 sub-campos. Nuevo
+archivo de helpers `_pasajeros_helpers.js` con PNGs de
+prueba embebidos.).
+Antes: v1.5plugin.5r
 (pruebas espejo de v1.5piloto.76c: sección "empresas" con 3
 pruebas (alta, nombre vacío, cancelar) y sección "vehículos"
 con 3 pruebas (alta, patente vacía, cancelar). Nuevo archivo

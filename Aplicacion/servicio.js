@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.5f
+ * @version 1.5plugin.5s
  */
 
 import { URL_PILOTO } from "./ConfPlugin.js";
@@ -170,6 +170,24 @@ function _crear_ctx(pestana_id) {
                     args: [datos]
                 });
                 return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        subir_archivo: async (accion, campos, archivo_info) => {
+            // Sube un archivo vía multipart al piloto. El fetch
+            // lo hace el content script (no el SW) porque las
+            // cookies del piloto solo viajan desde el origen
+            // del piloto.
+            //
+            // `archivo_info` es { nombre, tipo, contenido_base64 }.
+            try {
+                const r = await enviar("subir_archivo", {
+                    accion,
+                    campos: campos || {},
+                    archivo: archivo_info
+                });
+                return r || { exito: false, error: "sin respuesta" };
             } catch (e) {
                 return { exito: false, error: e.message };
             }
