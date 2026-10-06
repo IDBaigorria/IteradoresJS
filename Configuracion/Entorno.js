@@ -15,7 +15,7 @@ import { Conf } from "./index.js";
  * que necesiten adaptar su comportamiento al entorno actual.
  *
  * @author Ignacio David Baigorria
- * @version 1.3.6
+ * @version 1.3.7
  * @since 1.2.6
  * @module Configuracion/Entorno
  */
@@ -261,6 +261,42 @@ export const Entorno = {
      */
     es_persistencia_xml() {
         return this.persistencia() === this.PERSISTENCIA_XML;
+    },
+
+    // ══════════════════════════════════════════════
+    // PREFIJO DE SESIÓN (v1.5i.7h)
+    // ══════════════════════════════════════════════
+
+    /**
+     * Prefijo usado para las claves de sesión que el framework
+     * guarda. El framework no conoce el nombre de la aplicación;
+     * el piloto llama a `establecer_prefijo_sesion()` al arrancar
+     * para alinear las claves con su propio nombre.
+     *
+     * @type {string}
+     * @since 1.5i.7h
+     */
+    _prefijo_sesion: 'iteradores_',
+
+    /**
+     * Define el prefijo de sesión que el framework usará.
+     *
+     * @param {string} prefijo
+     * @returns {void}
+     * @since 1.5i.7h
+     */
+    establecer_prefijo_sesion(prefijo) {
+        this._prefijo_sesion = prefijo;
+    },
+
+    /**
+     * Devuelve el prefijo de sesión actual.
+     *
+     * @returns {string}
+     * @since 1.5i.7h
+     */
+    prefijo_sesion() {
+        return this._prefijo_sesion;
     },
 
    // ═══════════════════════════════════════════════════════════

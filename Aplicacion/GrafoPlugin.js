@@ -13,12 +13,12 @@
  *           ├── duracion_ms
  *           └── detalle (opcional)
  *
- * @version 1.5plugin.2a
+ * @version 1.5plugin.5t
  */
 
 import { Nodo } from "../Nodos/index.js";
 import { obtener_controlador } from "./arranque.js";
-import { NOMBRE_GRAFO } from "./ConfPlugin.js";
+import { NOMBRE_GRAFO } from "./ConfiguracionApli.js";
 
 let _grafo_cargado = false;
 

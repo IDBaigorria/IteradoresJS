@@ -9,7 +9,7 @@
  * @version 1.5plugin.5s
  */
 
-import { CODIGO_ADMIN } from "../ConfPlugin.js";
+import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 import { cerrar_modales_si_abiertos } from "./_helpers.js";
 import {
     PNG_TRANSPARENTE_B64,

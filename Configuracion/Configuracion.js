@@ -1,38 +1,28 @@
 /**
- * Clase de configuración global de la aplicación.
- * Todas las propiedades son estáticas e inmutables.
+ * Clase de configuración del framework.
+ * Todas las propiedades son estáticas.
+ *
+ * Solo contiene constantes propias del framework. Las constantes
+ * específicas de una aplicación viven en su propio módulo de
+ * configuración (por ejemplo, `Aplicacion/ConfiguracionApli.js`).
  *
  * @author Ignacio David Baigorria
- * 
+ * @version 1.5i.7h
+ * @since 1.5i.7h
  * @class
  * @memberof Configuracion
- *
  */
 class Conf {
-  /**
-   * Nombre de la aplicación 
-   * @type {string}  */
-  static NOMBRE_APP = "MiSuperApp";
-
-  /**
-   * Versión de la aplicación 
-   * @type {string}  */
-  static VERSION_APP = "0.0.0";
-
-  /**
-   * Autor de la aplicación  
-   * @type {string}*/
-  static AUTOR_APP = "Ignacio David Baigorria";
-
-  /**
-   * Prefijo de sesión basado en el nombre de la app
-   *  @type {string}  */
-  static PREFIJO_SESSION = Conf.NOMBRE_APP + "_";
-
   /** 
    * Si se ejecuta en localhost
    * @type {boolean}  */
   static LOCAL = true;
+
+  // Nota (v1.5plugin.5t): las constantes propias de la
+  // aplicación (NOMBRE_APP, VERSION_APP, AUTOR_APP,
+  // PREFIJO_SESSION, NOMBRE_APP_CREDENCIALES) se movieron al
+  // módulo `Aplicacion/ConfiguracionApli.js`. Este archivo
+  // contiene solo las del framework.
 
   // --- Bases de datos (temporal, luego reemplazarás) ---
 

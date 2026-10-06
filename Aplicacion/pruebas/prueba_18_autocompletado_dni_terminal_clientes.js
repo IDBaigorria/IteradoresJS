@@ -19,7 +19,7 @@
  * @version 1.5plugin.4p
  */
 
-import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
+import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
 
 export const prueba = {
     id: "autocompletado_dni_terminal_clientes",

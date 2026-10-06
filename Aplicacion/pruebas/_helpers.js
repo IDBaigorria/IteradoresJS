@@ -8,10 +8,10 @@
  * sean independientes y no se agoten los asientos del viaje
  * de setup.
  *
- * @version 1.5plugin.5d
+ * @version 1.5plugin.5t
  */
 
-import { CODIGO_TERMINAL1 } from "../ConfPlugin.js";
+import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
 
 // ============================================================
 // Generadores de datos unicos

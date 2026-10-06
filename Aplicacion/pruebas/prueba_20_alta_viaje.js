@@ -20,7 +20,7 @@
  * @version 1.5plugin.4w
  */
 
-import { CODIGO_DUENO } from "../ConfPlugin.js";
+import { CODIGO_DUENO } from "../ConfiguracionApli.js";
 
 export const prueba = {
     id: "alta_viaje",

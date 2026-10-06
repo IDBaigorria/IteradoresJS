@@ -9,11 +9,11 @@
  *   Conf, para que la persistencia tome el nombre correcto
  *   de la BD IndexedDB.
  *
- * @version 1.5plugin.2b
+ * @version 1.5plugin.5t
  */
 
 import { Conf, Entorno } from "../Configuracion/index.js";
-import { configurar_conf } from "./ConfPlugin.js";
+import { configurar_conf } from "./ConfiguracionApli.js";
 
 // Salida consola: los caminos HTML del framework tocan document,
 // que no existe en el service worker.

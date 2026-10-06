@@ -9,10 +9,10 @@
  * selector de empresas. Por eso, después de guardar, hay
  * que hacer polling hasta que la nueva opción aparezca.
  *
- * @version 1.5plugin.5r-fix
+ * @version 1.5plugin.5t
  */
 
-import { CODIGO_ADMIN } from "../ConfPlugin.js";
+import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 import { cerrar_modales_si_abiertos } from "./_helpers.js";
 import {
     ir_a_micros_y_elegir_dueno,

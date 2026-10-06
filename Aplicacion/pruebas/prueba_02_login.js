@@ -5,7 +5,7 @@
  * @version 1.5plugin.3f
  */
 
-import { CODIGO_ADMIN } from "../ConfPlugin.js";
+import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 
 export const prueba = {
     id: "login_admin",

@@ -22,7 +22,7 @@
  * @version 1.5plugin.5o
  */
 
-import { CODIGO_ADMIN } from "../ConfPlugin.js";
+import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 
 // ============================================================
 // Helpers internos

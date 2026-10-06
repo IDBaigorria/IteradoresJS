@@ -1,14 +1,15 @@
 <?php
 /**
- * Aplicador de cambios automáticos — Plugin de pruebas (iteradoresJS).
+ * Aplicador de cambios automáticos — Proyecto JS (framework + plugin).
  *
- * Tanda V1.5plugin.5s:
- *   - Helper multipart en el plugin: ctx.subir_archivo().
- *   - Nueva sección "declaraciones_juradas" con 3 pruebas:
- *     subir, reemplazar, eliminar la DJ del pasajero.
- *   - Sección "base" sigue con 3 pruebas, "grafo" con 14, etc.
- *   - Bump de ConfPlugin, servicio.js, contenido.js, catálogo
- *     y prompt.
+ * Tanda V1.5i.7h (framework) / V1.5plugin.5t (plugin):
+ *   - Separar la configuración del framework (`Conf`) de la
+ *     configuración del plugin (`ConfiguracionApli`).
+ *   - Renombrar `Aplicacion/ConfPlugin.js` a
+ *     `Aplicacion/ConfiguracionApli.js`.
+ *   - Espejar las constantes del piloto + métodos conmutados
+ *     de auth.
+ *   - Actualizar imports en 41 archivos.
  *
  * Uso:
  *   php aplicar_cambios.php
@@ -23,725 +24,433 @@
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
+// Lista de archivos del plugin que importan ConfPlugin.js.
+// Generada desde el Select-String del usuario.
+$archivos_con_import_confplugin = [
+    'Aplicacion/arranque.js',
+    'Aplicacion/GrafoPlugin.js',
+    'Aplicacion/servicio.js',
+    'Aplicacion/pruebas/_helpers.js',
+    'Aplicacion/pruebas/prueba_02_login.js',
+    'Aplicacion/pruebas/prueba_18_autocompletado_dni_terminal_clientes.js',
+    'Aplicacion/pruebas/prueba_19_alta_terminal.js',
+    'Aplicacion/pruebas/prueba_20_alta_viaje.js',
+    'Aplicacion/pruebas/prueba_21_alta_micro.js',
+    'Aplicacion/pruebas/prueba_22_micro_sin_empresa.js',
+    'Aplicacion/pruebas/prueba_23_micro_sin_vehiculo.js',
+    'Aplicacion/pruebas/prueba_24_micro_monto_vacio.js',
+    'Aplicacion/pruebas/prueba_25_micro_monto_negativo.js',
+    'Aplicacion/pruebas/prueba_26_micro_cancelar.js',
+    'Aplicacion/pruebas/prueba_27_micro_mismo_vehiculo.js',
+    'Aplicacion/pruebas/prueba_28_micro_vehiculo_sin_asientos.js',
+    'Aplicacion/pruebas/prueba_29_micro_colision_numeracion.js',
+    'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_39_limpiar_viajes_prueba_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_40_eliminar_usuario_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_41_eliminar_pasajero_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
+    'Aplicacion/pruebas/prueba_44_cerrar_sesion_cierra_modales.js',
+    'Aplicacion/pruebas/prueba_45_alta_empresa.js',
+    'Aplicacion/pruebas/prueba_46_empresa_nombre_vacio.js',
+    'Aplicacion/pruebas/prueba_47_empresa_cancelar.js',
+    'Aplicacion/pruebas/prueba_48_alta_vehiculo.js',
+    'Aplicacion/pruebas/prueba_49_vehiculo_patente_vacia.js',
+    'Aplicacion/pruebas/prueba_50_vehiculo_cancelar.js',
+    'Aplicacion/pruebas/prueba_51_dj_pasajero_subir.js',
+    'Aplicacion/pruebas/prueba_52_dj_pasajero_reemplazar.js',
+    'Aplicacion/pruebas/prueba_53_dj_pasajero_eliminar.js',
+];
+
 // ============================================================
 // Cambios a aplicar
 // ============================================================
 
-$cambios = [
+$cambios = [];
 
-    // --------------------------------------------------------
-    // ConfPlugin.js
-    // --------------------------------------------------------
+// ------------------------------------------------------------
+// FRAMEWORK — Configuracion/Configuracion.js
+// ------------------------------------------------------------
 
-    [
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Configuracion/Configuracion.js',
+    'descripcion' => 'Configuracion.js: agregar header + bump a 1.5i.7h',
+    'buscar' => [
+        '/**',
+        ' * Clase de configuración global de la aplicación.',
+        ' * Todas las propiedades son estáticas e inmutables.',
+        ' *',
+        ' * @author Ignacio David Baigorria',
+        ' * ',
+        ' * @class',
+        ' * @memberof Configuracion',
+        ' *',
+        ' */',
+        'class Conf {',
+    ],
+    'reemplazar' => [
+        '/**',
+        ' * Clase de configuración del framework.',
+        ' * Todas las propiedades son estáticas.',
+        ' *',
+        ' * Solo contiene constantes propias del framework. Las constantes',
+        ' * específicas de una aplicación viven en su propio módulo de',
+        ' * configuración (por ejemplo, `Aplicacion/ConfiguracionApli.js`).',
+        ' *',
+        ' * @author Ignacio David Baigorria',
+        ' * @version 1.5i.7h',
+        ' * @since 1.5i.7h',
+        ' * @class',
+        ' * @memberof Configuracion',
+        ' */',
+        'class Conf {',
+    ],
+];
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Configuracion/Configuracion.js',
+    'descripcion' => 'Configuracion.js: quitar constantes del piloto',
+    'buscar' => [
+        '  /**',
+        '   * Nombre de la aplicación ',
+        '   * @type {string}  */',
+        '  static NOMBRE_APP = "MiSuperApp";',
+        '',
+        '  /**',
+        '   * Versión de la aplicación ',
+        '   * @type {string}  */',
+        '  static VERSION_APP = "0.0.0";',
+        '',
+        '  /**',
+        '   * Autor de la aplicación  ',
+        '   * @type {string}*/',
+        '  static AUTOR_APP = "Ignacio David Baigorria";',
+        '',
+        '  /**',
+        '   * Prefijo de sesión basado en el nombre de la app',
+        '   *  @type {string}  */',
+        '  static PREFIJO_SESSION = Conf.NOMBRE_APP + "_";',
+        '',
+        '  /** ',
+        '   * Si se ejecuta en localhost',
+        '   * @type {boolean}  */',
+        '  static LOCAL = true;',
+    ],
+    'reemplazar' => [
+        '  /** ',
+        '   * Si se ejecuta en localhost',
+        '   * @type {boolean}  */',
+        '  static LOCAL = true;',
+        '',
+        '  // Nota (v1.5plugin.5t): las constantes propias de la',
+        '  // aplicación (NOMBRE_APP, VERSION_APP, AUTOR_APP,',
+        '  // PREFIJO_SESSION, NOMBRE_APP_CREDENCIALES) se movieron al',
+        '  // módulo `Aplicacion/ConfiguracionApli.js`. Este archivo',
+        '  // contiene solo las del framework.',
+    ],
+];
+
+// ------------------------------------------------------------
+// FRAMEWORK — Configuracion/Entorno.js
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Configuracion/Entorno.js',
+    'descripcion' => 'Entorno.js: bump a 1.3.7',
+    'buscar' => [
+        ' * @author Ignacio David Baigorria',
+        ' * @version 1.3.6',
+        ' * @since 1.2.6',
+    ],
+    'reemplazar' => [
+        ' * @author Ignacio David Baigorria',
+        ' * @version 1.3.7',
+        ' * @since 1.2.6',
+    ],
+];
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Configuracion/Entorno.js',
+    'descripcion' => 'Entorno.js: agregar prefijo_sesion (getter/setter)',
+    'buscar' => [
+        '    /**',
+        '     * Verifica si la persistencia es XML.',
+        '     * @returns {boolean}',
+        '     */',
+        '    es_persistencia_xml() {',
+        '        return this.persistencia() === this.PERSISTENCIA_XML;',
+        '    },',
+        '',
+        '   // ═══════════════════════════════════════════════════════════',
+        '    // UBICACIÓN GEOGRÁFICA (v1.3.6)',
+        '    // ═══════════════════════════════════════════════════════════',
+    ],
+    'reemplazar' => [
+        '    /**',
+        '     * Verifica si la persistencia es XML.',
+        '     * @returns {boolean}',
+        '     */',
+        '    es_persistencia_xml() {',
+        '        return this.persistencia() === this.PERSISTENCIA_XML;',
+        '    },',
+        '',
+        '    // ══════════════════════════════════════════════',
+        '    // PREFIJO DE SESIÓN (v1.5i.7h)',
+        '    // ══════════════════════════════════════════════',
+        '',
+        '    /**',
+        '     * Prefijo usado para las claves de sesión que el framework',
+        '     * guarda. El framework no conoce el nombre de la aplicación;',
+        '     * el piloto llama a `establecer_prefijo_sesion()` al arrancar',
+        '     * para alinear las claves con su propio nombre.',
+        '     *',
+        '     * @type {string}',
+        '     * @since 1.5i.7h',
+        '     */',
+        '    _prefijo_sesion: \'iteradores_\',',
+        '',
+        '    /**',
+        '     * Define el prefijo de sesión que el framework usará.',
+        '     *',
+        '     * @param {string} prefijo',
+        '     * @returns {void}',
+        '     * @since 1.5i.7h',
+        '     */',
+        '    establecer_prefijo_sesion(prefijo) {',
+        '        this._prefijo_sesion = prefijo;',
+        '    },',
+        '',
+        '    /**',
+        '     * Devuelve el prefijo de sesión actual.',
+        '     *',
+        '     * @returns {string}',
+        '     * @since 1.5i.7h',
+        '     */',
+        '    prefijo_sesion() {',
+        '        return this._prefijo_sesion;',
+        '    },',
+        '',
+        '   // ═══════════════════════════════════════════════════════════',
+        '    // UBICACIÓN GEOGRÁFICA (v1.3.6)',
+        '    // ═══════════════════════════════════════════════════════════',
+    ],
+];
+
+// ------------------------------------------------------------
+// Aplicacion/arranque.js
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Aplicacion/arranque.js',
+    'descripcion' => 'arranque.js: bump a 1.5plugin.5t',
+    'buscar' => [' * @version 1.5plugin.2b'],
+    'reemplazar' => [' * @version 1.5plugin.5t'],
+];
+
+// ------------------------------------------------------------
+// Aplicacion/servicio.js
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Aplicacion/servicio.js',
+    'descripcion' => 'servicio.js: bump a 1.5plugin.5t',
+    'buscar' => [' * @version 1.5plugin.5s'],
+    'reemplazar' => [' * @version 1.5plugin.5t'],
+];
+
+// ------------------------------------------------------------
+// Aplicacion/GrafoPlugin.js
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Aplicacion/GrafoPlugin.js',
+    'descripcion' => 'GrafoPlugin.js: bump a 1.5plugin.5t',
+    'buscar' => [' * @version 1.5plugin.2a'],
+    'reemplazar' => [' * @version 1.5plugin.5t'],
+];
+
+// ------------------------------------------------------------
+// Aplicacion/pruebas/_helpers.js
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Aplicacion/pruebas/_helpers.js',
+    'descripcion' => '_helpers.js: bump a 1.5plugin.5t',
+    'buscar' => [' * @version 1.5plugin.5d'],
+    'reemplazar' => [' * @version 1.5plugin.5t'],
+];
+
+// ------------------------------------------------------------
+// Aplicacion/pruebas/prueba_45_alta_empresa.js
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'reemplazar',
+    'archivo' => 'Aplicacion/pruebas/prueba_45_alta_empresa.js',
+    'descripcion' => 'prueba_45: bump a 1.5plugin.5t',
+    'buscar' => [' * @version 1.5plugin.5r-fix'],
+    'reemplazar' => [' * @version 1.5plugin.5t'],
+];
+
+// ------------------------------------------------------------
+// Renombrar imports: ConfPlugin.js -> ConfiguracionApli.js
+// (41 archivos, con 'todos' => true porque pueden aparecer
+//  una sola vez en cada uno, pero es más robusto así)
+// ------------------------------------------------------------
+
+foreach ($archivos_con_import_confplugin as $arch) {
+    $cambios[] = [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'Bump VERSION_APP a 5s',
-        'buscar' => [
-            '    Conf.VERSION_APP = "1.5plugin.5r";',
-        ],
-        'reemplazar' => [
-            '    Conf.VERSION_APP = "1.5plugin.5s";',
-        ],
+        'archivo' => $arch,
+        'todos' => true,
+        'descripcion' => "Import ConfPlugin -> ConfiguracionApli en $arch",
+        'buscar' => ['ConfPlugin.js'],
+        'reemplazar' => ['ConfiguracionApli.js'],
+    ];
+}
+
+// ------------------------------------------------------------
+// Aplicacion/ConfiguracionApli.js (nuevo)
+// ------------------------------------------------------------
+
+$cambios[] = [
+    'tipo' => 'crear',
+    'archivo' => 'Aplicacion/ConfiguracionApli.js',
+    'descripcion' => 'ConfiguracionApli.js (nuevo, espejo del PHP)',
+    'contenido' => [
+        '/**',
+        ' * Configuración propia de la aplicación plugin de pruebas.',
+        ' *',
+        ' * Espejo de `Aplicacion/ConfiguracionApli.php` del proyecto PHP.',
+        ' * Contiene las constantes que describen a la aplicación concreta',
+        ' * (nombre, credenciales, rate limiting de autenticación, prefijo',
+        ' * de sesión) más las constantes específicas del plugin',
+        ' * (nombre del grafo, URL del piloto, códigos de acceso).',
+        ' *',
+        ' * El plugin no usa el rate limiting de autenticación (no tiene',
+        ' * login propio), pero las constantes se mantienen por espejo',
+        ' * con el piloto PHP.',
+        ' *',
+        ' * La función `configurar_conf(Conf)` aplica al `Conf` del',
+        ' * framework los valores que el framework sí necesita conocer',
+        ' * (nombre de la app, método de persistencia, nombre de la BD).',
+        ' *',
+        ' * @version 1.5plugin.5t',
+        ' * @since 1.5plugin.5t',
+        ' */',
+        '',
+        'import { Entorno } from "../Configuracion/Entorno.js";',
+        '',
+        '// ═══════════════════════════════════════════════════════════',
+        '// CONSTANTES DEL PILOTO (espejo del ConfiguracionApli.php)',
+        '// ═══════════════════════════════════════════════════════════',
+        '',
+        'export const NOMBRE_APP = "IteradoresPluginPruebas";',
+        'export const NOMBRE_APP_CREDENCIALES = "IteradoresPluginPruebas_credenciales";',
+        'export const VERSION_APP = "1.5plugin.5t";',
+        'export const AUTOR_APP = "Ignacio David Baigorria";',
+        'export const PREFIJO_SESSION = "IteradoresPluginPruebas_";',
+        '',
+        'export const INTENTOS_MAXIMOS_AUTENTICACION = 5;',
+        'export const BLOQUEO_AUTENTICACION_SEGUNDOS = 900;',
+        'export const INTENTOS_MAXIMOS_AUTENTICACION_PRUEBAS = 5;',
+        'export const BLOQUEO_AUTENTICACION_SEGUNDOS_PRUEBAS = 2;',
+        'export const HASH_DUMMY_AUTENTICACION = \'$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi\';',
+        'export const NOMBRE_ADMIN = "Administrador";',
+        '',
+        '/**',
+        ' * Devuelve el máximo de intentos fallidos según el modo actual.',
+        ' * @returns {number}',
+        ' * @since 1.5plugin.5t',
+        ' */',
+        'export function intentos_maximos_autenticacion() {',
+        '    return Entorno.es_pruebas()',
+        '        ? INTENTOS_MAXIMOS_AUTENTICACION_PRUEBAS',
+        '        : INTENTOS_MAXIMOS_AUTENTICACION;',
+        '}',
+        '',
+        '/**',
+        ' * Devuelve la duración del bloqueo (segundos) según el modo',
+        ' * actual.',
+        ' * @returns {number}',
+        ' * @since 1.5plugin.5t',
+        ' */',
+        'export function bloqueo_autenticacion_segundos() {',
+        '    return Entorno.es_pruebas()',
+        '        ? BLOQUEO_AUTENTICACION_SEGUNDOS_PRUEBAS',
+        '        : BLOQUEO_AUTENTICACION_SEGUNDOS;',
+        '}',
+        '',
+        '// ═══════════════════════════════════════════════════════════',
+        '// CONFIGURACIÓN DEL FRAMEWORK',
+        '// ═══════════════════════════════════════════════════════════',
+        '',
+        '/**',
+        ' * Aplica al `Conf` del framework los valores que necesita',
+        ' * conocer. Se llama desde `arranque.js` ANTES de importar',
+        ' * el Controlador, para que la persistencia tome el nombre',
+        ' * de la BD correcto.',
+        ' *',
+        ' * @param {typeof Conf} Conf Clase `Conf` del framework.',
+        ' * @returns {void}',
+        ' */',
+        'export function configurar_conf(Conf) {',
+        '    Conf.NOMBRE_APP = NOMBRE_APP;',
+        '    Conf.VERSION_APP = VERSION_APP;',
+        '    Conf.NOMBRE_BD_INDEXEDDB = NOMBRE_APP;',
+        '    Conf.SUPERESTRUCTURA_NOMBRE_BD_INDEXEDDB = NOMBRE_APP;',
+        '    Conf.SUPERESTRUCTURA_METODO_PERDURAR = "IndexedDB";',
+        '}',
+        '',
+        '// ═══════════════════════════════════════════════════════════',
+        '// CONSTANTES PROPIAS DEL PLUGIN',
+        '// ═══════════════════════════════════════════════════════════',
+        '',
+        'export const NOMBRE_GRAFO = "plugin_pruebas";',
+        'export const VERSION_PLUGIN = "1.5plugin.5t";',
+        '',
+        '// URL del piloto PHP. Debe estar cubierta por host_permissions',
+        '// y content_scripts.matches en manifest.json.',
+        'export const URL_PILOTO = "http://localhost/iteradores/codigo.worktrees/v1.5i/";',
+        '',
+        '// Códigos de acceso de los usuarios del piloto, para las pruebas.',
+        'export const CODIGO_ADMIN     = "IDB";',
+        'export const CODIGO_DUENO     = "carmen1";',
+        'export const CODIGO_TERMINAL1 = "carmen2";',
+        'export const CODIGO_TERMINAL2 = "lujan2";',
+        'export const CODIGO_SOPORTE   = "manolo3";',
+        '',
+        '// El nombre de usuario del dueño de las terminales de prueba',
+        '// no se conoce de antemano. Para crear pasajeros de prueba se',
+        '// resuelve desde el page (`window.usuario_actual.dueno`), ver',
+        '// `ctx.crear_pasajero_de_prueba` en `servicio.js`.',
     ],
+];
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfPlugin.js',
-        'descripcion' => 'Bump VERSION_PLUGIN a 5s',
-        'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.5r";',
-        ],
-        'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.5s";',
-        ],
-    ],
+// ------------------------------------------------------------
+// Eliminar ConfPlugin.js
+// ------------------------------------------------------------
 
-    // --------------------------------------------------------
-    // servicio.js
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'Bump @version de servicio.js a 5s',
-        'buscar' => [
-            ' * @version 1.5plugin.5f',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.5s',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'Agregar helper ctx.subir_archivo',
-        'buscar' => [
-            '        nombre_usuario_actual: async () => {',
-        ],
-        'reemplazar' => [
-            '        subir_archivo: async (accion, campos, archivo_info) => {',
-            '            // Sube un archivo vía multipart al piloto. El fetch',
-            '            // lo hace el content script (no el SW) porque las',
-            '            // cookies del piloto solo viajan desde el origen',
-            '            // del piloto.',
-            '            //',
-            '            // `archivo_info` es { nombre, tipo, contenido_base64 }.',
-            '            try {',
-            '                const r = await enviar("subir_archivo", {',
-            '                    accion,',
-            '                    campos: campos || {},',
-            '                    archivo: archivo_info',
-            '                });',
-            '                return r || { exito: false, error: "sin respuesta" };',
-            '            } catch (e) {',
-            '                return { exito: false, error: e.message };',
-            '            }',
-            '        },',
-            '        nombre_usuario_actual: async () => {',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // contenido.js
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'Bump @version de contenido.js a 5s',
-        'buscar' => [
-            ' * @version 1.5plugin.4nml',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.5s',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/contenido.js',
-        'descripcion' => 'Agregar caso subir_archivo al content script',
-        'buscar' => [
-            '            case "obtener_id_ultima_venta_terminal": {',
-        ],
-        'reemplazar' => [
-            '            case "subir_archivo": {',
-            '                // Sube un archivo al piloto vía multipart.',
-            '                // Recibe { accion, campos, archivo: { nombre, tipo, contenido_base64 } }.',
-            '                // Decodifica el base64, arma un Blob y hace el fetch.',
-            '                // Corre en el content script para que las cookies',
-            '                // del piloto viajen con la petición.',
-            '                try {',
-            '                    const binario = atob(datos.archivo.contenido_base64);',
-            '                    const bytes = new Uint8Array(binario.length);',
-            '                    for (let i = 0; i < binario.length; i++) {',
-            '                        bytes[i] = binario.charCodeAt(i);',
-            '                    }',
-            '                    const blob = new Blob([bytes], { type: datos.archivo.tipo });',
-            '',
-            '                    const fd = new FormData();',
-            '                    fd.append("accion", datos.accion);',
-            '                    const campos = datos.campos || {};',
-            '                    for (const k in campos) {',
-            '                        if (Object.prototype.hasOwnProperty.call(campos, k)) {',
-            '                            fd.append(k, campos[k]);',
-            '                        }',
-            '                    }',
-            '                    fd.append("archivo", blob, datos.archivo.nombre);',
-            '',
-            '                    const resp = await fetch("index.php", {',
-            '                        method: "POST",',
-            '                        body: fd',
-            '                    });',
-            '                    const texto = await resp.text();',
-            '                    let json = null;',
-            '                    try { json = JSON.parse(texto); } catch (e) { /* no era JSON */ }',
-            '                    return { exito: true, status: resp.status, texto, json };',
-            '                } catch (e) {',
-            '                    return { exito: false, error: e.message };',
-            '                }',
-            '            }',
-            '',
-            '            case "obtener_id_ultima_venta_terminal": {',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // _pasajeros_helpers.js (nuevo)
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => 'Helpers compartidos para pruebas de pasajeros',
-        'contenido' => [
-            '/**',
-            ' * Helpers compartidos por las pruebas de pasajeros.',
-            ' *',
-            ' * Todos usan `ctx` (el service worker) y son async. Lanzan',
-            ' * Error si algo falla, para que la prueba que los usa no siga',
-            ' * adelante con datos inconsistentes.',
-            ' *',
-            ' * @version 1.5plugin.5s',
-            ' */',
-            '',
-            '// PNG 1x1 transparente (67 bytes). Sirve para las pruebas de',
-            '// subida de archivo.',
-            'export const PNG_TRANSPARENTE_B64 =',
-            '    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";',
-            '',
-            '// Otro PNG 1x1 (para el test de reemplazo, así el nombre cambia).',
-            'export const PNG_ALTERNATIVO_B64 =',
-            '    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";',
-            '',
-            '/**',
-            ' * Resuelve el primer dueño vía POST.',
-            ' *',
-            ' * @param {object} ctx',
-            ' * @param {string} nombre_solicitante',
-            ' */',
-            'export async function primer_dueno_para_pruebas(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo listar dueños: "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    const lista = r.json.duenos || [];',
-            '    if (!Array.isArray(lista) || lista.length === 0) {',
-            '        throw new Error("No hay dueños disponibles.");',
-            '    }',
-            '    const primero = lista[0];',
-            '    const nombre = typeof primero === "string"',
-            '        ? primero',
-            '        : (primero.nombre_usuario || primero.nombre || primero.usuario);',
-            '    if (!nombre) {',
-            '        throw new Error("No se pudo determinar el nombre del dueño.");',
-            '    }',
-            '    return nombre;',
-            '}',
-            '',
-            '/**',
-            ' * Crea un pasajero de prueba y devuelve { dni }.',
-            ' *',
-            ' * @param {object} ctx',
-            ' * @param {string} nombre_solicitante',
-            ' * @param {string} nombre_dueno',
-            ' * @param {string} dni',
-            ' */',
-            'export async function crear_pasajero_de_prueba_admin(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "pasajeros/crear",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        dni,',
-            '        apellido: "Djtest",',
-            '        nombres: "Pasajero",',
-            '        email: "dj_" + dni + "@test.local",',
-            '        celular: "2983555123",',
-            '        celular_emergencia: "2983555222",',
-            '        fecha_nacimiento: "1990-06-15",',
-            '        direccion: "Calle Dj 1",',
-            '        localidad: "Tres Arroyos"',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo crear el pasajero: "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '}',
-            '',
-            '/**',
-            ' * Elimina un pasajero vía POST. Silencioso si falla.',
-            ' *',
-            ' * @param {object} ctx',
-            ' * @param {string} nombre_solicitante',
-            ' * @param {string} nombre_dueno',
-            ' * @param {string} dni',
-            ' */',
-            'export async function eliminar_pasajero_por_post(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    try {',
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "pasajeros/eliminar",',
-            '            nombre_solicitante,',
-            '            nombre_dueno,',
-            '            dni',
-            '        });',
-            '    } catch (e) {',
-            '        console.warn("No se pudo eliminar el pasajero de prueba:", e);',
-            '    }',
-            '}',
-            '',
-            '/**',
-            ' * Lee el pasajero por DNI y devuelve el objeto. Falla si no',
-            ' * existe.',
-            ' *',
-            ' * @param {object} ctx',
-            ' * @param {string} nombre_solicitante',
-            ' * @param {string} nombre_dueno',
-            ' * @param {string} dni',
-            ' */',
-            'export async function leer_pasajero(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "pasajeros/obtener",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        dni',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo leer el pasajero " + dni + ": "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    return r.json.pasajero;',
-            '}',
-            '',
-            '/**',
-            ' * Cuenta huérfanos con grafo/resumen. Falla si no se puede leer.',
-            ' *',
-            ' * @param {object} ctx',
-            ' * @param {string} nombre_solicitante',
-            ' */',
-            'export async function contar_huerfanos(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
-            '        nombre_solicitante',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo consultar grafo/resumen: "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    return r.json.resumen.huerfanos;',
-            '}',
-            '',
-            '/**',
-            ' * DNI único de 8 dígitos.',
-            ' */',
-            'export function dni_unico_para_pruebas() {',
-            '    const base = Date.now() % 90000000;',
-            '    return String(base + 10000000);',
-            '}',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // catalogo.js
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'Bump @version de catalogo.js a 5s',
-        'buscar' => [
-            ' * @version 1.5plugin.5r',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.5s',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'Agregar imports de las pruebas 51-53',
-        'buscar' => [
-            'import { prueba as vehiculo_cancelar } from "./prueba_50_vehiculo_cancelar.js";',
-            '',
-            'export const SECCIONES = [',
-        ],
-        'reemplazar' => [
-            'import { prueba as vehiculo_cancelar } from "./prueba_50_vehiculo_cancelar.js";',
-            'import { prueba as dj_pasajero_subir } from "./prueba_51_dj_pasajero_subir.js";',
-            'import { prueba as dj_pasajero_reemplazar } from "./prueba_52_dj_pasajero_reemplazar.js";',
-            'import { prueba as dj_pasajero_eliminar } from "./prueba_53_dj_pasajero_eliminar.js";',
-            '',
-            'export const SECCIONES = [',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'Agregar sección declaraciones_juradas',
-        'buscar' => [
-            '    {',
-            '        id: "grafo",',
-            '        nombre: "Grafo",',
-        ],
-        'reemplazar' => [
-            '    {',
-            '        id: "declaraciones_juradas",',
-            '        nombre: "Declaraciones juradas",',
-            '        pruebas: [',
-            '            dj_pasajero_subir,',
-            '            dj_pasajero_reemplazar,',
-            '            dj_pasajero_eliminar',
-            '        ]',
-            '    },',
-            '    {',
-            '        id: "grafo",',
-            '        nombre: "Grafo",',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // Prueba 51
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/pruebas/prueba_51_dj_pasajero_subir.js',
-        'descripcion' => 'Prueba 51: subir DJ del pasajero',
-        'contenido' => [
-            '/**',
-            ' * Prueba: subir la declaración jurada de un pasajero.',
-            ' *',
-            ' * Verifica el flujo feliz de pasajeros/subir_declaracion',
-            ' * (v1.5piloto.76). Crea un pasajero, sube un PNG de prueba,',
-            ' * verifica que el nodo DJ queda con los metadatos',
-            ' * correctos, y que no deja huérfanos.',
-            ' *',
-            ' * @version 1.5plugin.5s',
-            ' */',
-            '',
-            'import { CODIGO_ADMIN } from "../ConfPlugin.js";',
-            'import { cerrar_modales_si_abiertos } from "./_helpers.js";',
-            'import {',
-            '    PNG_TRANSPARENTE_B64,',
-            '    primer_dueno_para_pruebas,',
-            '    crear_pasajero_de_prueba_admin,',
-            '    eliminar_pasajero_por_post,',
-            '    leer_pasajero,',
-            '    contar_huerfanos,',
-            '    dni_unico_para_pruebas',
-            '} from "./_pasajeros_helpers.js";',
-            '',
-            'export const prueba = {',
-            '    id: "dj_pasajero_subir",',
-            '    nombre: "Declaraciones: subir DJ del pasajero",',
-            '    descripcion: "Verifica que subir la declaración jurada de un pasajero guarda el nodo con sus metadatos.",',
-            '    async ejecutar(ctx) {',
-            '        await ctx.asegurar_login(CODIGO_ADMIN);',
-            '        await cerrar_modales_si_abiertos(ctx);',
-            '',
-            '        const r_nombre = await ctx.nombre_usuario_actual();',
-            '        if (!r_nombre || !r_nombre.exito) {',
-            '            throw new Error("No se pudo leer el nombre de usuario del admin");',
-            '        }',
-            '        const nombre_admin = r_nombre.nombre_usuario;',
-            '',
-            '        const nombre_dueno = await primer_dueno_para_pruebas(ctx, nombre_admin);',
-            '        const dni = dni_unico_para_pruebas();',
-            '',
-            '        await crear_pasajero_de_prueba_admin(ctx, nombre_admin, nombre_dueno, dni);',
-            '',
-            '        const H0 = await contar_huerfanos(ctx, nombre_admin);',
-            '',
-            '        const nombre_archivo = "dj_" + dni + ".png";',
-            '        const r_subir = await ctx.subir_archivo(',
-            '            "pasajeros/subir_declaracion",',
-            '            { nombre_dueno, dni },',
-            '            { nombre: nombre_archivo, tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
-            '        );',
-            '        ctx.assert(r_subir && r_subir.exito,',
-            '            "Falló la subida multipart: " + (r_subir && r_subir.error ? r_subir.error : "sin detalle"));',
-            '        ctx.assert(r_subir.json && r_subir.json.exito,',
-            '            "El backend rechazó la subida: "',
-            '            + (r_subir.json && r_subir.json.error ? r_subir.json.error : "(sin detalle)"));',
-            '',
-            '        const H1 = await contar_huerfanos(ctx, nombre_admin);',
-            '        ctx.assert(H1 === H0,',
-            '            "Subir la DJ dejó huérfanos. H0=" + H0 + ", H1=" + H1);',
-            '',
-            '        const pasajero = await leer_pasajero(ctx, nombre_admin, nombre_dueno, dni);',
-            '        ctx.assert(pasajero.declaracion_jurada,',
-            '            "El pasajero no tiene declaracion_jurada después de subirla.");',
-            '        ctx.assert(pasajero.declaracion_jurada.nombre_original === nombre_archivo,',
-            '            "nombre_original no coincide. Esperado: " + nombre_archivo',
-            '            + ", obtenido: " + pasajero.declaracion_jurada.nombre_original);',
-            '        ctx.assert(pasajero.declaracion_jurada.tipo === "image/png",',
-            '            "tipo no coincide. Esperado: image/png, obtenido: " + pasajero.declaracion_jurada.tipo);',
-            '        ctx.assert(pasajero.declaracion_jurada.es_imagen === true,',
-            '            "es_imagen debería ser true.");',
-            '',
-            '        await eliminar_pasajero_por_post(ctx, nombre_admin, nombre_dueno, dni);',
-            '    }',
-            '};',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // Prueba 52
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/pruebas/prueba_52_dj_pasajero_reemplazar.js',
-        'descripcion' => 'Prueba 52: reemplazar DJ del pasajero',
-        'contenido' => [
-            '/**',
-            ' * Prueba: reemplazar la DJ de un pasajero.',
-            ' *',
-            ' * Sube una DJ A, después una DJ B con distinto nombre. Verifica',
-            ' * que el nodo DJ viejo se destruye (no quedan huérfanos) y',
-            ' * que los metadatos corresponden a la B.',
-            ' *',
-            ' * @version 1.5plugin.5s',
-            ' */',
-            '',
-            'import { CODIGO_ADMIN } from "../ConfPlugin.js";',
-            'import { cerrar_modales_si_abiertos } from "./_helpers.js";',
-            'import {',
-            '    PNG_TRANSPARENTE_B64,',
-            '    PNG_ALTERNATIVO_B64,',
-            '    primer_dueno_para_pruebas,',
-            '    crear_pasajero_de_prueba_admin,',
-            '    eliminar_pasajero_por_post,',
-            '    leer_pasajero,',
-            '    contar_huerfanos,',
-            '    dni_unico_para_pruebas',
-            '} from "./_pasajeros_helpers.js";',
-            '',
-            'export const prueba = {',
-            '    id: "dj_pasajero_reemplazar",',
-            '    nombre: "Declaraciones: reemplazar DJ del pasajero",',
-            '    descripcion: "Verifica que reemplazar la DJ destruye el nodo viejo y guarda los metadatos del nuevo.",',
-            '    async ejecutar(ctx) {',
-            '        await ctx.asegurar_login(CODIGO_ADMIN);',
-            '        await cerrar_modales_si_abiertos(ctx);',
-            '',
-            '        const r_nombre = await ctx.nombre_usuario_actual();',
-            '        if (!r_nombre || !r_nombre.exito) {',
-            '            throw new Error("No se pudo leer el nombre de usuario del admin");',
-            '        }',
-            '        const nombre_admin = r_nombre.nombre_usuario;',
-            '',
-            '        const nombre_dueno = await primer_dueno_para_pruebas(ctx, nombre_admin);',
-            '        const dni = dni_unico_para_pruebas();',
-            '',
-            '        await crear_pasajero_de_prueba_admin(ctx, nombre_admin, nombre_dueno, dni);',
-            '',
-            '        // 1. Subir la DJ A.',
-            '        const nombre_a = "djA_" + dni + ".png";',
-            '        const rA = await ctx.subir_archivo(',
-            '            "pasajeros/subir_declaracion",',
-            '            { nombre_dueno, dni },',
-            '            { nombre: nombre_a, tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
-            '        );',
-            '        ctx.assert(rA && rA.exito && rA.json && rA.json.exito,',
-            '            "Falló la subida de la DJ A: "',
-            '            + (rA && rA.json && rA.json.error ? rA.json.error : "(sin detalle)"));',
-            '',
-            '        const H1 = await contar_huerfanos(ctx, nombre_admin);',
-            '',
-            '        // 2. Subir la DJ B (reemplaza la A).',
-            '        const nombre_b = "djB_" + dni + ".png";',
-            '        const rB = await ctx.subir_archivo(',
-            '            "pasajeros/subir_declaracion",',
-            '            { nombre_dueno, dni },',
-            '            { nombre: nombre_b, tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
-            '        );',
-            '        ctx.assert(rB && rB.exito && rB.json && rB.json.exito,',
-            '            "Falló la subida de la DJ B: "',
-            '            + (rB && rB.json && rB.json.error ? rB.json.error : "(sin detalle)"));',
-            '',
-            '        const H2 = await contar_huerfanos(ctx, nombre_admin);',
-            '        ctx.assert(H2 === H1,',
-            '            "Reemplazar la DJ dejó huérfanos (el nodo viejo no se destruyó). "',
-            '            + "H1=" + H1 + ", H2=" + H2 + ", dif=" + (H2 - H1));',
-            '',
-            '        // 3. Verificar metadatos de la DJ B.',
-            '        const pasajero = await leer_pasajero(ctx, nombre_admin, nombre_dueno, dni);',
-            '        ctx.assert(pasajero.declaracion_jurada,',
-            '            "El pasajero no tiene declaracion_jurada tras el reemplazo.");',
-            '        ctx.assert(pasajero.declaracion_jurada.nombre_original === nombre_b,',
-            '            "nombre_original no es el de la DJ B. Esperado: " + nombre_b',
-            '            + ", obtenido: " + pasajero.declaracion_jurada.nombre_original);',
-            '',
-            '        await eliminar_pasajero_por_post(ctx, nombre_admin, nombre_dueno, dni);',
-            '    }',
-            '};',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // Prueba 53
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/pruebas/prueba_53_dj_pasajero_eliminar.js',
-        'descripcion' => 'Prueba 53: eliminar DJ del pasajero',
-        'contenido' => [
-            '/**',
-            ' * Prueba: eliminar la DJ de un pasajero.',
-            ' *',
-            ' * Sube una DJ, después la elimina. Verifica que el nodo DJ',
-            ' * se destruye (no quedan huérfanos) y que el pasajero queda',
-            ' * sin declaracion_jurada.',
-            ' *',
-            ' * @version 1.5plugin.5s',
-            ' */',
-            '',
-            'import { CODIGO_ADMIN } from "../ConfPlugin.js";',
-            'import { cerrar_modales_si_abiertos } from "./_helpers.js";',
-            'import {',
-            '    PNG_TRANSPARENTE_B64,',
-            '    primer_dueno_para_pruebas,',
-            '    crear_pasajero_de_prueba_admin,',
-            '    eliminar_pasajero_por_post,',
-            '    leer_pasajero,',
-            '    contar_huerfanos,',
-            '    dni_unico_para_pruebas',
-            '} from "./_pasajeros_helpers.js";',
-            '',
-            'export const prueba = {',
-            '    id: "dj_pasajero_eliminar",',
-            '    nombre: "Declaraciones: eliminar DJ del pasajero",',
-            '    descripcion: "Verifica que eliminar la DJ destruye el nodo y limpia el enlace del pasajero.",',
-            '    async ejecutar(ctx) {',
-            '        await ctx.asegurar_login(CODIGO_ADMIN);',
-            '        await cerrar_modales_si_abiertos(ctx);',
-            '',
-            '        const r_nombre = await ctx.nombre_usuario_actual();',
-            '        if (!r_nombre || !r_nombre.exito) {',
-            '            throw new Error("No se pudo leer el nombre de usuario del admin");',
-            '        }',
-            '        const nombre_admin = r_nombre.nombre_usuario;',
-            '',
-            '        const nombre_dueno = await primer_dueno_para_pruebas(ctx, nombre_admin);',
-            '        const dni = dni_unico_para_pruebas();',
-            '',
-            '        await crear_pasajero_de_prueba_admin(ctx, nombre_admin, nombre_dueno, dni);',
-            '',
-            '        // 1. Subir una DJ.',
-            '        const nombre_archivo = "djdel_" + dni + ".png";',
-            '        const rSubir = await ctx.subir_archivo(',
-            '            "pasajeros/subir_declaracion",',
-            '            { nombre_dueno, dni },',
-            '            { nombre: nombre_archivo, tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
-            '        );',
-            '        ctx.assert(rSubir && rSubir.exito && rSubir.json && rSubir.json.exito,',
-            '            "Falló la subida de la DJ: "',
-            '            + (rSubir && rSubir.json && rSubir.json.error ? rSubir.json.error : "(sin detalle)"));',
-            '',
-            '        const H1 = await contar_huerfanos(ctx, nombre_admin);',
-            '',
-            '        // 2. Eliminar la DJ.',
-            '        const rElim = await ctx.pedir_post("index.php", {',
-            '            accion: "pasajeros/eliminar_declaracion",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            dni',
-            '        });',
-            '        ctx.assert(rElim && rElim.exito && rElim.json && rElim.json.exito,',
-            '            "Falló eliminar_declaracion: "',
-            '            + (rElim && rElim.json && rElim.json.error ? rElim.json.error : "(sin detalle)"));',
-            '',
-            '        const H2 = await contar_huerfanos(ctx, nombre_admin);',
-            '        ctx.assert(H2 === H1,',
-            '            "Eliminar la DJ dejó huérfanos (el nodo no se destruyó). "',
-            '            + "H1=" + H1 + ", H2=" + H2 + ", dif=" + (H2 - H1));',
-            '',
-            '        // 3. Verificar que el pasajero ya no tiene DJ.',
-            '        const pasajero = await leer_pasajero(ctx, nombre_admin, nombre_dueno, dni);',
-            '        ctx.assert(!pasajero.declaracion_jurada,',
-            '            "El pasajero todavía tiene declaracion_jurada tras eliminarla.");',
-            '',
-            '        await eliminar_pasajero_por_post(ctx, nombre_admin, nombre_dueno, dni);',
-            '    }',
-            '};',
-        ],
-    ],
-
-    // --------------------------------------------------------
-    // Prompt del plugin
-    // --------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: estado a 5s con 53 pruebas',
-        'buscar' => [
-            '**Proyecto en v1.5plugin.5r.** El esqueleto del plugin está',
-            'armado y funcional, tiene 50 pruebas (base + autocompletado',
-            '+ puntos de venta + viajes + micros + ventas + empresas',
-            '+ vehículos + grafo) y las agrupa en secciones.',
-        ],
-        'reemplazar' => [
-            '**Proyecto en v1.5plugin.5s.** El esqueleto del plugin está',
-            'armado y funcional, tiene 53 pruebas (base + autocompletado',
-            '+ puntos de venta + viajes + micros + ventas + empresas',
-            '+ vehículos + declaraciones juradas + grafo) y las agrupa',
-            'en secciones.',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: agregar sección declaraciones_juradas a la lista',
-        'buscar' => [
-            '- `vehiculos`: 3 pruebas. `alta_vehiculo` (flujo feliz),',
-            '  `vehiculo_patente_vacia` (validación local),',
-            '  `vehiculo_cancelar`. Crea una empresa de setup para cada',
-            '  prueba y la elimina al final (arrastra el vehículo).',
-        ],
-        'reemplazar' => [
-            '- `vehiculos`: 3 pruebas. `alta_vehiculo` (flujo feliz),',
-            '  `vehiculo_patente_vacia` (validación local),',
-            '  `vehiculo_cancelar`. Crea una empresa de setup para cada',
-            '  prueba y la elimina al final (arrastra el vehículo).',
-            '- `declaraciones_juradas`: 3 pruebas. `dj_pasajero_subir`',
-            '  (flujo feliz con multipart), `dj_pasajero_reemplazar`',
-            '  (subir una DJ nueva destruye la vieja),',
-            '  `dj_pasajero_eliminar` (destruye el nodo y limpia el',
-            '  enlace). Usan el helper `ctx.subir_archivo`.',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: agregar ctx.subir_archivo a la lista de helpers',
-        'buscar' => [
-            '**Fetch y datos:**',
-            '- `ctx.pedir_post(url, body)` → {exito, status, texto, json}.',
-            '- `ctx.enviar(tipo, datos)` — mensaje crudo al content script.',
-        ],
-        'reemplazar' => [
-            '**Fetch y datos:**',
-            '- `ctx.pedir_post(url, body)` → {exito, status, texto, json}.',
-            '- `ctx.enviar(tipo, datos)` — mensaje crudo al content script.',
-            '- `ctx.subir_archivo(accion, campos, archivo_info)` → sube un',
-            '  archivo por multipart al piloto. `archivo_info` es',
-            '  `{nombre, tipo, contenido_base64}`. El fetch lo hace el',
-            '  content script (las cookies del piloto solo viajan desde',
-            '  el origen del piloto).',
-        ],
-    ],
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'Prompt plugin: última actualización a 5s',
-        'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5r',
-        ],
-        'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5s',
-            '(helper multipart `ctx.subir_archivo` + sección',
-            '"declaraciones_juradas" con 3 pruebas: subir, reemplazar y',
-            'eliminar la DJ del pasajero. Cubre el fix de v1.5piloto.76',
-            'que destruye el nodo DJ con sus 4 sub-campos. Nuevo',
-            'archivo de helpers `_pasajeros_helpers.js` con PNGs de',
-            'prueba embebidos.).',
-            'Antes: v1.5plugin.5r',
-        ],
-    ],
-
+$cambios[] = [
+    'tipo' => 'eliminar',
+    'archivo' => 'Aplicacion/ConfPlugin.js',
+    'descripcion' => 'ConfPlugin.js renombrado a ConfiguracionApli.js',
 ];
 
 // ============================================================
@@ -816,15 +525,18 @@ foreach ($reemplazos_por_archivo as $archivo_rel => $lista_cambios) {
     foreach ($lista_cambios as $cambio) {
         $buscar_str = implode("\n", $cambio['buscar']);
         $reemplazar_str = implode("\n", $cambio['reemplazar']);
+        $es_todos = !empty($cambio['todos']);
+
         $ocurrencias = contar_ocurrencias($contenido, $buscar_str);
         if ($ocurrencias === 0) {
             $bloques_fallidos[] = "$archivo_rel: bloque no encontrado - {$cambio['descripcion']}";
             $hubo_error = true; continue;
         }
-        if ($ocurrencias > 1) {
+        if (!$es_todos && $ocurrencias > 1) {
             $bloques_fallidos[] = "$archivo_rel: bloque ambiguo ($ocurrencias ocurrencias) - {$cambio['descripcion']}";
             $hubo_error = true; continue;
         }
+
         $contenido = str_replace($buscar_str, $reemplazar_str, $contenido);
         $bloques_ok++;
     }

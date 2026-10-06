@@ -8,7 +8,7 @@
  * @version 1.5plugin.5r
  */
 
-import { CODIGO_ADMIN } from "../ConfPlugin.js";
+import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 import { cerrar_modales_si_abiertos } from "./_helpers.js";
 import {
     ir_a_micros_y_elegir_dueno,

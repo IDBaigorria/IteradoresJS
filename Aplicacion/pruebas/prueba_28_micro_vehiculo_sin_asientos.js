@@ -11,7 +11,7 @@
  * @version 1.5plugin.4z
  */
 
-import { CODIGO_DUENO } from "../ConfPlugin.js";
+import { CODIGO_DUENO } from "../ConfiguracionApli.js";
 import {
     crear_viaje_de_prueba,
     abrir_detalle_viaje,

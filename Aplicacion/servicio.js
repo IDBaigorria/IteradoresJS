@@ -18,10 +18,10 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.5s
+ * @version 1.5plugin.5t
  */
 
-import { URL_PILOTO } from "./ConfPlugin.js";
+import { URL_PILOTO } from "./ConfiguracionApli.js";
 import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 
