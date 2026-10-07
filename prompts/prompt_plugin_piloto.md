@@ -310,12 +310,6 @@ disponibles:
   verificar que el ciclo de bloqueo no deja huérfanos en
   credenciales (fix v75a de `bloqueado_hasta`).
 
-- `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
-  archivo por multipart al piloto. `archivo_info` es
-  `{nombre, tipo, contenido_base64}`. El fetch lo hace el
-  content script (las cookies del piloto solo viajan desde
-  el origen del piloto).
-
 **Datos del page (via `chrome.scripting.executeScript` en
 MAIN world):**
 - `ctx.crear_pasajero_de_prueba(datos)` — crea un pasajero con
@@ -353,11 +347,11 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5s.** El esqueleto del plugin está
-armado y funcional, tiene 53 pruebas (base + autocompletado
-+ puntos de venta + viajes + micros + ventas + empresas
-+ vehículos + declaraciones juradas + grafo) y las agrupa
-en secciones. Las pruebas de venta son independientes: cada
+**Proyecto en v1.5plugin.5w.** El esqueleto del plugin está
+armado y funcional, tiene 56 pruebas (base + autocompletado
++ autenticación + puntos de venta + viajes + micros +
+ventas + empresas + vehículos + declaraciones juradas +
+grafo) y las agrupa en secciones. Las pruebas de venta son independientes: cada
 una cierra los modales al terminar, fuerza el refresh del
 croquis y espera activamente por asientos libres. El viaje
 de setup tiene 2 micros de 44 asientos cada uno (88 en
@@ -389,15 +383,25 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   de v1.5piloto.76c), `empresa_nombre_vacio` (validación local
   rechaza guardar sin nombre), `empresa_cancelar` (Cancelar
   cierra sin crear nada).
-- `vehiculos`: 3 pruebas. `alta_vehiculo` (flujo feliz),
+- `vehiculos`: 4 pruebas. `alta_vehiculo` (flujo feliz),
   `vehiculo_patente_vacia` (validación local),
-  `vehiculo_cancelar`. Crea una empresa de setup para cada
-  prueba y la elimina al final (arrastra el vehículo).
+  `vehiculo_cancelar`, `subir_foto_reemplazo_limpia_nodos`
+  (verifica el fix v75a de `foto`: al subir una foto nueva,
+  la vieja se destruye). Crea una empresa de setup para
+  cada prueba y la elimina al final (arrastra el vehículo).
 - `declaraciones_juradas`: 3 pruebas. `dj_pasajero_subir`
   (flujo feliz con multipart), `dj_pasajero_reemplazar`
   (subir una DJ nueva destruye la vieja),
   `dj_pasajero_eliminar` (destruye el nodo y limpia el
   enlace). Usan el helper `ctx.subir_archivo`.
+- `autenticacion`: 1 prueba.
+  `bloqueo_expirado_permite_login`: verifica el rate
+  limiting del piloto con el bloqueo conmutable (2s en
+  modo pruebas). Mide huérfanos del grafo de
+  credenciales con el endpoint `grafo/resumen_credenciales`
+  (solo en modo pruebas) antes/después de los intentos,
+  del login bloqueado y del login exitoso. Verifica el
+  fix v75a de `bloqueado_hasta`.
 - `autocompletado`: `autocompletado_dni_terminal_clientes`.
 - `puntos_de_venta`: `alta_terminal`.
 - `viajes`: `alta_viaje`.
@@ -476,6 +480,13 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     `vendidos_aqui` sigue reflejando las ventas de la
     terminal. La mejora de performance en sí no es
     verificable de forma estable desde el plugin.
+  - `eliminar_huerfanos_limpia_grafo`: v1.5piloto.76g.
+    Llama al endpoint `grafo/eliminar_huerfanos` y
+    verifica que después no queden huérfanos. Depende
+    del estado: si el grafo ya está limpio, pasa con
+    `console.warn`. El plugin no puede crear huérfanos
+    artificialmente (no tiene acceso directo al grafo,
+    solo hace POST).
   Todas miden nodos con `grafo/resumen` antes y después,
   y comparan.
 
@@ -890,7 +901,15 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5v
+**Última actualización de este prompt:** v1.5plugin.5w
+(prueba 56 `eliminar_huerfanos_limpia_grafo`: verifica
+que el endpoint `grafo/eliminar_huerfanos` del piloto
+deja el grafo sin huérfanos. El test depende del
+estado: si el grafo ya está limpio, pasa con
+`console.warn`. El plugin no puede crear huérfanos
+artificialmente porque no tiene acceso directo al
+grafo, solo hace POST.).
+Antes: v1.5plugin.5v
 (prueba 54 extendida: mide huérfanos del grafo de
 credenciales con el endpoint `grafo/resumen_credenciales`
 del piloto. Verifica el fix v75a de `bloqueado_hasta`.).

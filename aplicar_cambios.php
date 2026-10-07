@@ -1,10 +1,10 @@
 <?php
 /**
- * Aplicador de cambios — Plugin de pruebas (iteradoresJS).
+ * Aplicador de cambios — Prompt del plugin.
  *
- * Tanda V1.5plugin.5w:
- *   - Nueva prueba 56: eliminar_huerfanos_limpia_grafo.
- *   - Bumps.
+ * Tanda: v1.5plugin.5w. Registra la prueba 56 y limpia el
+ * duplicado de `ctx.subir_archivo` que quedó de la tanda
+ * anterior.
  *
  * Uso: php aplicar_cambios.php (parado en iteradoresJS/)
  */
@@ -15,145 +15,173 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ------------------------------------------------------------
-    // ConfiguracionApli.js — bump
+    // §5: limpiar el duplicado de subir_archivo
     // ------------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli: bump a 5w',
-        'todos' => true,
-        'buscar' => ['1.5plugin.5v'],
-        'reemplazar' => ['1.5plugin.5w'],
-    ],
-
-    // ------------------------------------------------------------
-    // catalogo.js — bump @version
-    // ------------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: bump @version a 5w',
-        'buscar' => [' * @version 1.5plugin.5v'],
-        'reemplazar' => [' * @version 1.5plugin.5w'],
-    ],
-
-    // ------------------------------------------------------------
-    // catalogo.js — import de prueba 56
-    // ------------------------------------------------------------
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: import de prueba 56',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§5: limpiar duplicado de subir_archivo',
         'buscar' => [
-            'import { prueba as subir_foto_reemplazo_limpia_nodos } from "./prueba_55_subir_foto_reemplazo_limpia_nodos.js";',
+            '  verificar que el ciclo de bloqueo no deja huérfanos en',
+            '  credenciales (fix v75a de `bloqueado_hasta`).',
+            '',
+            '- `ctx.subir_archivo(accion, campos, archivo_info)` → sube un',
+            '  archivo por multipart al piloto. `archivo_info` es',
+            '  `{nombre, tipo, contenido_base64}`. El fetch lo hace el',
+            '  content script (las cookies del piloto solo viajan desde',
+            '  el origen del piloto).',
+            '',
+            '**Datos del page (via `chrome.scripting.executeScript` en',
         ],
         'reemplazar' => [
-            'import { prueba as subir_foto_reemplazo_limpia_nodos } from "./prueba_55_subir_foto_reemplazo_limpia_nodos.js";',
-            'import { prueba as eliminar_huerfanos_limpia_grafo } from "./prueba_56_eliminar_huerfanos_limpia_grafo.js";',
+            '  verificar que el ciclo de bloqueo no deja huérfanos en',
+            '  credenciales (fix v75a de `bloqueado_hasta`).',
+            '',
+            '**Datos del page (via `chrome.scripting.executeScript` en',
         ],
     ],
 
     // ------------------------------------------------------------
-    // catalogo.js — sumar prueba 56 al final de la sección grafo
+    // §7: bump a v1.5plugin.5w + 56 pruebas
     // ------------------------------------------------------------
 
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/catalogo.js',
-        'descripcion' => 'catalogo: sumar prueba 56 a sección grafo',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§7: bump a 5w + 56 pruebas',
         'buscar' => [
-            '            editar_paradas_sin_hora_limpia_nodos,',
-            '            listar_viajes_indice_comportamiento',
-            '        ]',
-            '    }',
-            '];',
+            '**Proyecto en v1.5plugin.5s.** El esqueleto del plugin está',
+            'armado y funcional, tiene 53 pruebas (base + autocompletado',
+            '+ puntos de venta + viajes + micros + ventas + empresas',
+            '+ vehículos + declaraciones juradas + grafo) y las agrupa',
+            'en secciones.',
         ],
         'reemplazar' => [
-            '            editar_paradas_sin_hora_limpia_nodos,',
-            '            listar_viajes_indice_comportamiento,',
-            '            eliminar_huerfanos_limpia_grafo',
-            '        ]',
-            '    }',
-            '];',
+            '**Proyecto en v1.5plugin.5w.** El esqueleto del plugin está',
+            'armado y funcional, tiene 56 pruebas (base + autocompletado',
+            '+ autenticación + puntos de venta + viajes + micros +',
+            'ventas + empresas + vehículos + declaraciones juradas +',
+            'grafo) y las agrupa en secciones.',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§7: sumar autenticacion + prueba 55 en vehiculos',
+        'buscar' => [
+            '- `declaraciones_juradas`: 3 pruebas. `dj_pasajero_subir`',
+            '  (flujo feliz con multipart), `dj_pasajero_reemplazar`',
+            '  (subir una DJ nueva destruye la vieja),',
+            '  `dj_pasajero_eliminar` (destruye el nodo y limpia el',
+            '  enlace). Usan el helper `ctx.subir_archivo`.',
+            '- `autocompletado`: `autocompletado_dni_terminal_clientes`.',
+        ],
+        'reemplazar' => [
+            '- `declaraciones_juradas`: 3 pruebas. `dj_pasajero_subir`',
+            '  (flujo feliz con multipart), `dj_pasajero_reemplazar`',
+            '  (subir una DJ nueva destruye la vieja),',
+            '  `dj_pasajero_eliminar` (destruye el nodo y limpia el',
+            '  enlace). Usan el helper `ctx.subir_archivo`.',
+            '- `autenticacion`: 1 prueba.',
+            '  `bloqueo_expirado_permite_login`: verifica el rate',
+            '  limiting del piloto con el bloqueo conmutable (2s en',
+            '  modo pruebas). Mide huérfanos del grafo de',
+            '  credenciales con el endpoint `grafo/resumen_credenciales`',
+            '  (solo en modo pruebas) antes/después de los intentos,',
+            '  del login bloqueado y del login exitoso. Verifica el',
+            '  fix v75a de `bloqueado_hasta`.',
+            '- `autocompletado`: `autocompletado_dni_terminal_clientes`.',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§7: sumar subir_foto a vehiculos',
+        'buscar' => [
+            '- `vehiculos`: 3 pruebas. `alta_vehiculo` (flujo feliz),',
+            '  `vehiculo_patente_vacia` (validación local),',
+            '  `vehiculo_cancelar`. Crea una empresa de setup para cada',
+            '  prueba y la elimina al final (arrastra el vehículo).',
+        ],
+        'reemplazar' => [
+            '- `vehiculos`: 4 pruebas. `alta_vehiculo` (flujo feliz),',
+            '  `vehiculo_patente_vacia` (validación local),',
+            '  `vehiculo_cancelar`, `subir_foto_reemplazo_limpia_nodos`',
+            '  (verifica el fix v75a de `foto`: al subir una foto nueva,',
+            '  la vieja se destruye). Crea una empresa de setup para',
+            '  cada prueba y la elimina al final (arrastra el vehículo).',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§7: sumar prueba 56 a la sección grafo',
+        'buscar' => [
+            '  - `listar_viajes_indice_comportamiento`: Fase 3',
+            '    (v1.5piloto.76a). Verifica que el índice',
+            '    precalculado de ventas por viaje no cambia el',
+            '    comportamiento observable de `listar_viajes_*`:',
+            '    `tiene_ventas` sigue siendo "0"/"1" correcto, y',
+            '    `vendidos_aqui` sigue reflejando las ventas de la',
+            '    terminal. La mejora de performance en sí no es',
+            '    verificable de forma estable desde el plugin.',
+            '  Todas miden nodos con `grafo/resumen` antes y después,',
+            '  y comparan.',
+        ],
+        'reemplazar' => [
+            '  - `listar_viajes_indice_comportamiento`: Fase 3',
+            '    (v1.5piloto.76a). Verifica que el índice',
+            '    precalculado de ventas por viaje no cambia el',
+            '    comportamiento observable de `listar_viajes_*`:',
+            '    `tiene_ventas` sigue siendo "0"/"1" correcto, y',
+            '    `vendidos_aqui` sigue reflejando las ventas de la',
+            '    terminal. La mejora de performance en sí no es',
+            '    verificable de forma estable desde el plugin.',
+            '  - `eliminar_huerfanos_limpia_grafo`: v1.5piloto.76g.',
+            '    Llama al endpoint `grafo/eliminar_huerfanos` y',
+            '    verifica que después no queden huérfanos. Depende',
+            '    del estado: si el grafo ya está limpio, pasa con',
+            '    `console.warn`. El plugin no puede crear huérfanos',
+            '    artificialmente (no tiene acceso directo al grafo,',
+            '    solo hace POST).',
+            '  Todas miden nodos con `grafo/resumen` antes y después,',
+            '  y comparan.',
         ],
     ],
 
     // ------------------------------------------------------------
-    // Prueba 56 (nueva)
+    // §12: nueva "Última actualización"
     // ------------------------------------------------------------
 
     [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/pruebas/prueba_56_eliminar_huerfanos_limpia_grafo.js',
-        'descripcion' => 'Prueba 56: eliminar huérfanos limpia el grafo',
-        'contenido' => [
-            '/**',
-            ' * Prueba: eliminar huérfanos deja el grafo sin basura.',
-            ' *',
-            ' * Llama al endpoint `grafo/eliminar_huerfanos` del piloto y',
-            ' * verifica que después no queden huérfanos. El test depende',
-            ' * del estado: si el grafo ya está limpio, pasa con',
-            ' * console.warn. El plugin no puede crear huérfanos',
-            ' * artificialmente (no tiene acceso directo al grafo).',
-            ' *',
-            ' * @version 1.5plugin.5w',
-            ' * @since 1.5plugin.5w',
-            ' */',
-            '',
-            'import { CODIGO_ADMIN } from "../ConfiguracionApli.js";',
-            'import { cerrar_modales_si_abiertos } from "./_helpers.js";',
-            '',
-            'async function _contar_huerfanos(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
-            '        nombre_solicitante',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo consultar grafo/resumen: "',
-            '            + (r && r.json && r.json.error ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    return r.json.resumen.huerfanos;',
-            '}',
-            '',
-            'export const prueba = {',
-            '    id: "eliminar_huerfanos_limpia_grafo",',
-            '    nombre: "Grafo: eliminar huérfanos",',
-            '    descripcion: "Verifica que grafo/eliminar_huerfanos deja el grafo sin huérfanos.",',
-            '    async ejecutar(ctx) {',
-            '        await ctx.asegurar_login(CODIGO_ADMIN);',
-            '        await cerrar_modales_si_abiertos(ctx);',
-            '',
-            '        const r_nombre = await ctx.nombre_usuario_actual();',
-            '        if (!r_nombre || !r_nombre.exito) {',
-            '            throw new Error("No se pudo leer el nombre del admin");',
-            '        }',
-            '        const nombre_admin = r_nombre.nombre_usuario;',
-            '',
-            '        const H0 = await _contar_huerfanos(ctx, nombre_admin);',
-            '',
-            '        if (H0 === 0) {',
-            '            console.warn("El grafo ya estaba limpio. Prueba saltada.");',
-            '            return;',
-            '        }',
-            '',
-            '        const r_elim = await ctx.pedir_post("index.php", {',
-            '            accion: "grafo/eliminar_huerfanos",',
-            '            nombre_solicitante: nombre_admin',
-            '        });',
-            '        ctx.assert(r_elim && r_elim.exito && r_elim.json && r_elim.json.exito,',
-            '            "Falló eliminar_huerfanos: "',
-            '            + (r_elim && r_elim.json && r_elim.json.error ? r_elim.json.error : "(sin detalle)"));',
-            '',
-            '        const H1 = await _contar_huerfanos(ctx, nombre_admin);',
-            '        ctx.assert(H1 === 0,',
-            '            "Después de eliminar siguen habiendo huérfanos. "',
-            '            + "Antes: " + H0 + ", después: " + H1',
-            '            + ", eliminados reportados: " + (r_elim.json.eliminados || 0));',
-            '    }',
-            '};',
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§12: nueva Última actualización a 5w',
+        'buscar' => [
+            '**Última actualización de este prompt:** v1.5plugin.5v',
+            '(prueba 54 extendida: mide huérfanos del grafo de',
+            'credenciales con el endpoint `grafo/resumen_credenciales`',
+            'del piloto. Verifica el fix v75a de `bloqueado_hasta`.).',
+            'Antes: v1.5plugin.5s',
+        ],
+        'reemplazar' => [
+            '**Última actualización de este prompt:** v1.5plugin.5w',
+            '(prueba 56 `eliminar_huerfanos_limpia_grafo`: verifica',
+            'que el endpoint `grafo/eliminar_huerfanos` del piloto',
+            'deja el grafo sin huérfanos. El test depende del',
+            'estado: si el grafo ya está limpio, pasa con',
+            '`console.warn`. El plugin no puede crear huérfanos',
+            'artificialmente porque no tiene acceso directo al',
+            'grafo, solo hace POST.).',
+            'Antes: v1.5plugin.5v',
+            '(prueba 54 extendida: mide huérfanos del grafo de',
+            'credenciales con el endpoint `grafo/resumen_credenciales`',
+            'del piloto. Verifica el fix v75a de `bloqueado_hasta`.).',
+            'Antes: v1.5plugin.5s',
         ],
     ],
 
@@ -177,7 +205,7 @@ foreach ($cambios as $cambio) {
 }
 $total_reemplazos = 0;
 foreach ($reemplazos_por_archivo as $lista) { $total_reemplazos += count($lista); }
-echo "[INFO] $total_reemplazos reemplazo(s) en " . count($reemplazos_por_archivo) . " archivo(s), " . count($creaciones) . " a crear.\n\n";
+echo "[INFO] $total_reemplazos reemplazo(s).\n\n";
 $archivos_a_escribir = []; $bloques_ok = 0; $bloques_fallidos = [];
 foreach ($reemplazos_por_archivo as $archivo_rel => $lista_cambios) {
     $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
@@ -201,10 +229,9 @@ foreach ($reemplazos_por_archivo as $archivo_rel => $lista_cambios) {
 }
 if ($modo_estricto && !empty($bloques_fallidos)) { echo "=== ABORTADO ===\n"; foreach ($bloques_fallidos as $f) echo "  [FALLO] $f\n"; exit(1); }
 foreach ($archivos_a_escribir as $ruta_abs => $contenido_final) {
-    if (file_put_contents($ruta_abs, $contenido_final) === false) { echo "[FALLO] Escribir: " . substr($ruta_abs, strlen($raiz_proyecto)+1) . "\n"; continue; }
+    if (file_put_contents($ruta_abs, $contenido_final) === false) { echo "[FALLO] Escribir.\n"; continue; }
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto)+1) . "\n";
 }
-foreach ($creaciones as $c) { $r = $raiz_proyecto.'/'.$c['archivo']; if (!is_dir(dirname($r))) mkdir(dirname($r), 0777, true); if (file_put_contents($r, implode("\n", $c['contenido']))===false){echo "[FALLO] Crear: {$c['archivo']}\n";continue;} echo "[OK] {$c['archivo']} (creado)\n"; }
-echo "\n=== Resumen ===\nBloques aplicados: $bloques_ok\nArchivos nuevos:   " . count($creaciones) . "\n";
+echo "\n=== Resumen ===\nBloques aplicados: $bloques_ok\n";
 if (!empty($bloques_fallidos)) { echo "Fallos: " . count($bloques_fallidos) . "\n"; foreach ($bloques_fallidos as $f) echo "  - $f\n"; }
 echo "\nListo.\n";
