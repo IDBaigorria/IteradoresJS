@@ -5,7 +5,9 @@ import { Nodo } from '../Nodos/Nodo.js';
 // import { NodoElectrico } from '../Nodos/NodoElectrico.js';
 import {
     PerdurarSuperestructura,
+    PerdurarSuperestructuraConContexto,
     PerdurarSuperestructuraStringIndexedDB,
+    PerdurarSuperestructuraStringIndexedDB64,
     PerdurarSuperestructuraStringJSON,
     PerdurarSuperestructuraStringXML,
     PerdurarSuperestructuraElectricosStringIndexedDB
@@ -37,7 +39,7 @@ import { Talamo } from '../Controlador/Talamo.js';
  * @implements {Controlador.Interfaces.Dominios}
  * @memberof Controlador
  * @since 1.2.0
- * @version 1.5i.7i
+ * @version 1.5i.7k
  */
 class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor, Dominios) {
     /** 
@@ -186,6 +188,10 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
      * @version 1.5i.4
     */
     static async guardar(nombre) {
+        if (this._grafo_parcial) {
+            this._error("No se puede guardar un grafo parcial con guardar(). Usar guardar_parcial() o cargar() completo primero.");
+            return false;
+        }
         if (!this.verificar_superestructura_desocupada()) {
             return false;
         }
@@ -198,6 +204,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     */
     static async cargar(nombre) {
         Nodo.vaciar_superestructura(this.token);
+        this._grafo_parcial = false;
         return await this.delegar("cargar", nombre);
     }
 
@@ -209,6 +216,84 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
     /** @return {Promise<boolean|null>} */
     static async existe(nombre) {
         return await this.delegar("existe", nombre);
+    }
+
+    // ══════════════════════════════════════════════════════
+    // CONTEXTOS Y CARGA PARCIAL (v1.5i.7k)
+    // ══════════════════════════════════════════════════════
+
+    /**
+     * Indica si la superestructura cargada es parcial.
+     * @type {boolean}
+     */
+    static _grafo_parcial = false;
+
+    /**
+     * Devuelve true si la superestructura en memoria fue
+     * cargada de forma parcial.
+     *
+     * @returns {boolean}
+     * @since 1.5i.7k
+     */
+    static es_grafo_parcial() {
+        return this._grafo_parcial === true;
+    }
+
+    /**
+     * Carga solo los nodos que pertenecen a alguno de los
+     * contextos pedidos. Marca la superestructura como parcial.
+     *
+     * @param {string}   nombre
+     * @param {string[]} contextos
+     * @returns {Promise<boolean|null>}
+     * @since 1.5i.7k
+     */
+    static async cargar_parcial(nombre, contextos) {
+        Nodo.vaciar_superestructura(this.token);
+        this._grafo_parcial = false;
+        const clase = this.clase_actual;
+        if (!clase || typeof clase.cargar_parcial !== "function") {
+            this._error("El método de persistencia activo no soporta cargar_parcial.");
+            return null;
+        }
+        const res = await clase.cargar_parcial(nombre, contextos);
+        if (res === true) {
+            this._grafo_parcial = true;
+        }
+        return res;
+    }
+
+    /**
+     * Guarda solo el subgrafo en memoria filtrando por contextos.
+     *
+     * @param {string}   nombre
+     * @param {string[]} contextos
+     * @returns {Promise<boolean>}
+     * @since 1.5i.7k
+     */
+    static async guardar_parcial(nombre, contextos) {
+        const clase = this.clase_actual;
+        if (!clase || typeof clase.guardar_parcial !== "function") {
+            this._error("El método de persistencia activo no soporta guardar_parcial.");
+            return false;
+        }
+        return await clase.guardar_parcial(nombre, contextos);
+    }
+
+    /**
+     * Lista los contextos registrados bajo un nombre.
+     *
+     * @param {string} nombre
+     * @returns {Promise<string[]|null>}
+     * @since 1.5i.7k
+     */
+    static async listar_contextos(nombre) {
+        const clase = this.clase_actual;
+        if (!clase || typeof clase.listar_contextos !== "function") {
+            this._error("El método de persistencia activo no soporta listar_contextos.");
+            return null;
+        }
+        return await clase.listar_contextos(nombre);
     }
 
 
@@ -1687,6 +1772,7 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
 
             // ─── Implementaciones de persistencia ──────────────
             Controlador.registrar_implementacion("IndexedDB", PerdurarSuperestructuraStringIndexedDB);
+            Controlador.registrar_implementacion("IndexedDB64", PerdurarSuperestructuraStringIndexedDB64);
             Controlador.registrar_implementacion("JSON", PerdurarSuperestructuraStringJSON);
             Controlador.registrar_implementacion("XML", PerdurarSuperestructuraStringXML);
             Controlador.registrar_implementacion("EIndexedDB", PerdurarSuperestructuraElectricosStringIndexedDB);

@@ -103,7 +103,7 @@ import { generarUUID } from "./../miscelaneas/generarUUID.js";
  * 
  * @class
  * @author Ignacio David Baigorria
- * @version 1.5i.0
+ * @version 1.5i.7k
  * @since 1.0
  * @extends Objeto
  * @implements {Nodos.Interfaces.FabricaDeNodos}
@@ -141,6 +141,16 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * @protected
      */
     _adyacentes;
+
+    /**
+     * Máscara de contextos: entero donde cada bit representa
+     * un contexto (ID especial) al que pertenece el nodo.
+     * Solo la asigna la capa de persistencia IndexedDB64.
+     * @type {number}
+     * @protected
+     * @since 1.5i.7k
+     */
+    _contexto_mascara = 0;
 
     ////////////////////////////////////////////////////
     // VARIABLES DE CLASE
@@ -754,6 +764,30 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
               return null;
           }
       }
+
+    /**
+     * Devuelve la máscara de contextos del nodo.
+     * 0 si el nodo todavía no fue persistido con un método
+     * que soporte contextos.
+     *
+     * @returns {number}
+     * @since 1.5i.7k
+     */
+    contexto_mascara() {
+        return this._contexto_mascara;
+    }
+
+    /**
+     * Asigna la máscara de contextos del nodo. Uso interno
+     * de la capa de persistencia (IndexedDB64, etc.).
+     *
+     * @param {number} mascara
+     * @returns {void}
+     * @since 1.5i.7k
+     */
+    _establecer_contexto_mascara(mascara) {
+        this._contexto_mascara = mascara | 0;
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
