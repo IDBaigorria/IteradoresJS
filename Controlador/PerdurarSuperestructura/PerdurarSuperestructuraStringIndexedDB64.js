@@ -191,7 +191,17 @@ class PerdurarSuperestructuraStringIndexedDB64 extends mezclar_clase_con_interfa
             await this.#insertar_contextos(db, nombre, nuevos_contextos);
         }
 
-        // 4. BFS multi-fuente.
+        // 4. Índice auxiliar: id_string → nodo. Necesario porque
+        //    Nodo.nodo_por_id(id) usa la clave original del Map de
+        //    superestructura, que puede ser número, mientras que el
+        //    BFS y las máscaras usan strings. Mezclar tipos en el
+        //    lookup hacía que nodos comunes quedaran sin máscara.
+        const nodos_por_id = new Map();
+        Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {
+            nodos_por_id.set(String(nodo.id()), nodo);
+        }, null);
+
+        // 5. BFS multi-fuente.
         const mascaras = new Map();
         const cola = [];
         for (const id of especiales) {
@@ -200,8 +210,7 @@ class PerdurarSuperestructuraStringIndexedDB64 extends mezclar_clase_con_interfa
         }
         while (cola.length > 0) {
             const id = cola.shift();
-            if (!Nodo.existe(id)) continue;
-            const nodo = Nodo.nodo_por_id(id);
+            const nodo = nodos_por_id.get(id);
             if (!nodo) continue;
             const adyacentes = nodo.adyacentes();
             if (!adyacentes) continue;

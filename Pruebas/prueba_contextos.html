@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Prueba de contextos (IndexedDB64)</title>
+<style>
+  body { font-family: monospace; padding: 1em; background: #fafafa; color: #222; }
+  h1 { font-size: 1.2em; margin-top: 0; }
+  pre { background: #fff; padding: 1em; border: 1px solid #ccc; white-space: pre-wrap; }
+  .ok { color: #006600; }
+  .fail { color: #990000; }
+  .esperando { color: #886600; }
+</style>
+</head>
+<body>
+<h1>Prueba de contextos (IndexedDB64)</h1>
+<div id="salida" class="esperando">Esperando inicialización del framework...</div>
+
+<script type="module">
+import { Controlador } from '../Controlador/Controlador.js';
+import { Nodo } from '../Nodos/Nodo.js';
+
+const salida = document.getElementById("salida");
+const log = [];
+function log_linea(txt) {
+    log.push(txt);
+    salida.innerHTML = "<pre>" + log.join("\n") + "</pre>";
+}
+
+async function esperar_inicializacion() {
+    const inicio = Date.now();
+    while (!Controlador.inicializo && Date.now() - inicio < 8000) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+    return Controlador.inicializo === true;
+}
+
+(async () => {
+    try {
+        log_linea("Esperando inicialización del framework...");
+        const listo = await esperar_inicializacion();
+        if (!listo) {
+            log_linea("ERROR: el framework no terminó de inicializar en 8s.");
+            return;
+        }
+        log_linea("Framework inicializado.");
+
+        // Cambiar al método IndexedDB64.
+        Controlador.establecer_metodo("IndexedDB64");
+        log_linea("Método activo: " + Controlador.metodo);
+
+        const nombre = "TestContextosJS_" + Date.now();
+        const res = {};
+
+        // --- 1. Crear grafo ---
+        await Controlador.ejecutar_prueba((token) => {
+            Nodo.vaciar_superestructura(token);
+            const raiz_a = Nodo.crear_con_id("ctx_a");
+            const raiz_b = Nodo.crear_con_id("ctx_b");
+            const n1 = Nodo.crear_con_dato("nodo1");
+            const n2 = Nodo.crear_con_dato("nodo2");
+            const n3 = Nodo.crear_con_dato("nodo3");
+            raiz_a._adyacente_en(n1, "hijo");
+            raiz_b._adyacente_en(n2, "hijo");
+            n1._adyacente_en(n3, "compartido");
+            n2._adyacente_en(n3, "compartido");
+        });
+        log_linea("Grafo de prueba creado (5 nodos: 2 especiales + 3 comunes).");
+
+        // --- 2. Guardar y cargar completo ---
+        res.guardar = await Controlador.guardar(nombre);
+        res.cargar = await Controlador.cargar(nombre);
+
+        // --- 3. Verificar máscaras ---
+        await Controlador.ejecutar_prueba(() => {
+            const raiz_a = Nodo.nodo_por_id("ctx_a");
+            const raiz_b = Nodo.nodo_por_id("ctx_b");
+            const n1 = raiz_a ? raiz_a.adyacente("hijo") : null;
+            const n2 = raiz_b ? raiz_b.adyacente("hijo") : null;
+            const n3 = n1 ? n1.adyacente("compartido") : null;
+            res.mascara_ctx_a = raiz_a ? raiz_a.contexto_mascara() : "NO";
+            res.mascara_ctx_b = raiz_b ? raiz_b.contexto_mascara() : "NO";
+            res.mascara_n1 = n1 ? n1.contexto_mascara() : "NO";
+            res.mascara_n2 = n2 ? n2.contexto_mascara() : "NO";
+            res.mascara_n3 = n3 ? n3.contexto_mascara() : "NO";
+        });
+
+        // --- 4. Listar contextos ---
+        res.contextos = await Controlador.listar_contextos(nombre);
+
+        // --- 5. Cargar parcial por ctx_a ---
+        res.cargar_parcial = await Controlador.cargar_parcial(nombre, ["ctx_a"]);
+        res.es_parcial = Controlador.es_grafo_parcial();
+
+        await Controlador.ejecutar_prueba(() => {
+            const raiz_a = Nodo.nodo_por_id("ctx_a");
+            const n1 = raiz_a ? raiz_a.adyacente("hijo") : null;
+            const n3 = n1 ? n1.adyacente("compartido") : null;
+            res.tiene_ctx_a = Nodo.existe("ctx_a");
+            res.tiene_ctx_b = Nodo.existe("ctx_b");
+            res.tiene_n1 = (n1 !== null && n1 !== undefined);
+            res.tiene_n3 = (n3 !== null && n3 !== undefined);
+        });
+
+        // --- 6. Guardar completo sobre parcial (debe fallar) ---
+        res.guardar_sobre_parcial = await Controlador.guardar(nombre);
+
+        // --- 7. Limpieza ---
+        Controlador.establecer_metodo("IndexedDB64");
+        res.eliminar = await Controlador.eliminar(nombre);
+
+        // --- 8. Imprimir resultados ---
+        log_linea("");
+        log_linea("=== Resultados ===");
+        for (const k of Object.keys(res)) {
+            const v = res[k];
+            const vs = (typeof v === "object") ? JSON.stringify(v) : String(v);
+            log_linea("  " + k + " => " + vs);
+        }
+
+        // --- 9. Verificaciones (semáforo) ---
+        log_linea("");
+        log_linea("=== Verificaciones ===");
+        const checks = [
+            ["guardar", res.guardar === true],
+            ["cargar", res.cargar === true],
+            ["mascara_ctx_a === 1", res.mascara_ctx_a === 1],
+            ["mascara_ctx_b === 2", res.mascara_ctx_b === 2],
+            ["mascara_n1 === 1", res.mascara_n1 === 1],
+            ["mascara_n2 === 2", res.mascara_n2 === 2],
+            ["mascara_n3 === 3 (compartido)", res.mascara_n3 === 3],
+            ["contextos = [ctx_a, ctx_b]", Array.isArray(res.contextos) && res.contextos.length === 2 && res.contextos[0] === "ctx_a" && res.contextos[1] === "ctx_b"],
+            ["cargar_parcial OK", res.cargar_parcial === true],
+            ["es_parcial === true", res.es_parcial === true],
+            ["tiene ctx_a", res.tiene_ctx_a === true],
+            ["NO tiene ctx_b (filtrado)", res.tiene_ctx_b === false],
+            ["tiene n1 (alcanzable desde ctx_a)", res.tiene_n1 === true],
+            ["tiene n3 (alcanzable desde ctx_a)", res.tiene_n3 === true],
+            ["guardar sobre parcial falla", res.guardar_sobre_parcial === false],
+            ["eliminar OK", res.eliminar === true],
+        ];
+        let ok = 0, fail = 0;
+        for (const [nombre_check, paso] of checks) {
+            if (paso) { ok++; log_linea("  [OK]   " + nombre_check); }
+            else     { fail++; log_linea("  [FALLA] " + nombre_check); }
+        }
+        log_linea("");
+        log_linea("Totales: " + ok + " OK, " + fail + " fallas.");
+        log_linea(fail === 0 ? ">>> TODO BIEN <<<" : ">>> HAY FALLAS <<<");
+
+        // Colorear el resultado final
+        salida.className = fail === 0 ? "ok" : "fail";
+
+        // Exponer en consola por si acaso
+        window.__resultado_prueba_contextos = res;
+        console.log("Resultado prueba contextos:", res);
+    } catch (e) {
+        log_linea("EXCEPCIÓN: " + (e && e.message ? e.message : String(e)));
+        log_linea(e && e.stack ? e.stack : "");
+        salida.className = "fail";
+    }
+})();
+</script>
+</body>
+</html>
