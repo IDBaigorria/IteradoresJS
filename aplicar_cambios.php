@@ -2,11 +2,8 @@
 /**
  * Aplicador de cambios — Proyecto iteradoresJS.
  *
- * Tanda V1.5i.7k (fix del BFS de contextos en IndexedDB64).
- *   - Reemplaza el paso 4 de #calcular_y_registrar_contextos:
- *     en vez de usar Nodo.nodo_por_id(id) durante el BFS (que
- *     falla si la clave original del Map es un número),
- *     construye un índice auxiliar id_string → nodo y lo usa.
+ * Tanda V1.5i.7k (fix de tipos de ID en el Map de superestructura).
+ * Solo código. El prompt del framework vive en el proyecto PHP.
  *
  * Uso: php aplicar_cambios.php
  */
@@ -16,38 +13,156 @@ $raiz_proyecto = __DIR__;
 
 $cambios = [
 
+    // ============================================================
+    // Nodos/Nodo.js — normalizar claves a String
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: crear() usa String(id) como clave',
+        'buscar' => [
+            '    static crear() {',
+            '      const nodo = new this();',
+            '      Nodo._superestructura.set(nodo.id(),nodo);',
+            '      return nodo;',
+            '    }',
+        ],
+        'reemplazar' => [
+            '    static crear() {',
+            '      const nodo = new this();',
+            '      Nodo._superestructura.set(String(nodo.id()),nodo);',
+            '      return nodo;',
+            '    }',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: crear_con_dato usa String(id) como clave',
+        'buscar' => [
+            '      if (!todos) {',
+            '        const nodo = new this();',
+            '        nodo.__dato=dato;',
+            '        Nodo._superestructura.set(nodo.id(),nodo);',
+            '        return nodo;',
+            '      }',
+        ],
+        'reemplazar' => [
+            '      if (!todos) {',
+            '        const nodo = new this();',
+            '        nodo.__dato=dato;',
+            '        Nodo._superestructura.set(String(nodo.id()),nodo);',
+            '        return nodo;',
+            '      }',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: crear_con_id usa String(id) como clave',
+        'buscar' => [
+            '      const nodo = new this();',
+            '      if (nodo._id(id)) {',
+            '        Nodo._superestructura.set(nodo.id(),nodo);',
+            '        Nodo._nodos_especiales.set(nodo.id(),nodo);',
+        ],
+        'reemplazar' => [
+            '      const nodo = new this();',
+            '      if (nodo._id(id)) {',
+            '        Nodo._superestructura.set(String(nodo.id()),nodo);',
+            '        Nodo._nodos_especiales.set(String(nodo.id()),nodo);',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: crear_con_dato_e_id usa String(id) como clave',
+        'buscar' => [
+            '          if (nodo._id_interno(id)) {',
+            '            Nodo._superestructura.set(id, nodo);',
+            '            Nodo._nodos_especiales.set(id, nodo);',
+            '            nodo.__dato=dato;',
+            '            return nodo;',
+            '          }',
+        ],
+        'reemplazar' => [
+            '          if (nodo._id_interno(id)) {',
+            '            Nodo._superestructura.set(String(id), nodo);',
+            '            Nodo._nodos_especiales.set(String(id), nodo);',
+            '            nodo.__dato=dato;',
+            '            return nodo;',
+            '          }',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: nodo() usa String(id) como clave',
+        'buscar' => [
+            '        } else {',
+            '            nodo = new this();',
+            '            nodo.__dato=elemento;',
+            '            Nodo._superestructura.set(nodo.id(), nodo);',
+            '            es_nodo = false;',
+            '        }',
+        ],
+        'reemplazar' => [
+            '        } else {',
+            '            nodo = new this();',
+            '            nodo.__dato=elemento;',
+            '            Nodo._superestructura.set(String(nodo.id()), nodo);',
+            '            es_nodo = false;',
+            '        }',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: nodo_por_id normaliza el lookup a String',
+        'buscar' => [
+            '        if (Nodo._superestructura.has(id)) {',
+            '            return Nodo._superestructura.get(id);',
+            '        }',
+        ],
+        'reemplazar' => [
+            '        const id_str = String(id);',
+            '        if (Nodo._superestructura.has(id_str)) {',
+            '            return Nodo._superestructura.get(id_str);',
+            '        }',
+        ],
+    ],
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Nodos/Nodo.js',
+        'descripcion' => 'Nodo.js: existe normaliza el lookup a String',
+        'buscar' => [
+            '    static existe(id) {',
+            '        return Nodo._superestructura.has(id);',
+            '    }',
+        ],
+        'reemplazar' => [
+            '    static existe(id) {',
+            '        return Nodo._superestructura.has(String(id));',
+            '    }',
+        ],
+    ],
+
+    // ============================================================
+    // IndexedDB64: revertir el índice auxiliar del BFS
+    // ============================================================
+
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
-        'descripcion' => 'IndexedDB64: BFS con indice auxiliar (fix)',
+        'descripcion' => 'IndexedDB64: BFS simple (sin indice auxiliar)',
         'buscar' => [
-            '        // 4. BFS multi-fuente.',
-            '        const mascaras = new Map();',
-            '        const cola = [];',
-            '        for (const id of especiales) {',
-            '            mascaras.set(id, 1 << bits_por_contexto.get(id));',
-            '            cola.push(id);',
-            '        }',
-            '        while (cola.length > 0) {',
-            '            const id = cola.shift();',
-            '            if (!Nodo.existe(id)) continue;',
-            '            const nodo = Nodo.nodo_por_id(id);',
-            '            if (!nodo) continue;',
-            '            const adyacentes = nodo.adyacentes();',
-            '            if (!adyacentes) continue;',
-            '            for (const [, destino] of adyacentes) {',
-            '                const id_dest = String(destino.id());',
-            '                const actual = mascaras.get(id_dest) || 0;',
-            '                const nueva = actual | mascaras.get(id);',
-            '                if (nueva !== actual) {',
-            '                    mascaras.set(id_dest, nueva);',
-            '                    cola.push(id_dest);',
-            '                }',
-            '            }',
-            '        }',
-            '        return mascaras;',
-        ],
-        'reemplazar' => [
             '        // 4. Índice auxiliar: id_string → nodo. Necesario porque',
             '        //    Nodo.nodo_por_id(id) usa la clave original del Map de',
             '        //    superestructura, que puede ser número, mientras que el',
@@ -70,18 +185,21 @@ $cambios = [
             '            const nodo = nodos_por_id.get(id);',
             '            if (!nodo) continue;',
             '            const adyacentes = nodo.adyacentes();',
-            '            if (!adyacentes) continue;',
-            '            for (const [, destino] of adyacentes) {',
-            '                const id_dest = String(destino.id());',
-            '                const actual = mascaras.get(id_dest) || 0;',
-            '                const nueva = actual | mascaras.get(id);',
-            '                if (nueva !== actual) {',
-            '                    mascaras.set(id_dest, nueva);',
-            '                    cola.push(id_dest);',
-            '                }',
-            '            }',
+        ],
+        'reemplazar' => [
+            '        // 4. BFS multi-fuente.',
+            '        const mascaras = new Map();',
+            '        const cola = [];',
+            '        for (const id of especiales) {',
+            '            mascaras.set(id, 1 << bits_por_contexto.get(id));',
+            '            cola.push(id);',
             '        }',
-            '        return mascaras;',
+            '        while (cola.length > 0) {',
+            '            const id = cola.shift();',
+            '            if (!Nodo.existe(id)) continue;',
+            '            const nodo = Nodo.nodo_por_id(id);',
+            '            if (!nodo) continue;',
+            '            const adyacentes = nodo.adyacentes();',
         ],
     ],
 

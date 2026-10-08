@@ -295,7 +295,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      */
     static crear() {
       const nodo = new this();
-      Nodo._superestructura.set(nodo.id(),nodo);
+      Nodo._superestructura.set(String(nodo.id()),nodo);
       return nodo;
     }
 
@@ -339,7 +339,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
       if (!todos) {
         const nodo = new this();
         nodo.__dato=dato;
-        Nodo._superestructura.set(nodo.id(),nodo);
+        Nodo._superestructura.set(String(nodo.id()),nodo);
         return nodo;
       }/* else {// esta parte la voy a quitar cuando encuentre donde se usa
         if (typeof dato !== 'object') {
@@ -407,8 +407,8 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
     static crear_con_id(id) {
       const nodo = new this();
       if (nodo._id(id)) {
-        Nodo._superestructura.set(nodo.id(),nodo);
-        Nodo._nodos_especiales.set(nodo.id(),nodo);
+        Nodo._superestructura.set(String(nodo.id()),nodo);
+        Nodo._nodos_especiales.set(String(nodo.id()),nodo);
        // Nodo.agregar_a_superestructura(nodo);
        // Nodo.agregar_nodo_especial(nodo);
         return nodo;
@@ -461,8 +461,8 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
         if (Objeto.es_id_especial(id)){
           const nodo = new this();
           if (nodo._id_interno(id)) {
-            Nodo._superestructura.set(id, nodo);
-            Nodo._nodos_especiales.set(id, nodo);
+            Nodo._superestructura.set(String(id), nodo);
+            Nodo._nodos_especiales.set(String(id), nodo);
             nodo.__dato=dato;
             return nodo;
           }
@@ -573,7 +573,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
         } else {
             nodo = new this();
             nodo.__dato=elemento;
-            Nodo._superestructura.set(nodo.id(), nodo);
+            Nodo._superestructura.set(String(nodo.id()), nodo);
             es_nodo = false;
         }
         if (callback) callback(nodo, es_nodo);
@@ -2075,8 +2075,9 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
             return null;
         }
 
-        if (Nodo._superestructura.has(id)) {
-            return Nodo._superestructura.get(id);
+        const id_str = String(id);
+        if (Nodo._superestructura.has(id_str)) {
+            return Nodo._superestructura.get(id_str);
         }
 
         Nodo._alerta("Nodos.Nodo.nodo_por_id(id) — No existe nodo con ese id.");
@@ -2113,7 +2114,7 @@ class Nodo extends mezclar_clase_con_interfaces(Objeto, FabricaDeNodos, Datos, A
      * @since V1.2.7
      */
     static existe(id) {
-        return Nodo._superestructura.has(id);
+        return Nodo._superestructura.has(String(id));
     }
 
         /**
