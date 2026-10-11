@@ -12,7 +12,7 @@
  * verificar enlaces, y login terminal para cancelar la
  * venta al final.
  *
- * @version 1.5plugin.5x
+ * @version 1.5plugin.5z
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -53,7 +53,10 @@ export const prueba = {
         await llenar_pasajero(ctx, 0, pasajero);
 
         await setear_metodo_y_cuotas(ctx, "efectivo", 1);
-        await setear_monto_pagado(ctx, 1000);
+        // NO setear el monto manualmente: con cuotas = 1 el
+        // input ya viene con el total (y disabled). Forzarlo a
+        // un valor menor dispara el caso "1 cuota con saldo
+        // pendiente" que el backend rechaza desde v77m.
         await confirmar_venta(ctx);
 
         const id_venta = await obtener_id_ultima_venta(ctx);
