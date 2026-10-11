@@ -945,6 +945,21 @@ por tema.
     holgado (15-25s), y fallar con un mensaje claro si
     no llega.
 
+53. **`ctx.escribir` no dispara el evento `input`.**
+    El helper asigna `input.value` pero no emite el
+    evento, así que los listeners de tipo `input` en el
+    piloto (por ejemplo, el filtro de la tabla de
+    Clientes en `pasajeros.js`) no corren. Regla: si
+    una prueba depende de que un filtro en vivo se
+    aplique después de escribir, no cuentes con eso.
+    Buscá el elemento directamente por un atributo
+    único (`data-dni`, `data-venta-id`, etc.) o usá un
+    helper que dispare el evento (a futuro).
+    Detectado en la prueba 65: buscaba el botón "Ver
+    pasajes" con `.ver_pasajes_pasajero` genérico, sin
+    filtrar, y tomaba el primero de la tabla. Ahora usa
+    `.ver_pasajes_pasajero[data-dni="..."]`.
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -982,7 +997,25 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.6i
+**Última actualización de este prompt:** v1.5plugin.6l
+(fix real de la prueba 65: el filtro de la tabla de
+Clientes no se aplicaba porque `ctx.escribir` no dispara
+el evento `input`).
+
+**Fix v1.5plugin.6l.** La prueba 65 fallaba con un
+diagnóstico difícil: el modal mostraba el asiento nuevo,
+pero el backend devolvía el viejo. El problema real era
+que el test pegaba el DNI en `#buscar_pasajero` y esperaba
+que la tabla se filtrara, pero `ctx.escribir` asigna el
+`value` sin disparar el evento `input`, así que el
+listener de `pasajeros.js` no corría. El test tomaba el
+primer `.ver_pasajes_pasajero` (de otro pasajero), le
+cambiaba el asiento a ESA venta, y después verificaba
+contra el `id_venta` del test — que nadie había tocado.
+Fix: buscar el botón por `[data-dni="..."]`, que es único.
+Se agregó la lección 53 al prompt.
+
+Antes: v1.5plugin.6i
 (prueba 65: cambiar de asiento desde Clientes).
 
 **Estado.** El plugin tiene 65 pruebas. La nueva (65)

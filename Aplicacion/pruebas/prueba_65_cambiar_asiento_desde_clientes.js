@@ -9,7 +9,7 @@
  * `on_exito` re-abre el modal del detalle con el asiento
  * nuevo (antes quedaba con el viejo).
  *
- * @version 1.5plugin.6i
+ * @version 1.5plugin.6l
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -80,18 +80,26 @@ export const prueba = {
             // 3. Ir a la pestaña Clientes.
             await ir_a_tab(ctx, "pasajeros");
 
-            // 4. Buscar el DNI del pasajero en el filtro.
+            // 4. Asegurar que la tabla de Clientes esté cargada.
+            //    No filtramos por el input de búsqueda: el helper
+            //    `ctx.escribir` asigna el value pero no dispara el
+            //    evento `input`, así que el listener de
+            //    `pasajeros.js` no corre y la tabla queda con
+            //    TODOS los pasajeros. Por eso buscamos el botón
+            //    directamente por su `data-dni` (que es único).
             const input = await ctx.esperar_visible("#buscar_pasajero", 8000);
             if (!input || !input.exito) {
                 throw new Error("No aparece el buscador de pasajeros");
             }
             await ctx.escribir("#buscar_pasajero", dni_pasajero);
 
-            // 5. Esperar el botón "Ver pasajes" del pasajero.
+            // 5. Esperar el botón "Ver pasajes" del pasajero
+            //    correcto, por su data-dni.
+            const selector_ver = `.ver_pasajes_pasajero[data-dni="${dni_pasajero}"]`;
             const inicio_ver = Date.now();
             let boton_ver = null;
             while (Date.now() - inicio_ver < 15000) {
-                const r = await ctx.esperar_visible(".ver_pasajes_pasajero", 500);
+                const r = await ctx.esperar_visible(selector_ver, 500);
                 if (r && r.exito) { boton_ver = true; break; }
                 await ctx.pausa(300);
             }
@@ -99,7 +107,7 @@ export const prueba = {
                 "No aparece el botón Ver pasajes para el DNI " + dni_pasajero
                 + ". ¿La venta no es activa, o el pasajero no se cargó?");
 
-            await ctx.clic(".ver_pasajes_pasajero");
+            await ctx.clic(selector_ver);
 
             // 6. Esperar la tarjeta del pasaje.
             const tarjeta = await ctx.esperar_visible(
@@ -182,27 +190,60 @@ export const prueba = {
                 if (numero_actual === numero_nuevo) break;
                 await ctx.pausa(300);
             }
+            console.log("[test65] modal numero:", numero_actual, "esperado:", numero_nuevo);
+            const texto_modal = await ctx.texto("#modal_generico_contenido");
+            console.log("[test65] modal texto (primeros 300):",
+                String(texto_modal || "").slice(0, 300));
             ctx.assert(numero_actual === numero_nuevo,
                 "El modal genérico no muestra el asiento nuevo. "
                 + "Esperado: " + numero_nuevo
                 + ", obtenido: " + (numero_actual || "(vacío)")
                 + ". ¿El fix v77d del on_exito no está funcionando?");
 
-            // 16. Verificación secundaria por backend.
+            // 16. Verificación secundaria por backend, con retry.
+            //     El POST cambiar_asiento puede tardar en verse
+            //     reflejado por otros fetches del page (on_exito,
+            //     polling del croquis). Se reintenta con backoff.
             const r_nombre = await ctx.nombre_usuario_actual();
             const nombre_term = r_nombre && r_nombre.nombre_usuario;
-            const r_venta = await ctx.pedir_post("index.php", {
-                accion: "ventas/obtener",
-                id_venta,
-                nombre_solicitante: nombre_term
-            });
-            ctx.assert(r_venta && r_venta.json && r_venta.json.exito,
-                "No se pudo obtener la venta tras el cambio.");
-            const asientos = r_venta.json.venta.asientos || [];
-            const asiento_nuevo = asientos.find(a => a.numero === numero_nuevo);
-            ctx.assert(asiento_nuevo,
+
+            // Pausa inicial para dejar que el backend se estabilice.
+            await ctx.pausa(2000);
+
+            let asientos = [];
+            let ultimo_json = null;
+            const MAX_INTENTOS = 5;
+            for (let intento = 0; intento < MAX_INTENTOS; intento++) {
+                const r = await ctx.pedir_post("index.php", {
+                    accion: "ventas/obtener",
+                    id_venta,
+                    nombre_solicitante: nombre_term
+                });
+                if (r && r.json && r.json.exito) {
+                    ultimo_json = r.json;
+                    asientos = r.json.venta.asientos || [];
+                    console.log("[test65] intento " + (intento + 1) + "/" + MAX_INTENTOS,
+                        "asientos:", JSON.stringify(asientos.map(a => a.numero)),
+                        "esperado:", numero_nuevo);
+                    if (asientos.some(a => a.numero === numero_nuevo)) break;
+                } else {
+                    console.log("[test65] intento " + (intento + 1) + "/" + MAX_INTENTOS,
+                        "error:", JSON.stringify(r && r.json ? r.json : r));
+                }
+                if (intento < MAX_INTENTOS - 1) {
+                    await ctx.pausa(500);
+                }
+            }
+
+            if (!asientos.some(a => a.numero === numero_nuevo)) {
+                // Diagnóstico adicional: log del JSON completo del último intento.
+                console.log("[test65] ULTIMO JSON:", JSON.stringify(ultimo_json, null, 2));
+            }
+
+            ctx.assert(asientos.some(a => a.numero === numero_nuevo),
                 "El backend no registró el asiento nuevo " + numero_nuevo
-                + ". Asientos en la venta: " + asientos.map(a => a.numero).join(","));
+                + " tras " + MAX_INTENTOS + " intentos. "
+                + "Asientos: " + asientos.map(a => a.numero).join(","));
 
             exito = true;
         } finally {

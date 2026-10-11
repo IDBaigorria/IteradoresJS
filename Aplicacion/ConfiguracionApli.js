@@ -15,7 +15,7 @@
  * framework los valores que el framework sí necesita conocer
  * (nombre de la app, método de persistencia, nombre de la BD).
  *
- * @version 1.5plugin.6i
+ * @version 1.5plugin.6l
  * @since 1.5plugin.5w
  */
 
@@ -27,7 +27,7 @@ import { Entorno } from "../Configuracion/Entorno.js";
 
 export const NOMBRE_APP = "IteradoresPluginPruebas";
 export const NOMBRE_APP_CREDENCIALES = "IteradoresPluginPruebas_credenciales";
-export const VERSION_APP = "1.5plugin.6i";
+export const VERSION_APP = "1.5plugin.6l";
 export const AUTOR_APP = "Ignacio David Baigorria";
 export const PREFIJO_SESSION = "IteradoresPluginPruebas_";
 
@@ -87,7 +87,7 @@ export function configurar_conf(Conf) {
 // ═══════════════════════════════════════════════════════════
 
 export const NOMBRE_GRAFO = "plugin_pruebas";
-export const VERSION_PLUGIN = "1.5plugin.6i";
+export const VERSION_PLUGIN = "1.5plugin.6l";
 
 // URL del piloto PHP. Debe estar cubierta por host_permissions
 // y content_scripts.matches en manifest.json.
