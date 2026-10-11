@@ -347,8 +347,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.6f.** El esqueleto del plugin está
-armado y funcional, tiene 59 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.6g.** El esqueleto del plugin está
+armado y funcional, tiene 64 pruebas (base + autocompletado
 + autenticación + puntos de venta + viajes + micros +
 ventas + empresas + vehículos + declaraciones juradas +
 grafo) y las agrupa en secciones. Las pruebas de venta son independientes: cada
@@ -416,8 +416,9 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 14 pruebas. Cada una verifica la Fase 2 o
-  Fase 3 del plan de optimización del grafo:
+- `grafo`: 23 pruebas. Cubren la Fase 2 (limpieza de nodos),
+  la Fase 3 (índice de ventas) y la Fase B2.4 (aislamiento
+  por topología).
   - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
     piloto (v1.5piloto.74r) destruye el subárbol completo
     del viaje.
@@ -487,8 +488,25 @@ con la limpieza de viajes de prueba de v74n). Archivos:
     `console.warn`. El plugin no puede crear huérfanos
     artificialmente (no tiene acceso directo al grafo,
     solo hace POST).
-  Todas miden nodos con `grafo/resumen` antes y después,
-  y comparan.
+  - `enlace_dueno_apunta_al_compartido`: v1.5piloto.77k.
+    Verifica que el enlace `dueno` del terminal apunta
+    a un nodo con `_es_compartido`.
+  - `venta_terminal_arbol_dual`: v1.5piloto.77e.
+    Una venta del terminal aparece en ambos árboles
+    paralelos (dueño + compartido).
+  - `cambiar_asiento_desde_croquis`: v1.5piloto.77b/c.
+    Flujo completo de cambiar de asiento desde el
+    croquis, con modal apilado.
+  - `cancelar_venta_arbol_dual`: v1.5piloto.77q.
+    Simétrica de la 58. Cancelar una venta la quita
+    de los dos árboles.
+  - `eliminar_viaje_con_terminal_autorizado`: v1.5piloto.77q.
+  - `autorizar_terminal_aparece_en_compartido`: v1.5piloto.77q.
+  - `desautorizar_terminal_desaparece_del_compartido`: v1.5piloto.77q.
+  - `agregar_micro_actualiza_empresas_compartido`: v1.5piloto.77q.
+  Las pruebas de la Fase 2 miden nodos con
+  `grafo/resumen` antes y después. Las de la Fase B2.4
+  navegan desde la raíz y comparan listados.
 
 ---
 
@@ -960,7 +978,26 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.6f
+**Última actualización de este prompt:** v1.5plugin.6g
+(Tanda A: 5 pruebas nuevas para B2.4.2 y B2.4.5).
+
+**Estado.** El plugin tiene 64 pruebas. Las 5 nuevas
+(60-64) verifican la Tanda A del piloto:
+
+- 60 `cancelar_venta_arbol_dual`: cancelar una venta del
+  terminal la quita de los dos árboles paralelos. Simétrica
+  de la 58.
+- 61 `eliminar_viaje_con_terminal_autorizado`: eliminar un
+  viaje con terminal autorizado lo quita del compartido.
+- 62 `autorizar_terminal_aparece_en_compartido`: autorizar
+  una terminal la hace ver el viaje.
+- 63 `desautorizar_terminal_desaparece_del_compartido`
+  (simétrica de la 62).
+- 64 `agregar_micro_actualiza_empresas_compartido`:
+  agregar un micro propaga su empresa al `empresas` del
+  compartido.
+
+Antes: v1.5plugin.6f
 (cierre de la fase de pruebas del aislamiento por topología).
 
 **Estado actual.** El plugin tiene **59 pruebas**, agrupadas
@@ -983,13 +1020,6 @@ B2.3.5 del piloto:
 - Prueba espejo de "cambiar de asiento" desde la pestaña
   Clientes (el flujo del `ver_detalle_pasaje_individual`
   en `pasajeros.js`, v77c/d).
-- Pruebas espejo de la Tanda A del piloto (B2.4.2 + B2.4.5):
-  - 60 `cancelar_venta_desaparece_de_ambos_arboles`:
-    simétrica de la 58.
-  - 61 `eliminar_viaje_con_terminal_autorizado`.
-  - 62 `autorizar_terminal_aparece_en_compartido`.
-  - 63 `desautorizar_terminal_desaparece_del_compartido`.
-  - 64 `agregar_micro_actualiza_empresas_compartido`.
 - A medida que avance B2.4 y B3, seguir agregando pruebas
   espejo para las operaciones que mantienen vivos los
   compartidos.

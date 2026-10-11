@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.5x
+ * @version 1.5plugin.6g
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -74,6 +74,11 @@ import { prueba as eliminar_huerfanos_limpia_grafo } from "./prueba_56_eliminar_
 import { prueba as enlace_dueno_apunta_al_compartido } from "./prueba_57_enlace_dueno_apunta_al_compartido.js";
 import { prueba as venta_terminal_arbol_dual } from "./prueba_58_venta_terminal_arbol_dual.js";
 import { prueba as cambiar_asiento_desde_croquis } from "./prueba_59_cambiar_asiento_desde_croquis.js";
+import { prueba as cancelar_venta_arbol_dual } from "./prueba_60_cancelar_venta_arbol_dual.js";
+import { prueba as eliminar_viaje_con_terminal_autorizado } from "./prueba_61_eliminar_viaje_con_terminal.js";
+import { prueba as autorizar_terminal_aparece_en_compartido } from "./prueba_62_autorizar_terminal_compartido.js";
+import { prueba as desautorizar_terminal_desaparece_del_compartido } from "./prueba_63_desautorizar_terminal_compartido.js";
+import { prueba as agregar_micro_actualiza_empresas_compartido } from "./prueba_64_agregar_micro_empresa_compartido.js";
 
 export const SECCIONES = [
     {
@@ -198,7 +203,12 @@ export const SECCIONES = [
             eliminar_huerfanos_limpia_grafo,
             enlace_dueno_apunta_al_compartido,
             venta_terminal_arbol_dual,
-            cambiar_asiento_desde_croquis
+            cambiar_asiento_desde_croquis,
+            cancelar_venta_arbol_dual,
+            eliminar_viaje_con_terminal_autorizado,
+            autorizar_terminal_aparece_en_compartido,
+            desautorizar_terminal_desaparece_del_compartido,
+            agregar_micro_actualiza_empresas_compartido
         ]
     }
 ];
