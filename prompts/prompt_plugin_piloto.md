@@ -347,8 +347,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.5w.** El esqueleto del plugin está
-armado y funcional, tiene 56 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.6f.** El esqueleto del plugin está
+armado y funcional, tiene 59 pruebas (base + autocompletado
 + autenticación + puntos de venta + viajes + micros +
 ventas + empresas + vehículos + declaraciones juradas +
 grafo) y las agrupa en secciones. Las pruebas de venta son independientes: cada
@@ -864,6 +864,65 @@ por tema.
     prompt tiene los códigos de acceso, pero no las
     acciones: para acciones, siempre leer el Enrutador.
 
+47. **Los IDs numéricos del piloto no son estables entre
+    POSTs.** El framework mantiene una tabla de equivalencias
+    solo dentro de una carga. Si un test hace dos POSTs
+    distintos (por ejemplo, dos `grafo/nodo`), el ID
+    numérico que devuelve el primero puede no existir en el
+    segundo, o apuntar a otro nodo. **Regla: verificar
+    topología entre llamadas siempre con navegación desde
+    una raíz en una sola consulta.** No seguir IDs, no
+    buscar por dato. Las pruebas 57 y 58 fallaron por
+    esto y se reescribieron.
+
+48. **`ventas/listar` ya navega los dos árboles paralelos
+    del piloto.** Con `tipo=dueno` y `nombre=<dueño>`,
+    recorre `usuarios → dueño → privado/ventas` con
+    `hmi`/`hd`/`p`. Con `tipo=terminal` y
+    `nombre=<terminal>`, resuelve el contexto del terminal
+    (post repuntado, el compartido) y recorre su árbol con
+    `hmi_<term>`/`hd_<term>`/`p_<term>`. La prueba 58
+    verifica pertenencia buscando el `id_venta` en los dos
+    listados.
+
+49. **En modales apilados, acotar selectores a
+    `#modal_apilado_contenido ...`.** El modal apilado
+    (por ejemplo, "Ver pasaje" → "Cambiar de asiento")
+    convive en el DOM con el modal genérico de atrás, que
+    también tiene su croquis con clase `.seat`. Sin
+    acotar, `querySelector('.seat')` devuelve el primero
+    en el DOM (el de atrás) y el click dispara el flujo
+    de atrás (seleccionar asiento en el croquis del
+    viaje), no el del modal del cambio.
+
+50. **Chequear efecto visual antes que atributo booleano.**
+    `getAttribute('disabled')` devuelve `[null]`, `[""]` o
+    `["disabled"]` según cómo el navegador haya serializado
+    el atributo — no hay un formato único. Es más robusto
+    chequear el efecto visible del cambio (por ejemplo,
+    que un asiento haya quedado con la clase
+    `.seat-elegido`, o que un botón haya cambiado su
+    `classList`), que un atributo booleano.
+
+51. **No pisar el monto pagado con `cuotas = 1`.** El
+    frontend del piloto autocompleta el input del monto
+    con el total y lo deja `disabled` cuando `cuotas = 1`.
+    Llamar a `setear_monto_pagado(1000)` con cuotas = 1
+    fuerza un valor menor al total y dispara el rechazo
+    del backend introducido en v1.5piloto.77m ("Con 1
+    sola cuota, el monto a pagar debe cubrir el total").
+    Regla: con `cuotas = 1`, no tocar el monto.
+
+52. **Polling activo en lugar de pausas fijas.** Los
+    modales del piloto hacen varios fetches en serie
+    antes de renderizar. Una pausa fija de 1.5s o 3s
+    puede quedarse corta con un grafo grande. Regla:
+    esperar activamente por el efecto deseado (que
+    aparezca el elemento, que se habilite el botón, que
+    la clase esperada esté presente) con un timeout
+    holgado (15-25s), y fallar con un mensaje claro si
+    no llega.
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -901,7 +960,40 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.5w
+**Última actualización de este prompt:** v1.5plugin.6f
+(cierre de la fase de pruebas del aislamiento por topología).
+
+**Estado actual.** El plugin tiene **59 pruebas**, agrupadas
+por sección. Las nuevas (57, 58, 59) verifican la fase
+B2.3.5 del piloto:
+
+- **57** (`enlace_dueno_apunta_al_compartido`): después del
+  repuntado, el enlace `dueno` de un terminal apunta a un
+  nodo con `_es_compartido`. Usa el campo `destino_es_compartido`
+  que expone `grafo:nodo` desde v1.5piloto.77k.
+- **58** (`venta_terminal_arbol_dual`): una venta hecha por
+  un terminal aparece tanto en `ventas/listar` tipo=dueno
+  (árbol del dueño) como tipo=terminal (árbol del compartido).
+- **59** (`cambiar_asiento_desde_croquis`): flujo completo
+  de cambiar de asiento desde el croquis, incluyendo el
+  modal apilado y la verificación por `ventas/obtener`.
+
+**Pendientes del plugin:**
+
+- Prueba espejo de "cambiar de asiento" desde la pestaña
+  Clientes (el flujo del `ver_detalle_pasaje_individual`
+  en `pasajeros.js`, v77c/d).
+- A medida que avance B2.4 y B3, agregar pruebas espejo
+  para las operaciones que mantienen vivos los compartidos.
+
+**Lecciones de esta sesión:** ver las 6 nuevas (47-52)
+agregadas en §8. Destacan: navegar siempre desde una raíz,
+no seguir IDs numéricos entre POSTs, acotar selectores a
+`#modal_apilado_contenido`, chequear efectos visuales en
+vez de atributos booleanos, no tocar el monto con cuotas=1,
+y usar polling activo en vez de pausas fijas.
+
+Antes: v1.5plugin.5w
 (prueba 56 `eliminar_huerfanos_limpia_grafo`: verifica
 que el endpoint `grafo/eliminar_huerfanos` del piloto
 deja el grafo sin huérfanos. El test depende del

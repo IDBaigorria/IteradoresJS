@@ -9,7 +9,7 @@
  *
  * Al final cancela la venta para limpiar.
  *
- * @version 1.5plugin.5x
+ * @version 1.5plugin.6e
  */
 
 import {
@@ -49,7 +49,9 @@ export const prueba = {
         await llenar_comprador(ctx, comprador);
         await llenar_pasajero(ctx, 0, pasajero);
         await setear_metodo_y_cuotas(ctx, "efectivo", 1);
-        await setear_monto_pagado(ctx, 1000);
+        // NO setear el monto manualmente: con cuotas = 1 el
+        // input ya viene con el total (y disabled). Forzarlo a
+        // un valor menor dispara el rechazo del backend (v77m).
         await confirmar_venta(ctx);
 
         const id_venta = await obtener_id_ultima_venta(ctx);
@@ -74,19 +76,58 @@ export const prueba = {
         }
 
         // 3. Click en "Cambiar de asiento".
+        // El modal hace 2 fetches en serie (estado_asientos +
+        // obtener_micro) antes de armar el croquis. En un grafo
+        // grande eso puede tardar varios segundos. Se hace polling
+        // activo hasta que aparezca al menos un asiento elegible.
+        // IMPORTANTE: hay DOS croquis `.seat` en el DOM (el del
+        // modal apilado y el del viaje de atrás). Los selectores
+        // se acotan a `#modal_apilado_contenido` para no clickear
+        // el croquis de atrás.
         await ctx.clic("#btn_cambiar_asiento_pasaje");
-        await ctx.pausa(1500);
 
-        const elegibles = await ctx.obtener_atributos(".seat.seat-elegible", "data-numero");
+        const inicio_espera = Date.now();
+        let elegibles = [];
+        while (Date.now() - inicio_espera < 25000) {
+            elegibles = await ctx.obtener_atributos(
+                "#modal_apilado_contenido .seat.seat-elegible",
+                "data-numero"
+            );
+            if (elegibles.length > 0) break;
+            await ctx.pausa(300);
+        }
         ctx.assert(elegibles.length > 0,
-            "No hay asientos elegibles para el cambio. ¿La migración de repuntado está aplicada?");
+            "No hay asientos elegibles para el cambio tras 25s. "
+            + "¿La migración de repuntado está aplicada?");
         const numero_nuevo = elegibles[0];
 
-        await ctx.clic(`.seat[data-numero="${numero_nuevo}"]`);
-        await ctx.pausa(300);
+        await ctx.clic(`#modal_apilado_contenido .seat[data-numero="${numero_nuevo}"]`);
+
+        // Cuando el listener del asiento registra el destino, el
+        // piloto marca el asiento con la clase `.seat-elegido`.
+        // Eso es el efecto visible del clic y no depende de cómo
+        // el navegador serialice el atributo booleano `disabled`
+        // (que puede ser `[""]`, `["disabled"]` o `[null]`, según
+        // cómo se haya seteado).
+        const inicio_confirmar = Date.now();
+        let asiento_marcado = false;
+        while (Date.now() - inicio_confirmar < 5000) {
+            const marcados = await ctx.obtener_atributos(
+                `#modal_apilado_contenido .seat.seat-elegido[data-numero="${numero_nuevo}"]`,
+                "data-numero"
+            );
+            if (marcados.length > 0) {
+                asiento_marcado = true;
+                break;
+            }
+            await ctx.pausa(150);
+        }
+        ctx.assert(asiento_marcado,
+            "El asiento elegido no quedó marcado con `.seat-elegido` en el modal. "
+            + "El click en el asiento no llegó al modal del cambio.");
 
         // 4. Confirmar el cambio.
-        await ctx.clic("#btn_confirmar_cambiar_asiento");
+        await ctx.clic("#modal_apilado_contenido #btn_confirmar_cambiar_asiento");
 
         const cerrado = await ctx.esperar_oculto("#modal_apilado", 15000);
         if (!cerrado || !cerrado.exito) {
