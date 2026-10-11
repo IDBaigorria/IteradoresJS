@@ -6,7 +6,7 @@
  * las operaciones de viajes/terminales son costosas en UI
  * y no necesitan verificación visual.
  *
- * @version 1.5plugin.6g
+ * @version 1.5plugin.6h
  */
 
 // ============================================================
@@ -132,8 +132,12 @@ export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_ter
  * Busca una empresa del dueño que tenga al menos un vehículo con
  * asientos configurados. Devuelve { nombre_empresa, nombre_vehiculo }
  * o null si no encuentra ninguna.
+ *
+ * `excluir` es una lista opcional de nombres de empresa a saltear
+ * (útil cuando el test necesita una empresa que el terminal no
+ * vea todavía).
  */
-export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno) {
+export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno, excluir = []) {
     const r_emp = await ctx.pedir_post("index.php", {
         accion: "empresas/listar",
         nombre_dueno: nombre_dueno
@@ -143,6 +147,7 @@ export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno)
     for (const e of empresas) {
         const nombre_emp = e && e.nombre_empresa;
         if (!nombre_emp) continue;
+        if (excluir.includes(nombre_emp)) continue;
         const r_veh = await ctx.pedir_post("index.php", {
             accion: "vehiculos/listar",
             nombre_empresa: nombre_emp

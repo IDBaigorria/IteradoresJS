@@ -978,7 +978,20 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.6g
+**Última actualización de este prompt:** v1.5plugin.6h
+(fix de la prueba 64: precondición de empresa no compartida).
+
+**Fix v1.5plugin.6h.** La prueba 64 (`agregar_micro_actualiza_empresas_compartido`)
+fallaba por una precondición mal planteada: asumía que el
+compartido del terminal estaba vacío de empresas antes de la
+prueba. Pero el compartido acumula las empresas de todos los
+viajes autorizados al terminal, no solo del viaje nuevo. Fix:
+buscar una empresa con vehículo configurado que el terminal
+no vea todavía. Si no hay ninguna, la prueba pasa con
+`console.warn` (aprendizaje 38: precondiciones de entorno
+que no se pueden forzar desde el plugin).
+
+Antes: v1.5plugin.6g
 (Tanda A: 5 pruebas nuevas para B2.4.2 y B2.4.5).
 
 **Estado.** El plugin tiene 64 pruebas. Las 5 nuevas
