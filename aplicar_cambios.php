@@ -2,9 +2,10 @@
 /**
  * Aplicador de cambios — Proyecto iteradoresJS (plugin de pruebas).
  *
- * Tanda V1.5plugin.6f (cierre de documentación).
- *   - prompts/prompt_plugin_piloto.md: actualizar estado (59 pruebas),
- *     agregar 4 lecciones nuevas en §8, actualizar Discusión actual.
+ * Tanda V1.5plugin.6f (actualización de prompt).
+ *   - prompts/prompt_plugin_piloto.md: agregar entrada
+ *     "Antes: v1.5plugin.6f" al historial de §9 + actualizar
+ *     pendientes.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -16,150 +17,14 @@ $raiz_proyecto = __DIR__;
 $cambios = [
 
     // ============================================================
-    // prompt_plugin_piloto.md — §7 estado actual
+    // prompt_plugin_piloto.md — pendientes del §9
     // ============================================================
 
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: estado actual a 59 pruebas',
+        'descripcion' => 'plugin: §9 pendientes con Tanda A',
         'buscar' => [
-            '**Proyecto en v1.5plugin.5w.** El esqueleto del plugin está',
-            'armado y funcional, tiene 56 pruebas (base + autocompletado',
-            '+ autenticación + puntos de venta + viajes + micros +',
-            'ventas + empresas + vehículos + declaraciones juradas +',
-            'grafo) y las agrupa en secciones.',
-        ],
-        'reemplazar' => [
-            '**Proyecto en v1.5plugin.6f.** El esqueleto del plugin está',
-            'armado y funcional, tiene 59 pruebas (base + autocompletado',
-            '+ autenticación + puntos de venta + viajes + micros +',
-            'ventas + empresas + vehículos + declaraciones juradas +',
-            'grafo) y las agrupa en secciones.',
-        ],
-    ],
-
-    // ============================================================
-    // prompt_plugin_piloto.md — §8 lecciones nuevas
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: agregar lecciones 47-52',
-        'buscar' => [
-            '46. **Verificar el nombre real de la acción antes de',
-            '    escribir un POST.** `viajes/agregar` no existe en el',
-            '    enrutador: la acción real es `viajes/guardar` (alta o',
-            '    edición unificada, llama a `guardar_viaje_completo`).',
-            '    Antes de escribir un test que toque el backend, leer',
-            '    el `switch ($subaccion)` del módulo correspondiente',
-            '    en `Aplicacion/Enrutador.php`. La sección 6 de este',
-            '    prompt tiene los códigos de acceso, pero no las',
-            '    acciones: para acciones, siempre leer el Enrutador.',
-        ],
-        'reemplazar' => [
-            '46. **Verificar el nombre real de la acción antes de',
-            '    escribir un POST.** `viajes/agregar` no existe en el',
-            '    enrutador: la acción real es `viajes/guardar` (alta o',
-            '    edición unificada, llama a `guardar_viaje_completo`).',
-            '    Antes de escribir un test que toque el backend, leer',
-            '    el `switch ($subaccion)` del módulo correspondiente',
-            '    en `Aplicacion/Enrutador.php`. La sección 6 de este',
-            '    prompt tiene los códigos de acceso, pero no las',
-            '    acciones: para acciones, siempre leer el Enrutador.',
-            '',
-            '47. **Los IDs numéricos del piloto no son estables entre',
-            '    POSTs.** El framework mantiene una tabla de equivalencias',
-            '    solo dentro de una carga. Si un test hace dos POSTs',
-            '    distintos (por ejemplo, dos `grafo/nodo`), el ID',
-            '    numérico que devuelve el primero puede no existir en el',
-            '    segundo, o apuntar a otro nodo. **Regla: verificar',
-            '    topología entre llamadas siempre con navegación desde',
-            '    una raíz en una sola consulta.** No seguir IDs, no',
-            '    buscar por dato. Las pruebas 57 y 58 fallaron por',
-            '    esto y se reescribieron.',
-            '',
-            '48. **`ventas/listar` ya navega los dos árboles paralelos',
-            '    del piloto.** Con `tipo=dueno` y `nombre=<dueño>`,',
-            '    recorre `usuarios → dueño → privado/ventas` con',
-            '    `hmi`/`hd`/`p`. Con `tipo=terminal` y',
-            '    `nombre=<terminal>`, resuelve el contexto del terminal',
-            '    (post repuntado, el compartido) y recorre su árbol con',
-            '    `hmi_<term>`/`hd_<term>`/`p_<term>`. La prueba 58',
-            '    verifica pertenencia buscando el `id_venta` en los dos',
-            '    listados.',
-            '',
-            '49. **En modales apilados, acotar selectores a',
-            '    `#modal_apilado_contenido ...`.** El modal apilado',
-            '    (por ejemplo, "Ver pasaje" → "Cambiar de asiento")',
-            '    convive en el DOM con el modal genérico de atrás, que',
-            '    también tiene su croquis con clase `.seat`. Sin',
-            '    acotar, `querySelector(\'.seat\')` devuelve el primero',
-            '    en el DOM (el de atrás) y el click dispara el flujo',
-            '    de atrás (seleccionar asiento en el croquis del',
-            '    viaje), no el del modal del cambio.',
-            '',
-            '50. **Chequear efecto visual antes que atributo booleano.**',
-            '    `getAttribute(\'disabled\')` devuelve `[null]`, `[""]` o',
-            '    `["disabled"]` según cómo el navegador haya serializado',
-            '    el atributo — no hay un formato único. Es más robusto',
-            '    chequear el efecto visible del cambio (por ejemplo,',
-            '    que un asiento haya quedado con la clase',
-            '    `.seat-elegido`, o que un botón haya cambiado su',
-            '    `classList`), que un atributo booleano.',
-            '',
-            '51. **No pisar el monto pagado con `cuotas = 1`.** El',
-            '    frontend del piloto autocompleta el input del monto',
-            '    con el total y lo deja `disabled` cuando `cuotas = 1`.',
-            '    Llamar a `setear_monto_pagado(1000)` con cuotas = 1',
-            '    fuerza un valor menor al total y dispara el rechazo',
-            '    del backend introducido en v1.5piloto.77m ("Con 1',
-            '    sola cuota, el monto a pagar debe cubrir el total").',
-            '    Regla: con `cuotas = 1`, no tocar el monto.',
-            '',
-            '52. **Polling activo en lugar de pausas fijas.** Los',
-            '    modales del piloto hacen varios fetches en serie',
-            '    antes de renderizar. Una pausa fija de 1.5s o 3s',
-            '    puede quedarse corta con un grafo grande. Regla:',
-            '    esperar activamente por el efecto deseado (que',
-            '    aparezca el elemento, que se habilite el botón, que',
-            '    la clase esperada esté presente) con un timeout',
-            '    holgado (15-25s), y fallar con un mensaje claro si',
-            '    no llega.',
-        ],
-    ],
-
-    // ============================================================
-    // prompt_plugin_piloto.md — Discusión actual
-    // ============================================================
-
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: discusión actual a 6f',
-        'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.5w',
-        ],
-        'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.6f',
-            '(cierre de la fase de pruebas del aislamiento por topología).',
-            '',
-            '**Estado actual.** El plugin tiene **59 pruebas**, agrupadas',
-            'por sección. Las nuevas (57, 58, 59) verifican la fase',
-            'B2.3.5 del piloto:',
-            '',
-            '- **57** (`enlace_dueno_apunta_al_compartido`): después del',
-            '  repuntado, el enlace `dueno` de un terminal apunta a un',
-            '  nodo con `_es_compartido`. Usa el campo `destino_es_compartido`',
-            '  que expone `grafo:nodo` desde v1.5piloto.77k.',
-            '- **58** (`venta_terminal_arbol_dual`): una venta hecha por',
-            '  un terminal aparece tanto en `ventas/listar` tipo=dueno',
-            '  (árbol del dueño) como tipo=terminal (árbol del compartido).',
-            '- **59** (`cambiar_asiento_desde_croquis`): flujo completo',
-            '  de cambiar de asiento desde el croquis, incluyendo el',
-            '  modal apilado y la verificación por `ventas/obtener`.',
-            '',
             '**Pendientes del plugin:**',
             '',
             '- Prueba espejo de "cambiar de asiento" desde la pestaña',
@@ -167,7 +32,35 @@ $cambios = [
             '  en `pasajeros.js`, v77c/d).',
             '- A medida que avance B2.4 y B3, agregar pruebas espejo',
             '  para las operaciones que mantienen vivos los compartidos.',
+        ],
+        'reemplazar' => [
+            '**Pendientes del plugin:**',
             '',
+            '- Prueba espejo de "cambiar de asiento" desde la pestaña',
+            '  Clientes (el flujo del `ver_detalle_pasaje_individual`',
+            '  en `pasajeros.js`, v77c/d).',
+            '- Pruebas espejo de la Tanda A del piloto (B2.4.2 + B2.4.5):',
+            '  - 60 `cancelar_venta_desaparece_de_ambos_arboles`:',
+            '    simétrica de la 58.',
+            '  - 61 `eliminar_viaje_con_terminal_autorizado`.',
+            '  - 62 `autorizar_terminal_aparece_en_compartido`.',
+            '  - 63 `desautorizar_terminal_desaparece_del_compartido`.',
+            '  - 64 `agregar_micro_actualiza_empresas_compartido`.',
+            '- A medida que avance B2.4 y B3, seguir agregando pruebas',
+            '  espejo para las operaciones que mantienen vivos los',
+            '  compartidos.',
+        ],
+    ],
+
+    // ============================================================
+    // prompt_plugin_piloto.md — historial: agregar "Antes: 6f"
+    // ============================================================
+
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'plugin: §9 agregar "Antes: v1.5plugin.6f"',
+        'buscar' => [
             '**Lecciones de esta sesión:** ver las 6 nuevas (47-52)',
             'agregadas en §8. Destacan: navegar siempre desde una raíz,',
             'no seguir IDs numéricos entre POSTs, acotar selectores a',
@@ -175,6 +68,23 @@ $cambios = [
             'vez de atributos booleanos, no tocar el monto con cuotas=1,',
             'y usar polling activo en vez de pausas fijas.',
             '',
+            'Antes: v1.5plugin.5w',
+        ],
+        'reemplazar' => [
+            '**Lecciones de esta sesión:** ver las 6 nuevas (47-52)',
+            'agregadas en §8. Destacan: navegar siempre desde una raíz,',
+            'no seguir IDs numéricos entre POSTs, acotar selectores a',
+            '`#modal_apilado_contenido`, chequear efectos visuales en',
+            'vez de atributos booleanos, no tocar el monto con cuotas=1,',
+            'y usar polling activo en vez de pausas fijas.',
+            '',
+            'Antes: v1.5plugin.6f',
+            '(cierre de la fase de pruebas del aislamiento por topología.',
+            'Las 3 pruebas nuevas (57, 58, 59) verifican la fase B2.3.5',
+            'del piloto: enlace `dueno` del terminal apunta al compartido,',
+            'venta del terminal aparece en ambos árboles paralelos, y',
+            'flujo completo de cambiar de asiento desde el croquis. La',
+            'sección "grafo" pasa a 18 pruebas.).',
             'Antes: v1.5plugin.5w',
         ],
     ],

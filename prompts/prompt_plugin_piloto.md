@@ -983,8 +983,16 @@ B2.3.5 del piloto:
 - Prueba espejo de "cambiar de asiento" desde la pestaña
   Clientes (el flujo del `ver_detalle_pasaje_individual`
   en `pasajeros.js`, v77c/d).
-- A medida que avance B2.4 y B3, agregar pruebas espejo
-  para las operaciones que mantienen vivos los compartidos.
+- Pruebas espejo de la Tanda A del piloto (B2.4.2 + B2.4.5):
+  - 60 `cancelar_venta_desaparece_de_ambos_arboles`:
+    simétrica de la 58.
+  - 61 `eliminar_viaje_con_terminal_autorizado`.
+  - 62 `autorizar_terminal_aparece_en_compartido`.
+  - 63 `desautorizar_terminal_desaparece_del_compartido`.
+  - 64 `agregar_micro_actualiza_empresas_compartido`.
+- A medida que avance B2.4 y B3, seguir agregando pruebas
+  espejo para las operaciones que mantienen vivos los
+  compartidos.
 
 **Lecciones de esta sesión:** ver las 6 nuevas (47-52)
 agregadas en §8. Destacan: navegar siempre desde una raíz,
@@ -993,6 +1001,13 @@ no seguir IDs numéricos entre POSTs, acotar selectores a
 vez de atributos booleanos, no tocar el monto con cuotas=1,
 y usar polling activo en vez de pausas fijas.
 
+Antes: v1.5plugin.6f
+(cierre de la fase de pruebas del aislamiento por topología.
+Las 3 pruebas nuevas (57, 58, 59) verifican la fase B2.3.5
+del piloto: enlace `dueno` del terminal apunta al compartido,
+venta del terminal aparece en ambos árboles paralelos, y
+flujo completo de cambiar de asiento desde el croquis. La
+sección "grafo" pasa a 18 pruebas.).
 Antes: v1.5plugin.5w
 (prueba 56 `eliminar_huerfanos_limpia_grafo`: verifica
 que el endpoint `grafo/eliminar_huerfanos` del piloto
