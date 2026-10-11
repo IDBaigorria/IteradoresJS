@@ -347,8 +347,8 @@ Para crear pasajeros de prueba se resuelve desde el page con
 
 ## 7. ESTADO ACTUAL
 
-**Proyecto en v1.5plugin.6g.** El esqueleto del plugin está
-armado y funcional, tiene 64 pruebas (base + autocompletado
+**Proyecto en v1.5plugin.6i.** El esqueleto del plugin está
+armado y funcional, tiene 65 pruebas (base + autocompletado
 + autenticación + puntos de venta + viajes + micros +
 ventas + empresas + vehículos + declaraciones juradas +
 grafo) y las agrupa en secciones. Las pruebas de venta son independientes: cada
@@ -416,7 +416,7 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   asientos múltiples, ligaduras, duplicado, corrección de
   DNI, montos inválidos, sin comprador, cancelar-reabrir,
   sin asientos).
-- `grafo`: 23 pruebas. Cubren la Fase 2 (limpieza de nodos),
+- `grafo`: 24 pruebas. Cubren la Fase 2 (limpieza de nodos),
   la Fase 3 (índice de ventas) y la Fase B2.4 (aislamiento
   por topología).
   - `eliminar_viaje_limpia_nodos`: `eliminar_viaje` del
@@ -504,6 +504,10 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   - `autorizar_terminal_aparece_en_compartido`: v1.5piloto.77q.
   - `desautorizar_terminal_desaparece_del_compartido`: v1.5piloto.77q.
   - `agregar_micro_actualiza_empresas_compartido`: v1.5piloto.77q.
+  - `cambiar_asiento_desde_clientes`: v1.5piloto.77d.
+    Flujo completo desde la pestaña Clientes. Verifica el
+    callback `on_exito` que re-abre el detalle con el
+    asiento nuevo. Espejo de la 59.
   Las pruebas de la Fase 2 miden nodos con
   `grafo/resumen` antes y después. Las de la Fase B2.4
   navegan desde la raíz y comparan listados.
@@ -978,7 +982,17 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.6h
+**Última actualización de este prompt:** v1.5plugin.6i
+(prueba 65: cambiar de asiento desde Clientes).
+
+**Estado.** El plugin tiene 65 pruebas. La nueva (65)
+verifica el flujo completo de "cambiar de asiento" desde
+la pestaña Clientes, incluyendo el callback `on_exito`
+del fix v1.5piloto.77d (el modal se re-abre con el
+asiento nuevo). Es la prueba espejo de la 59 (que usa
+el croquis).
+
+Antes: v1.5plugin.6h
 (fix de la prueba 64: precondición de empresa no compartida).
 
 **Fix v1.5plugin.6h.** La prueba 64 (`agregar_micro_actualiza_empresas_compartido`)

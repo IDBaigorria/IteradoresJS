@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.6h
+ * @version 1.5plugin.6i
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -79,6 +79,7 @@ import { prueba as eliminar_viaje_con_terminal_autorizado } from "./prueba_61_el
 import { prueba as autorizar_terminal_aparece_en_compartido } from "./prueba_62_autorizar_terminal_compartido.js";
 import { prueba as desautorizar_terminal_desaparece_del_compartido } from "./prueba_63_desautorizar_terminal_compartido.js";
 import { prueba as agregar_micro_actualiza_empresas_compartido } from "./prueba_64_agregar_micro_empresa_compartido.js";
+import { prueba as cambiar_asiento_desde_clientes } from "./prueba_65_cambiar_asiento_desde_clientes.js";
 
 export const SECCIONES = [
     {
@@ -208,7 +209,8 @@ export const SECCIONES = [
             eliminar_viaje_con_terminal_autorizado,
             autorizar_terminal_aparece_en_compartido,
             desautorizar_terminal_desaparece_del_compartido,
-            agregar_micro_actualiza_empresas_compartido
+            agregar_micro_actualiza_empresas_compartido,
+            cambiar_asiento_desde_clientes
         ]
     }
 ];
