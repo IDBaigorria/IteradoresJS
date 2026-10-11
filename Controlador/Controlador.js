@@ -39,7 +39,7 @@ import { Talamo } from '../Controlador/Talamo.js';
  * @implements {Controlador.Interfaces.Dominios}
  * @memberof Controlador
  * @since 1.2.0
- * @version 1.5i.7k
+ * @version 1.5i.7l
  */
 class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, Comandos, Comunicadores, VectorGravitacional, Motor, Dominios) {
     /** 
@@ -1582,6 +1582,43 @@ class Controlador extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestr
                 eliminados: eliminados,
                 total_huerfanos: total_huerfanos,
             };
+        }, null, false);
+
+        // ─── grafo:raices ──────────────────────────────
+        //
+        // Devuelve todos los nodos raíz del grafo (IDs
+        // especiales) con sus adyacentes directos. Genérico:
+        // no conoce semántica de la aplicación.
+        //
+        // Devuelve: [ { id, dato, adyacentes: [{enlace,
+        //             id_destino, dato_destino}, ...] }, ... ]
+        this.registrar_comando('grafo:raices', (token, args) => {
+            const raices = [];
+            Nodo.por_cada_nodo_ejecutar(token, (nodo) => {
+                const id = String(nodo.id());
+                if (!isNaN(Number(id))) return; // solo especiales
+
+                const adyacentes = [];
+                const ady = nodo.adyacentes();
+                if (ady) {
+                    for (const [enlace, destino] of ady) {
+                        adyacentes.push({
+                            enlace: String(enlace),
+                            id_destino: String(destino.id()),
+                            dato_destino: String(destino.dato() || '').slice(0, 80),
+                        });
+                    }
+                }
+                raices.push({
+                    id: id,
+                    dato: String(nodo.dato() || '').slice(0, 200),
+                    adyacentes: adyacentes,
+                });
+            }, null);
+
+            // Orden alfabético por id para estabilidad.
+            raices.sort((a, b) => a.id < b.id ? -1 : (a.id > b.id ? 1 : 0));
+            return raices;
         }, null, false);
     }
 
