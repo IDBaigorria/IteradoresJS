@@ -1,256 +1,592 @@
 <?php
 /**
- * Aplicador de cambios — Proyecto iteradoresJS (plugin de pruebas).
+ * Aplicador de cambios automáticos — Proyecto iteradoresJS.
  *
- * Tanda V1.5plugin.6l (fix real de la prueba 65).
- *   - prueba_65: buscar el botón "Ver pasajes" del pasajero
- *     correcto por `data-dni`, sin depender del filtro de la
- *     tabla de Clientes. El filtro no se aplica porque
- *     `ctx.escribir` no dispara el evento `input`.
+ * Tanda 1a: guardar_parcial real en IndexedDB64.
  *
- * Uso (parado en iteradoresJS/):
+ * Uso (parado en el directorio del proyecto iteradoresJS):
  *   php aplicar_cambios.php
  */
+
+// ============================================================
+// Configuración
+// ============================================================
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
+// ============================================================
+// Cambios a aplicar
+// ============================================================
+
 $cambios = [
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_65_cambiar_asiento_desde_clientes.js',
-        'descripcion' => 'prueba 65: buscar botón por data-dni',
-        'buscar' => [
-            '            // 4. Buscar el DNI del pasajero en el filtro.',
-            '            const input = await ctx.esperar_visible("#buscar_pasajero", 8000);',
-            '            if (!input || !input.exito) {',
-            '                throw new Error("No aparece el buscador de pasajeros");',
-            '            }',
-            '            await ctx.escribir("#buscar_pasajero", dni_pasajero);',
-            '',
-            '            // 5. Esperar el botón "Ver pasajes" del pasajero.',
-            '            const inicio_ver = Date.now();',
-            '            let boton_ver = null;',
-            '            while (Date.now() - inicio_ver < 15000) {',
-            '                const r = await ctx.esperar_visible(".ver_pasajes_pasajero", 500);',
-            '                if (r && r.exito) { boton_ver = true; break; }',
-            '                await ctx.pausa(300);',
-            '            }',
-            '            ctx.assert(boton_ver,',
-            '                "No aparece el botón Ver pasajes para el DNI " + dni_pasajero',
-            '                + ". ¿La venta no es activa, o el pasajero no se cargó?");',
-            '',
-            '            await ctx.clic(".ver_pasajes_pasajero");',
-        ],
-        'reemplazar' => [
-            '            // 4. Asegurar que la tabla de Clientes esté cargada.',
-            '            //    No filtramos por el input de búsqueda: el helper',
-            '            //    `ctx.escribir` asigna el value pero no dispara el',
-            '            //    evento `input`, así que el listener de',
-            '            //    `pasajeros.js` no corre y la tabla queda con',
-            '            //    TODOS los pasajeros. Por eso buscamos el botón',
-            '            //    directamente por su `data-dni` (que es único).',
-            '            const input = await ctx.esperar_visible("#buscar_pasajero", 8000);',
-            '            if (!input || !input.exito) {',
-            '                throw new Error("No aparece el buscador de pasajeros");',
-            '            }',
-            '            await ctx.escribir("#buscar_pasajero", dni_pasajero);',
-            '',
-            '            // 5. Esperar el botón "Ver pasajes" del pasajero',
-            '            //    correcto, por su data-dni.',
-            '            const selector_ver = `.ver_pasajes_pasajero[data-dni="${dni_pasajero}"]`;',
-            '            const inicio_ver = Date.now();',
-            '            let boton_ver = null;',
-            '            while (Date.now() - inicio_ver < 15000) {',
-            '                const r = await ctx.esperar_visible(selector_ver, 500);',
-            '                if (r && r.exito) { boton_ver = true; break; }',
-            '                await ctx.pausa(300);',
-            '            }',
-            '            ctx.assert(boton_ver,',
-            '                "No aparece el botón Ver pasajes para el DNI " + dni_pasajero',
-            '                + ". ¿La venta no es activa, o el pasajero no se cargó?");',
-            '',
-            '            await ctx.clic(selector_ver);',
-        ],
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
+    'descripcion' => 'IndexedDB64: bump @version a V1.5i.7o',
+    'buscar' => [
+        ' * @author Ignacio David Baigorria',
+        ' * @version 1.5i.7k',
+        ' * @since 1.5i.7k',
+        ' */',
+        'class PerdurarSuperestructuraStringIndexedDB64',
     ],
+    'reemplazar' => [
+        ' * @author Ignacio David Baigorria',
+        ' * @version V1.5i.7o',
+        ' * @since 1.5i.7k',
+        ' */',
+        'class PerdurarSuperestructuraStringIndexedDB64',
+    ],
+],
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_65_cambiar_asiento_desde_clientes.js',
-        'descripcion' => 'prueba 65: bump a 1.5plugin.6l',
-        'buscar' => [
-            ' * @version 1.5plugin.6k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6l',
-        ],
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
+    'descripcion' => 'IndexedDB64: guardar wrapper + #guardar_con_filtro',
+    'buscar' => [
+        '    static async guardar(nombre) {',
+        '        if (!Nodo.hay_nodos_en_superestructura()) {',
+        '            this._error("IndexedDB64::guardar: no hay nodos.");',
+        '            return false;',
+        '        }',
+        '',
+        '        let db = null;',
+        '        try {',
+        '            db = await this.#abrir_BD();',
+        '',
+        '            const mascaras = await this.#calcular_y_registrar_contextos(db, nombre);',
+        '            if (mascaras === null) {',
+        '                return false;',
+        '            }',
+        '',
+        '            const nodos = this.#crear_datos_insertar_nodos(nombre, mascaras);',
+        '            const adyacentes = this.#crear_datos_insertar_adyacentes(nombre);',
+        '',
+        '            await this.#reemplazar_en_transaccion(db, nombre, nodos, adyacentes);',
+        '            return true;',
+        '        } catch (error) {',
+        '            this._error("Error en guardar (IndexedDB64): " + error.message);',
+        '            return false;',
+        '        } finally {',
+        '            if (db) {',
+        '                try { db.close(); } catch (e) { /* ignorar */ }',
+        '            }',
+        '        }',
+        '    }',
     ],
+    'reemplazar' => [
+        '    static async guardar(nombre) {',
+        '        if (!Nodo.hay_nodos_en_superestructura()) {',
+        '            this._error("IndexedDB64::guardar: no hay nodos.");',
+        '            return false;',
+        '        }',
+        '',
+        '        let db = null;',
+        '        try {',
+        '            db = await this.#abrir_BD();',
+        '            return await this.#guardar_con_filtro(db, nombre, 0);',
+        '        } catch (error) {',
+        '            this._error("Error en guardar (IndexedDB64): " + error.message);',
+        '            return false;',
+        '        } finally {',
+        '            if (db) {',
+        '                try { db.close(); } catch (e) { /* ignorar */ }',
+        '            }',
+        '        }',
+        '    }',
+        '',
+        '    /**',
+        '     * Implementación común de guardar y guardar_parcial.',
+        '     *',
+        '     * Con mascara_filtro === 0 reemplaza toda la',
+        '     * superestructura (comportamiento de guardar).',
+        '     *',
+        '     * Con mascara_filtro !== 0 solo toca los nodos cuyo',
+        '     * bitmask intersecta el filtro. Regla de borrado:',
+        '     * se borran las aristas salientes de esos nodos',
+        '     * (idnodo in filtro) y después los nodos. Las',
+        '     * aristas entrantes desde nodos fuera del filtro',
+        '     * no se tocan.',
+        '     *',
+        '     * @private',
+        '     * @param {IDBDatabase} db',
+        '     * @param {string} nombre',
+        '     * @param {number} mascara_filtro',
+        '     * @returns {Promise<boolean>}',
+        '     */',
+        '    static async #guardar_con_filtro(db, nombre, mascara_filtro) {',
+        '        const mascaras = await this.#calcular_y_registrar_contextos(db, nombre);',
+        '        if (mascaras === null) return false;',
+        '',
+        '        let ids_filtro = null;',
+        '        if (mascara_filtro !== 0) {',
+        '            ids_filtro = new Set();',
+        '            for (const [id, m] of mascaras.entries()) {',
+        '                if ((Number(m) | 0) & mascara_filtro) {',
+        '                    ids_filtro.add(String(id));',
+        '                }',
+        '            }',
+        '        }',
+        '',
+        '        const nodos = this.#crear_datos_insertar_nodos(nombre, mascaras, mascara_filtro);',
+        '        const adyacentes = this.#crear_datos_insertar_adyacentes(nombre, mascaras, mascara_filtro);',
+        '',
+        '        await this.#reemplazar_en_transaccion(db, nombre, nodos, adyacentes, ids_filtro);',
+        '        return true;',
+        '    }',
+    ],
+],
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli: VERSION_APP a 6l',
-        'buscar' => [
-            'export const VERSION_APP = "1.5plugin.6k";',
-        ],
-        'reemplazar' => [
-            'export const VERSION_APP = "1.5plugin.6l";',
-        ],
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
+    'descripcion' => 'IndexedDB64: #crear_datos_insertar_nodos con filtro',
+    'buscar' => [
+        '    static #crear_datos_insertar_nodos(nombre, mascaras) {',
+        '        const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => nodo.dato(), null) || {};',
+        '        const nodos = [];',
+        '',
+        '        for (let [id, dato] of Object.entries(datos)) {',
+        '            if (dato === null || dato === undefined) {',
+        '                dato = "";',
+        '            } else {',
+        '                dato = String(dato);',
+        '            }',
+        '            const mascara = mascaras.get(String(id)) || 0;',
+        '            nodos.push({',
+        '                idsuperestructura: String(nombre),',
+        '                idnodo: String(id),',
+        '                dato: dato,',
+        '                contexto_mascara: mascara',
+        '            });',
+        '        }',
+        '',
+        '        return nodos;',
+        '    }',
     ],
+    'reemplazar' => [
+        '    static #crear_datos_insertar_nodos(nombre, mascaras, mascara_filtro = 0) {',
+        '        const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => nodo.dato(), null) || {};',
+        '        const nodos = [];',
+        '',
+        '        for (let [id, dato] of Object.entries(datos)) {',
+        '            const mascara = Number(mascaras.get(String(id)) || 0) | 0;',
+        '            if (mascara_filtro !== 0 && (mascara & mascara_filtro) === 0) {',
+        '                continue;',
+        '            }',
+        '            if (dato === null || dato === undefined) {',
+        '                dato = "";',
+        '            } else {',
+        '                dato = String(dato);',
+        '            }',
+        '            nodos.push({',
+        '                idsuperestructura: String(nombre),',
+        '                idnodo: String(id),',
+        '                dato: dato,',
+        '                contexto_mascara: mascara',
+        '            });',
+        '        }',
+        '',
+        '        return nodos;',
+        '    }',
+    ],
+],
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli: VERSION_PLUGIN a 6l',
-        'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.6k";',
-        ],
-        'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.6l";',
-        ],
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
+    'descripcion' => 'IndexedDB64: #crear_datos_insertar_adyacentes con filtro',
+    'buscar' => [
+        '    static #crear_datos_insertar_adyacentes(nombre) {',
+        '        const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
+        '            const enlaces = {};',
+        '            const ady = nodo.adyacentes();',
+        '            if (ady) {',
+        '                for (const [enlace, adyacente] of ady) {',
+        '                    enlaces[enlace] = adyacente.id();',
+        '                }',
+        '            }',
+        '            return enlaces;',
+        '        }, null) || {};',
+        '',
+        '        const adyacentes = [];',
+        '        for (const [idnodo, enlaces] of Object.entries(datos)) {',
+        '            for (const [enlace, idadyacente] of Object.entries(enlaces)) {',
+        '                adyacentes.push({',
+        '                    idsuperestructura: String(nombre),',
+        '                    idnodo: String(idnodo),',
+        '                    enlace: String(enlace),',
+        '                    idadyacente: String(idadyacente)',
+        '                });',
+        '            }',
+        '        }',
+        '        return adyacentes;',
+        '    }',
     ],
+    'reemplazar' => [
+        '    static #crear_datos_insertar_adyacentes(nombre, mascaras, mascara_filtro = 0) {',
+        '        const datos = Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
+        '            const enlaces = {};',
+        '            const ady = nodo.adyacentes();',
+        '            if (ady) {',
+        '                for (const [enlace, adyacente] of ady) {',
+        '                    enlaces[enlace] = adyacente.id();',
+        '                }',
+        '            }',
+        '            return enlaces;',
+        '        }, null) || {};',
+        '',
+        '        const adyacentes = [];',
+        '        for (const [idnodo, enlaces] of Object.entries(datos)) {',
+        '            const idnodo_str = String(idnodo);',
+        '            if (mascara_filtro !== 0) {',
+        '                const m_origen = Number(mascaras.get(idnodo_str) || 0) | 0;',
+        '                if ((m_origen & mascara_filtro) === 0) continue;',
+        '            }',
+        '            for (const [enlace, idadyacente] of Object.entries(enlaces)) {',
+        '                const idady_str = String(idadyacente);',
+        '                if (mascara_filtro !== 0) {',
+        '                    const m_dest = Number(mascaras.get(idady_str) || 0) | 0;',
+        '                    if ((m_dest & mascara_filtro) === 0) continue;',
+        '                }',
+        '                adyacentes.push({',
+        '                    idsuperestructura: String(nombre),',
+        '                    idnodo: idnodo_str,',
+        '                    enlace: String(enlace),',
+        '                    idadyacente: idady_str',
+        '                });',
+        '            }',
+        '        }',
+        '        return adyacentes;',
+        '    }',
+    ],
+],
 
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli: bump @version a 6l',
-        'buscar' => [
-            ' * @version 1.5plugin.6k',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6l',
-        ],
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
+    'descripcion' => 'IndexedDB64: #reemplazar_en_transaccion con ids_filtro',
+    'buscar' => [
+        '    static #reemplazar_en_transaccion(db, nombre, nodos, adyacentes) {',
+        '        return new Promise((resolve, reject) => {',
+        '            let tx;',
+        '            try {',
+        '                tx = db.transaction([this.#ALMACEN_NODOS, this.#ALMACEN_ADYACENTES], "readwrite");',
+        '            } catch (e) {',
+        '                reject(e);',
+        '                return;',
+        '            }',
+        '',
+        '            const almacen_nodos = tx.objectStore(this.#ALMACEN_NODOS);',
+        '            const almacen_ady = tx.objectStore(this.#ALMACEN_ADYACENTES);',
+        '            const rango = IDBKeyRange.only(String(nombre));',
+        '',
+        '            let pendientes_borrado = 2;',
+        '            const al_terminar_borrado = () => {',
+        '                pendientes_borrado--;',
+        '                if (pendientes_borrado !== 0) return;',
+        '                for (const n of nodos) almacen_nodos.add(n);',
+        '                for (const a of adyacentes) almacen_ady.add(a);',
+        '            };',
+        '',
+        '            const cursor_nodos = almacen_nodos.index("idsuperestructura").openCursor(rango);',
+        '            cursor_nodos.onsuccess = (event) => {',
+        '                const cursor = event.target.result;',
+        '                if (cursor) {',
+        '                    cursor.delete();',
+        '                    cursor.continue();',
+        '                } else {',
+        '                    al_terminar_borrado();',
+        '                }',
+        '            };',
+        '',
+        '            const cursor_ady = almacen_ady.index("idsuperestructura").openCursor(rango);',
+        '            cursor_ady.onsuccess = (event) => {',
+        '                const cursor = event.target.result;',
+        '                if (cursor) {',
+        '                    cursor.delete();',
+        '                    cursor.continue();',
+        '                } else {',
+        '                    al_terminar_borrado();',
+        '                }',
+        '            };',
+        '',
+        '            tx.oncomplete = () => resolve();',
+        '            tx.onerror = (event) => reject(event.target.error || new Error("Error en transacción"));',
+        '            tx.onabort = () => reject(new Error("Transacción abortada"));',
+        '        });',
+        '    }',
     ],
+    'reemplazar' => [
+        '    static #reemplazar_en_transaccion(db, nombre, nodos, adyacentes, ids_filtro = null) {',
+        '        return new Promise((resolve, reject) => {',
+        '            let tx;',
+        '            try {',
+        '                tx = db.transaction([this.#ALMACEN_NODOS, this.#ALMACEN_ADYACENTES], "readwrite");',
+        '            } catch (e) {',
+        '                reject(e);',
+        '                return;',
+        '            }',
+        '',
+        '            const almacen_nodos = tx.objectStore(this.#ALMACEN_NODOS);',
+        '            const almacen_ady = tx.objectStore(this.#ALMACEN_ADYACENTES);',
+        '            const rango = IDBKeyRange.only(String(nombre));',
+        '',
+        '            let pendientes_borrado = 2;',
+        '            const al_terminar_borrado = () => {',
+        '                pendientes_borrado--;',
+        '                if (pendientes_borrado !== 0) return;',
+        '                for (const n of nodos) almacen_nodos.add(n);',
+        '                for (const a of adyacentes) almacen_ady.add(a);',
+        '            };',
+        '',
+        '            const cursor_nodos = almacen_nodos.index("idsuperestructura").openCursor(rango);',
+        '            cursor_nodos.onsuccess = (event) => {',
+        '                const cursor = event.target.result;',
+        '                if (cursor) {',
+        '                    const id = String(cursor.value.idnodo);',
+        '                    if (ids_filtro === null || ids_filtro.has(id)) {',
+        '                        cursor.delete();',
+        '                    }',
+        '                    cursor.continue();',
+        '                } else {',
+        '                    al_terminar_borrado();',
+        '                }',
+        '            };',
+        '',
+        '            const cursor_ady = almacen_ady.index("idsuperestructura").openCursor(rango);',
+        '            cursor_ady.onsuccess = (event) => {',
+        '                const cursor = event.target.result;',
+        '                if (cursor) {',
+        '                    const idnodo = String(cursor.value.idnodo);',
+        '                    if (ids_filtro === null || ids_filtro.has(idnodo)) {',
+        '                        cursor.delete();',
+        '                    }',
+        '                    cursor.continue();',
+        '                } else {',
+        '                    al_terminar_borrado();',
+        '                }',
+        '            };',
+        '',
+        '            tx.oncomplete = () => resolve();',
+        '            tx.onerror = (event) => reject(event.target.error || new Error("Error en transacción"));',
+        '            tx.onabort = () => reject(new Error("Transacción abortada"));',
+        '        });',
+        '    }',
+    ],
+],
 
-    // ============================================================
-    // 6. prompt_plugin_piloto.md — nueva lección 53
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: agregar lección 53',
-        'buscar' => [
-            '52. **Polling activo en lugar de pausas fijas.** Los',
-            '    modales del piloto hacen varios fetches en serie',
-            '    antes de renderizar. Una pausa fija de 1.5s o 3s',
-            '    puede quedarse corta con un grafo grande. Regla:',
-            '    esperar activamente por el efecto deseado (que',
-            '    aparezca el elemento, que se habilite el botón, que',
-            '    la clase esperada esté presente) con un timeout',
-            '    holgado (15-25s), y fallar con un mensaje claro si',
-            '    no llega.',
-        ],
-        'reemplazar' => [
-            '52. **Polling activo en lugar de pausas fijas.** Los',
-            '    modales del piloto hacen varios fetches en serie',
-            '    antes de renderizar. Una pausa fija de 1.5s o 3s',
-            '    puede quedarse corta con un grafo grande. Regla:',
-            '    esperar activamente por el efecto deseado (que',
-            '    aparezca el elemento, que se habilite el botón, que',
-            '    la clase esperada esté presente) con un timeout',
-            '    holgado (15-25s), y fallar con un mensaje claro si',
-            '    no llega.',
-            '',
-            '53. **`ctx.escribir` no dispara el evento `input`.**',
-            '    El helper asigna `input.value` pero no emite el',
-            '    evento, así que los listeners de tipo `input` en el',
-            '    piloto (por ejemplo, el filtro de la tabla de',
-            '    Clientes en `pasajeros.js`) no corren. Regla: si',
-            '    una prueba depende de que un filtro en vivo se',
-            '    aplique después de escribir, no cuentes con eso.',
-            '    Buscá el elemento directamente por un atributo',
-            '    único (`data-dni`, `data-venta-id`, etc.) o usá un',
-            '    helper que dispare el evento (a futuro).',
-            '    Detectado en la prueba 65: buscaba el botón "Ver',
-            '    pasajes" con `.ver_pasajes_pasajero` genérico, sin',
-            '    filtrar, y tomaba el primero de la tabla. Ahora usa',
-            '    `.ver_pasajes_pasajero[data-dni="..."]`.',
-        ],
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'Controlador/PerdurarSuperestructura/PerdurarSuperestructuraStringIndexedDB64.js',
+    'descripcion' => 'IndexedDB64: guardar_parcial implementado',
+    'buscar' => [
+        '    /**',
+        '     * Guarda solo el subgrafo en memoria filtrando por contextos.',
+        '     * STUB en fase 2: devuelve error.',
+        '     *',
+        '     * @param {string} nombre',
+        '     * @param {string[]} contextos',
+        '     * @returns {Promise<boolean>}',
+        '     */',
+        '    static async guardar_parcial(nombre, contextos) {',
+        '        this._error("IndexedDB64::guardar_parcial: aún no implementado (fase 2).");',
+        '        return false;',
+        '    }',
     ],
-
-    // ============================================================
-    // 7. prompt_plugin_piloto.md — §9 última actualización a 6l
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: §9 última actualización a 6l',
-        'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.6i',
-            '(prueba 65: cambiar de asiento desde Clientes).',
-        ],
-        'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.6l',
-            '(fix real de la prueba 65: el filtro de la tabla de',
-            'Clientes no se aplicaba porque `ctx.escribir` no dispara',
-            'el evento `input`).',
-            '',
-            '**Fix v1.5plugin.6l.** La prueba 65 fallaba con un',
-            'diagnóstico difícil: el modal mostraba el asiento nuevo,',
-            'pero el backend devolvía el viejo. El problema real era',
-            'que el test pegaba el DNI en `#buscar_pasajero` y esperaba',
-            'que la tabla se filtrara, pero `ctx.escribir` asigna el',
-            '`value` sin disparar el evento `input`, así que el',
-            'listener de `pasajeros.js` no corría. El test tomaba el',
-            'primer `.ver_pasajes_pasajero` (de otro pasajero), le',
-            'cambiaba el asiento a ESA venta, y después verificaba',
-            'contra el `id_venta` del test — que nadie había tocado.',
-            'Fix: buscar el botón por `[data-dni="..."]`, que es único.',
-            'Se agregó la lección 53 al prompt.',
-            '',
-            'Antes: v1.5plugin.6i',
-            '(prueba 65: cambiar de asiento desde Clientes).',
-        ],
+    'reemplazar' => [
+        '    /**',
+        '     * Guarda solo el subgrafo en memoria filtrando por',
+        '     * contextos.',
+        '     *',
+        '     * Requiere que los contextos estén registrados',
+        '     * previamente. Los registra el primer guardar.',
+        '     *',
+        '     * El guardado es total sobre los nodos cargados',
+        '     * (modificados o no): el contrato es "persistir lo que',
+        '     * tengo en memoria, restringido al filtro de',
+        '     * contextos". No hace delta de cambios.',
+        '     *',
+        '     * @param {string} nombre',
+        '     * @param {string[]} contextos',
+        '     * @returns {Promise<boolean>}',
+        '     */',
+        '    static async guardar_parcial(nombre, contextos) {',
+        '        if (typeof nombre !== "string") {',
+        '            this._error("guardar_parcial (IndexedDB64): el identificador no es string.");',
+        '            return false;',
+        '        }',
+        '        if (!Array.isArray(contextos) || contextos.length === 0) {',
+        '            this._error("guardar_parcial (IndexedDB64): no se especificaron contextos.");',
+        '            return false;',
+        '        }',
+        '',
+        '        let db = null;',
+        '        try {',
+        '            db = await this.#abrir_BD();',
+        '            const bits_registrados = await this.#obtener_contextos_registrados(db, nombre);',
+        '            let mascara_pedida = 0;',
+        '            for (const ctx of contextos) {',
+        '                const ctx_str = String(ctx);',
+        '                if (!bits_registrados.has(ctx_str)) {',
+        '                    this._error("guardar_parcial (IndexedDB64): contexto \'" + ctx_str + "\' no registrado en \'" + nombre + "\'.");',
+        '                    return false;',
+        '                }',
+        '                mascara_pedida |= (1 << bits_registrados.get(ctx_str));',
+        '            }',
+        '            return await this.#guardar_con_filtro(db, nombre, mascara_pedida);',
+        '        } catch (error) {',
+        '            this._error("Error en guardar_parcial (IndexedDB64): " + error.message);',
+        '            return false;',
+        '        } finally {',
+        '            if (db) {',
+        '                try { db.close(); } catch (e) { /* ignorar */ }',
+        '            }',
+        '        }',
+        '    }',
     ],
+],
 
 ];
 
 // ============================================================
 // Runner
 // ============================================================
+
 echo "=== Aplicador de cambios ===\n\n";
-function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
-function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
-function normalizar_a_original(string $c, string $e): string { if ($e === "\n") return $c; return str_replace("\n", "\r\n", $c); }
-function contar_ocurrencias(string $c, string $b): int { if ($b === '') return 0; $n = 0; $o = 0; while (($p = strpos($c, $b, $o)) !== false) { $n++; $o = $p + strlen($b); } return $n; }
-$creaciones = []; $eliminaciones = []; $reemplazos_por_archivo = [];
+
+function detectar_eol(string $contenido): string {
+    return (strpos($contenido, "\r\n") !== false) ? "\r\n" : "\n";
+}
+function normalizar_a_unix(string $contenido): string {
+    return str_replace("\r\n", "\n", $contenido);
+}
+function normalizar_a_original(string $contenido, string $eol): string {
+    if ($eol === "\n") return $contenido;
+    return str_replace("\n", "\r\n", $contenido);
+}
+function contar_ocurrencias(string $contenido, string $bloque): int {
+    if ($bloque === '') return 0;
+    $count = 0;
+    $offset = 0;
+    while (($pos = strpos($contenido, $bloque, $offset)) !== false) {
+        $count++;
+        $offset = $pos + strlen($bloque);
+    }
+    return $count;
+}
+
+$creaciones = [];
+$eliminaciones = [];
+$reemplazos_por_archivo = [];
+
 foreach ($cambios as $cambio) {
     $tipo = $cambio['tipo'] ?? 'reemplazar';
     if ($tipo === 'crear') { $creaciones[] = $cambio; continue; }
     if ($tipo === 'eliminar') { $eliminaciones[] = $cambio; continue; }
-    if (!isset($cambio['archivo']) || !isset($cambio['buscar']) || !isset($cambio['reemplazar'])) { echo "[FALLO] Mal formado.\n"; exit(1); }
+    if (!isset($cambio['archivo']) || !isset($cambio['buscar']) || !isset($cambio['reemplazar'])) {
+        echo "[FALLO] Cambio mal formado (faltan campos).\n";
+        exit(1);
+    }
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
+
 $total_reemplazos = 0;
 foreach ($reemplazos_por_archivo as $lista) { $total_reemplazos += count($lista); }
-echo "[INFO] $total_reemplazos reemplazo(s) en " . count($reemplazos_por_archivo) . " archivo(s).\n\n";
-$archivos_a_escribir = []; $bloques_ok = 0; $bloques_fallidos = [];
+
+echo "[INFO] " . count($creaciones) . " archivo(s) a crear, "
+    . $total_reemplazos . " reemplazo(s) en "
+    . count($reemplazos_por_archivo) . " archivo(s), "
+    . count($eliminaciones) . " archivo(s) a eliminar.\n\n";
+
+$archivos_a_escribir = [];
+$bloques_ok = 0;
+$bloques_fallidos = [];
+
 foreach ($reemplazos_por_archivo as $archivo_rel => $lista_cambios) {
     $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
-    if (!file_exists($ruta_abs)) { $bloques_fallidos[] = "No encontrado: $archivo_rel"; foreach ($lista_cambios as $c) $bloques_fallidos[] = "  - {$c['descripcion']}"; continue; }
+    if (!file_exists($ruta_abs)) {
+        $bloques_fallidos[] = "Archivo no encontrado: $archivo_rel";
+        foreach ($lista_cambios as $c) $bloques_fallidos[] = "  - {$c['descripcion']}";
+        continue;
+    }
     $contenido_original = file_get_contents($ruta_abs);
+    if ($contenido_original === false) { $bloques_fallidos[] = "No se pudo leer: $archivo_rel"; continue; }
+
     $eol = detectar_eol($contenido_original);
     $contenido = normalizar_a_unix($contenido_original);
     $contenido_antes = $contenido;
     $hubo_error = false;
+
     foreach ($lista_cambios as $cambio) {
         $buscar_str = implode("\n", $cambio['buscar']);
         $reemplazar_str = implode("\n", $cambio['reemplazar']);
         $ocurrencias = contar_ocurrencias($contenido, $buscar_str);
-        if ($ocurrencias === 0) { $bloques_fallidos[] = "$archivo_rel: NO ENCONTRADO - {$cambio['descripcion']}"; $hubo_error = true; continue; }
-        if ($ocurrencias > 1) { $bloques_fallidos[] = "$archivo_rel: AMBIGUO ($ocurrencias) - {$cambio['descripcion']}"; $hubo_error = true; continue; }
+        if ($ocurrencias === 0) {
+            $bloques_fallidos[] = "$archivo_rel: bloque no encontrado - {$cambio['descripcion']}";
+            $hubo_error = true; continue;
+        }
+        if ($ocurrencias > 1) {
+            $bloques_fallidos[] = "$archivo_rel: bloque ambiguo ($ocurrencias ocurrencias) - {$cambio['descripcion']}";
+            $hubo_error = true; continue;
+        }
         $contenido = str_replace($buscar_str, $reemplazar_str, $contenido);
         $bloques_ok++;
     }
-    if (!$hubo_error && $contenido !== $contenido_antes) $archivos_a_escribir[$ruta_abs] = normalizar_a_original($contenido, $eol);
+    if (!$hubo_error && $contenido !== $contenido_antes) {
+        $archivos_a_escribir[$ruta_abs] = normalizar_a_original($contenido, $eol);
+    }
 }
-if ($modo_estricto && !empty($bloques_fallidos)) { echo "=== ABORTADO ===\n"; foreach ($bloques_fallidos as $f) echo "  [FALLO] $f\n"; exit(1); }
+
+if ($modo_estricto && !empty($bloques_fallidos)) {
+    echo "=== ABORTADO ===\n";
+    echo "Se detectaron " . count($bloques_fallidos) . " problema(s). No se escribió ningún archivo.\n\n";
+    foreach ($bloques_fallidos as $f) echo "  [FALLO] $f\n";
+    echo "\nSugerencia: revisá que el bloque a buscar coincida exactamente con el archivo actual.\n";
+    exit(1);
+}
+
 foreach ($archivos_a_escribir as $ruta_abs => $contenido_final) {
-    if (file_put_contents($ruta_abs, $contenido_final) === false) { echo "[FALLO] Escribir: " . substr($ruta_abs, strlen($raiz_proyecto)+1) . "\n"; continue; }
-    echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto)+1) . "\n";
+    if (file_put_contents($ruta_abs, $contenido_final) === false) {
+        echo "[FALLO] No se pudo escribir: " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
+        continue;
+    }
+    echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
-foreach ($creaciones as $c) { $r = $raiz_proyecto.'/'.$c['archivo']; if (!is_dir(dirname($r))) mkdir(dirname($r), 0777, true); if (file_put_contents($r, implode("\n", $c['contenido']))===false){echo "[FALLO] Crear: {$c['archivo']}\n";continue;} echo "[OK] {$c['archivo']} (creado)\n"; }
-echo "\n=== Resumen ===\nBloques aplicados: $bloques_ok\nArchivos nuevos:   " . count($creaciones) . "\n";
-if (!empty($bloques_fallidos)) { echo "Fallos: " . count($bloques_fallidos) . "\n"; foreach ($bloques_fallidos as $f) echo "  - $f\n"; }
+
+foreach ($creaciones as $creacion) {
+    $ruta_abs = $raiz_proyecto . '/' . $creacion['archivo'];
+    $dir_destino = dirname($ruta_abs);
+    if (!is_dir($dir_destino)) mkdir($dir_destino, 0777, true);
+    $contenido_nuevo = implode("\n", $creacion['contenido']);
+    $ya_existia = file_exists($ruta_abs);
+    if (file_put_contents($ruta_abs, $contenido_nuevo) === false) {
+        echo "[FALLO] No se pudo crear: {$creacion['archivo']}\n"; continue;
+    }
+    $accion = $ya_existia ? 'sobrescrito' : 'creado';
+    echo "[OK] {$creacion['archivo']} ($accion)\n";
+}
+
+foreach ($eliminaciones as $elim) {
+    $ruta_abs = $raiz_proyecto . '/' . $elim['archivo'];
+    if (!file_exists($ruta_abs)) {
+        echo "[INFO] " . $elim['archivo'] . " no existía (nada que eliminar).\n";
+        continue;
+    }
+    if (unlink($ruta_abs)) {
+        echo "[OK] " . $elim['archivo'] . " (eliminado)\n";
+    } else {
+        echo "[FALLO] No se pudo eliminar: " . $elim['archivo'] . "\n";
+    }
+}
+
+echo "\n=== Resumen ===\n";
+echo "Bloques aplicados: $bloques_ok\n";
+echo "Archivos nuevos:   " . count($creaciones) . "\n";
+if (!empty($bloques_fallidos)) {
+    echo "Fallos: " . count($bloques_fallidos) . "\n";
+    foreach ($bloques_fallidos as $f) echo "  - $f\n";
+}
 echo "\nListo.\n";
