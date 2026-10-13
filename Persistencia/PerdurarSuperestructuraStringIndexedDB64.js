@@ -31,7 +31,7 @@ console.log("PerdurarSuperestructuraStringIndexedDB64");
  * se llena al cargar y se consulta al guardar parcial.
  *
  * @author Ignacio David Baigorria
- * @version V1.5i.8b
+ * @version V1.5i.8c
  * @since 1.5i.7k
  */
 class PerdurarSuperestructuraStringIndexedDB64 extends mezclar_clase_con_interfaces(Objeto, PerdurarSuperestructura, PerdurarSuperestructuraConContexto) {
@@ -231,6 +231,44 @@ class PerdurarSuperestructuraStringIndexedDB64 extends mezclar_clase_con_interfa
 
         // Snapshot del mapa (id_nodo_framework -> id_fila).
         const mapa_previo = Object.assign({}, this.#mapa_id_a_fila[nombre] || {});
+
+        // Propagar máscaras a nodos nuevos (los que no están
+        // en el mapa previo) a partir de enlaces entrantes.
+        // Iterar hasta punto fijo. Fix V1.5i.8c.
+        if (mascara_filtro !== 0 && Object.keys(mapa_previo).length > 0) {
+            const nuevos = new Set();
+            Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {
+                const id = String(nodo.id());
+                if (!(id in mapa_previo)) {
+                    nuevos.add(id);
+                }
+            }, null);
+            if (nuevos.size > 0) {
+                let cambio = true;
+                let iter = 0;
+                while (cambio && iter < 10) {
+                    cambio = false;
+                    iter++;
+                    Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {
+                        const id_origen = String(nodo.id());
+                        const m_origen = Number(mascaras.get(id_origen) || 0) | 0;
+                        if (m_origen === 0) return;
+                        const ady = nodo.adyacentes();
+                        if (!ady) return;
+                        for (const [, dest] of ady) {
+                            const id_dest = String(dest.id());
+                            if (!nuevos.has(id_dest)) continue;
+                            const m_dest = Number(mascaras.get(id_dest) || 0) | 0;
+                            const m_nueva = (m_dest | m_origen) | 0;
+                            if (m_nueva !== m_dest) {
+                                mascaras.set(id_dest, m_nueva);
+                                cambio = true;
+                            }
+                        }
+                    }, null);
+                }
+            }
+        }
 
         // Filas cargadas (para el DELETE parcial).
         const filas_cargadas = [];
