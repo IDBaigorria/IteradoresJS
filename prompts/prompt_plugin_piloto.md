@@ -1455,6 +1455,13 @@ completo con todo lo aprendido a la fuerza).
 
 **Pendiente:**
 
+- **Dividir la ventana en pestañas, una por rol.** Idea
+  anotada al cierre de V1.5plugin.7a. Objetivo: cubrir la
+  batería completa de pruebas de la aplicación con vistas
+  organizadas: base + admin + dueño + terminal + soporte +
+  multi-rol. Cada pestaña agrupa las pruebas de ese rol y
+  sus flujos cruzados. Diseño a discutir en la próxima
+  tanda del plugin.
 - Más pruebas (altas de pasajero, viaje, micro, terminal).
 - Historial de corridas en la ventana.
 - Revisar los permisos del manifest cuando se pruebe contra
