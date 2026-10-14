@@ -6,8 +6,10 @@
  * las operaciones de viajes/terminales son costosas en UI
  * y no necesitan verificación visual.
  *
- * @version 1.5plugin.6o
+ * @version 1.5plugin.7d
  */
+
+import { _post } from "./_helpers.js";
 
 // ============================================================
 // Resolución de nombres de usuario
@@ -35,8 +37,7 @@ export async function login_y_nombre(ctx, codigo) {
  */
 export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto") {
     const nombre_viaje = prefijo + "_" + Date.now();
-    const r = await ctx.pedir_post("index.php", {
-        accion: "viajes/guardar",
+    await _post(ctx, "viajes/guardar", {
         nombre_dueno: nombre_dueno,
         nombre_viaje: nombre_viaje,
         nombre: "Viaje de prueba " + nombre_viaje,
@@ -44,10 +45,7 @@ export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto"
         hora: "a confirmar",
         origen: "Origen de prueba",
         destino: "Destino de prueba"
-    });
-    if (!r || !r.json || !r.json.exito) {
-        throw new Error("No se pudo crear el viaje: " + JSON.stringify(r && r.json ? r.json : r));
-    }
+    }, { lanzar_en_error_backend: true });
     return nombre_viaje;
 }
 
@@ -57,8 +55,7 @@ export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto"
 export async function eliminar_viaje_si_existe(ctx, nombre_dueno, nombre_viaje) {
     if (!nombre_viaje) return;
     try {
-        await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
+        await _post(ctx, "viajes/eliminar", {
             nombre_dueno: nombre_dueno,
             nombre_viaje: nombre_viaje
         });
@@ -69,45 +66,32 @@ export async function eliminar_viaje_si_existe(ctx, nombre_dueno, nombre_viaje) 
  * Autoriza una terminal en un viaje.
  */
 export async function autorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "viajes/agregar_terminal",
+    await _post(ctx, "viajes/agregar_terminal", {
         nombre_dueno: nombre_dueno,
         nombre_viaje: nombre_viaje,
         nombre_terminal: nombre_terminal
-    });
-    if (!r || !r.json || !r.json.exito) {
-        throw new Error("No se pudo autorizar: " + JSON.stringify(r && r.json ? r.json : r));
-    }
+    }, { lanzar_en_error_backend: true });
 }
 
 /**
  * Desautoriza una terminal en un viaje.
  */
 export async function desautorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "viajes/eliminar_terminal",
+    await _post(ctx, "viajes/eliminar_terminal", {
         nombre_dueno: nombre_dueno,
         nombre_viaje: nombre_viaje,
         nombre_terminal: nombre_terminal
-    });
-    if (!r || !r.json || !r.json.exito) {
-        throw new Error("No se pudo desautorizar: " + JSON.stringify(r && r.json ? r.json : r));
-    }
+    }, { lanzar_en_error_backend: true });
 }
 
 /**
  * Devuelve true si el viaje aparece en el listado del terminal.
  */
 export async function terminal_ve_viaje(ctx, nombre_terminal, nombre_viaje) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "viajes/listar_por_terminal",
+    const r = await _post(ctx, "viajes/listar_por_terminal", {
         nombre_terminal: nombre_terminal
-    });
-    if (!r || !r.json || !r.json.exito) {
-        throw new Error("No se pudo listar viajes del terminal: "
-            + JSON.stringify(r && r.json ? r.json : r));
-    }
-    const viajes = r.json.viajes || [];
+    }, { lanzar_en_error_backend: true });
+    const viajes = r.viajes || [];
     return viajes.some(v => v && v.nombre_viaje === nombre_viaje);
 }
 
@@ -116,16 +100,14 @@ export async function terminal_ve_viaje(ctx, nombre_terminal, nombre_viaje) {
  * Devuelve un array de nombres de empresa.
  */
 export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_terminal) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "empresas/listar",
+    // Caso especial: el admin opera "como" el terminal. Pasamos
+    // `nombre_solicitante` explicito y `sin_solicitante: true`
+    // para que post_accion no lo pise con el del logueado.
+    const r = await _post(ctx, "empresas/listar", {
         nombre_dueno: nombre_dueno,
         nombre_solicitante: nombre_terminal
-    });
-    if (!r || !r.json || !r.json.exito) {
-        throw new Error("No se pudo listar empresas: "
-            + JSON.stringify(r && r.json ? r.json : r));
-    }
-    return (r.json.empresas || []).map(e => (e && e.nombre_empresa) || "");
+    }, { sin_solicitante: true, lanzar_en_error_backend: true });
+    return (r.empresas || []).map(e => (e && e.nombre_empresa) || "");
 }
 
 /**
@@ -138,28 +120,32 @@ export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_ter
  * vea todavía).
  */
 export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno, excluir = []) {
-    const r_emp = await ctx.pedir_post("index.php", {
-        accion: "empresas/listar",
-        nombre_dueno: nombre_dueno
-    });
-    if (!r_emp || !r_emp.json || !r_emp.json.exito) return null;
-    const empresas = r_emp.json.empresas || [];
-    for (const e of empresas) {
-        const nombre_emp = e && e.nombre_empresa;
-        if (!nombre_emp) continue;
-        if (excluir.includes(nombre_emp)) continue;
-        const r_veh = await ctx.pedir_post("index.php", {
-            accion: "vehiculos/listar",
-            nombre_dueno: nombre_dueno,
-            nombre_empresa: nombre_emp
+    // Silencioso: cualquier error devuelve null, para que el
+    // llamador siga con la logica de "precondicion no cumplida".
+    try {
+        const r_emp = await _post(ctx, "empresas/listar", {
+            nombre_dueno: nombre_dueno
         });
-        if (!r_veh || !r_veh.json || !r_veh.json.exito) continue;
-        const vehiculos = r_veh.json.vehiculos || [];
-        for (const v of vehiculos) {
-            if (v && v.nombre_vehiculo && v.asientos && parseInt(v.asientos) > 0) {
-                return { nombre_empresa: nombre_emp, nombre_vehiculo: v.nombre_vehiculo };
+        if (!r_emp || !r_emp.exito) return null;
+        const empresas = r_emp.empresas || [];
+        for (const e of empresas) {
+            const nombre_emp = e && e.nombre_empresa;
+            if (!nombre_emp) continue;
+            if (excluir.includes(nombre_emp)) continue;
+            const r_veh = await _post(ctx, "vehiculos/listar", {
+                nombre_dueno: nombre_dueno,
+                nombre_empresa: nombre_emp
+            });
+            if (!r_veh || !r_veh.exito) continue;
+            const vehiculos = r_veh.vehiculos || [];
+            for (const v of vehiculos) {
+                if (v && v.nombre_vehiculo && v.asientos && parseInt(v.asientos) > 0) {
+                    return { nombre_empresa: nombre_emp, nombre_vehiculo: v.nombre_vehiculo };
+                }
             }
         }
+    } catch (e) {
+        return null;
     }
     return null;
 }

@@ -5,8 +5,10 @@
  * Error si algo falla, para que la prueba que los usa no siga
  * adelante con datos inconsistentes.
  *
- * @version 1.5plugin.5r
+ * @version 1.5plugin.7d
  */
+
+import { _post } from "./_helpers.js";
 
 /**
  * Va a la pestaña Micros, elige el primer dueño, espera a que
@@ -146,8 +148,7 @@ export async function seleccionar_empresa_por_valor(ctx, nombre_empresa) {
  */
 export async function eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa) {
     try {
-        await ctx.pedir_post("index.php", {
-            accion: "empresas/eliminar",
+        await _post(ctx, "empresas/eliminar", {
             nombre_dueno,
             nombre_empresa
         });

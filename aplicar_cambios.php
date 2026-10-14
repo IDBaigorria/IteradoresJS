@@ -1,65 +1,576 @@
 <?php
 /**
- * Aplicador — Fase 2c.0: fix de post_accion.
+ * Aplicador — Fase 2c.1: migracion de helpers auxiliares a _post.
  *
- * Bug: post_accion pisaba siempre params.nombre_solicitante con
- * el del logueado, incluso si el test pasaba uno explícito. Eso
- * rompe los casos "admin operando como terminal" (prueba_58,
- * prueba_60, prueba_65, listar_empresas_del_terminal).
- *
- * Fix: si params.nombre_solicitante viene, tiene prioridad y no
- * se resuelve del logueado. Mismo criterio que ya usa
- * nombre_dueno.
+ * Migra _compartidos_helpers.js, _empresas_helpers.js y
+ * _pasajeros_helpers.js para que usen el wrapper _post en lugar
+ * de ctx.pedir_post directo. Sin cambio de comportamiento
+ * observable en las pruebas.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7c';
+$version_nueva = '1.5plugin.7d';
 
 $htmls_a_bumpear = [];
 
 $cambios = [
 
+    // ============================================================
+    // 1. _compartidos_helpers.js: agregar import de _post.
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: post_accion respeta params.nombre_solicitante',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: import de _post',
         'buscar' => [
-            '            let nombre_solicitante = null;',
-            '            if (!opts.sin_solicitante) {',
-            '                if (_cache_nombre_solicitante === null) {',
-            '                    const r_nombre = await this.nombre_usuario_actual();',
-            '                    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
-            '                        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
-            '                    }',
-            '                    _cache_nombre_solicitante = r_nombre.nombre_usuario;',
-            '                }',
-            '                nombre_solicitante = _cache_nombre_solicitante;',
-            '            }',
+            ' */',
+            '',
+            '// ============================================================',
+            '// Resolución de nombres de usuario',
+            '// ============================================================',
         ],
         'reemplazar' => [
-            '            // Prioridad: params.nombre_solicitante si viene. Un',
-            '            // test puede querer operar como otro usuario (por',
-            '            // ejemplo, admin vendiendo como terminal); en ese',
-            '            // caso pasa `nombre_solicitante` explicito y NO',
-            '            // queremos que se pise con el del logueado. Mismo',
-            '            // criterio que `nombre_dueno` mas abajo.',
-            '            const tiene_solicitante = params',
-            '                && params.nombre_solicitante !== undefined',
-            '                && params.nombre_solicitante !== "";',
-            '            let nombre_solicitante = null;',
-            '            if (!opts.sin_solicitante && !tiene_solicitante) {',
-            '                if (_cache_nombre_solicitante === null) {',
-            '                    const r_nombre = await this.nombre_usuario_actual();',
-            '                    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
-            '                        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
-            '                    }',
-            '                    _cache_nombre_solicitante = r_nombre.nombre_usuario;',
-            '                }',
-            '                nombre_solicitante = _cache_nombre_solicitante;',
+            ' */',
+            '',
+            'import { _post } from "./_helpers.js";',
+            '',
+            '// ============================================================',
+            '// Resolución de nombres de usuario',
+            '// ============================================================',
+        ],
+    ],
+
+    // ============================================================
+    // 2. _compartidos_helpers.js: crear_viaje_vacio.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: crear_viaje_vacio con _post',
+        'buscar' => [
+            'export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto") {',
+            '    const nombre_viaje = prefijo + "_" + Date.now();',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "viajes/guardar",',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_viaje: nombre_viaje,',
+            '        nombre: "Viaje de prueba " + nombre_viaje,',
+            '        fecha: "a confirmar",',
+            '        hora: "a confirmar",',
+            '        origen: "Origen de prueba",',
+            '        destino: "Destino de prueba"',
+            '    });',
+            '    if (!r || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo crear el viaje: " + JSON.stringify(r && r.json ? r.json : r));',
+            '    }',
+            '    return nombre_viaje;',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto") {',
+            '    const nombre_viaje = prefijo + "_" + Date.now();',
+            '    await _post(ctx, "viajes/guardar", {',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_viaje: nombre_viaje,',
+            '        nombre: "Viaje de prueba " + nombre_viaje,',
+            '        fecha: "a confirmar",',
+            '        hora: "a confirmar",',
+            '        origen: "Origen de prueba",',
+            '        destino: "Destino de prueba"',
+            '    }, { lanzar_en_error_backend: true });',
+            '    return nombre_viaje;',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 3. _compartidos_helpers.js: eliminar_viaje_si_existe.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: eliminar_viaje_si_existe con _post',
+        'buscar' => [
+            'export async function eliminar_viaje_si_existe(ctx, nombre_dueno, nombre_viaje) {',
+            '    if (!nombre_viaje) return;',
+            '    try {',
+            '        await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar",',
+            '            nombre_dueno: nombre_dueno,',
+            '            nombre_viaje: nombre_viaje',
+            '        });',
+            '    } catch (e) { /* best-effort */ }',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function eliminar_viaje_si_existe(ctx, nombre_dueno, nombre_viaje) {',
+            '    if (!nombre_viaje) return;',
+            '    try {',
+            '        await _post(ctx, "viajes/eliminar", {',
+            '            nombre_dueno: nombre_dueno,',
+            '            nombre_viaje: nombre_viaje',
+            '        });',
+            '    } catch (e) { /* best-effort */ }',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 4. _compartidos_helpers.js: autorizar_terminal.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: autorizar_terminal con _post',
+        'buscar' => [
+            'export async function autorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "viajes/agregar_terminal",',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_viaje: nombre_viaje,',
+            '        nombre_terminal: nombre_terminal',
+            '    });',
+            '    if (!r || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo autorizar: " + JSON.stringify(r && r.json ? r.json : r));',
+            '    }',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function autorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
+            '    await _post(ctx, "viajes/agregar_terminal", {',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_viaje: nombre_viaje,',
+            '        nombre_terminal: nombre_terminal',
+            '    }, { lanzar_en_error_backend: true });',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 5. _compartidos_helpers.js: desautorizar_terminal.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: desautorizar_terminal con _post',
+        'buscar' => [
+            'export async function desautorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "viajes/eliminar_terminal",',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_viaje: nombre_viaje,',
+            '        nombre_terminal: nombre_terminal',
+            '    });',
+            '    if (!r || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo desautorizar: " + JSON.stringify(r && r.json ? r.json : r));',
+            '    }',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function desautorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
+            '    await _post(ctx, "viajes/eliminar_terminal", {',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_viaje: nombre_viaje,',
+            '        nombre_terminal: nombre_terminal',
+            '    }, { lanzar_en_error_backend: true });',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 6. _compartidos_helpers.js: terminal_ve_viaje.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: terminal_ve_viaje con _post',
+        'buscar' => [
+            'export async function terminal_ve_viaje(ctx, nombre_terminal, nombre_viaje) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "viajes/listar_por_terminal",',
+            '        nombre_terminal: nombre_terminal',
+            '    });',
+            '    if (!r || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo listar viajes del terminal: "',
+            '            + JSON.stringify(r && r.json ? r.json : r));',
+            '    }',
+            '    const viajes = r.json.viajes || [];',
+            '    return viajes.some(v => v && v.nombre_viaje === nombre_viaje);',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function terminal_ve_viaje(ctx, nombre_terminal, nombre_viaje) {',
+            '    const r = await _post(ctx, "viajes/listar_por_terminal", {',
+            '        nombre_terminal: nombre_terminal',
+            '    }, { lanzar_en_error_backend: true });',
+            '    const viajes = r.viajes || [];',
+            '    return viajes.some(v => v && v.nombre_viaje === nombre_viaje);',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 7. _compartidos_helpers.js: listar_empresas_del_terminal.
+    //    Caso especial: admin opera "como" el terminal.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: listar_empresas_del_terminal con _post',
+        'buscar' => [
+            'export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_terminal) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "empresas/listar",',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_solicitante: nombre_terminal',
+            '    });',
+            '    if (!r || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo listar empresas: "',
+            '            + JSON.stringify(r && r.json ? r.json : r));',
+            '    }',
+            '    return (r.json.empresas || []).map(e => (e && e.nombre_empresa) || "");',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_terminal) {',
+            '    // Caso especial: el admin opera "como" el terminal. Pasamos',
+            '    // `nombre_solicitante` explicito y `sin_solicitante: true`',
+            '    // para que post_accion no lo pise con el del logueado.',
+            '    const r = await _post(ctx, "empresas/listar", {',
+            '        nombre_dueno: nombre_dueno,',
+            '        nombre_solicitante: nombre_terminal',
+            '    }, { sin_solicitante: true, lanzar_en_error_backend: true });',
+            '    return (r.empresas || []).map(e => (e && e.nombre_empresa) || "");',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 8. _compartidos_helpers.js: buscar_empresa_con_vehiculo_configurado.
+    //    Silencioso: try/catch que devuelve null.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => '_compartidos_helpers.js: buscar_empresa_con_vehiculo_configurado con _post',
+        'buscar' => [
+            'export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno, excluir = []) {',
+            '    const r_emp = await ctx.pedir_post("index.php", {',
+            '        accion: "empresas/listar",',
+            '        nombre_dueno: nombre_dueno',
+            '    });',
+            '    if (!r_emp || !r_emp.json || !r_emp.json.exito) return null;',
+            '    const empresas = r_emp.json.empresas || [];',
+            '    for (const e of empresas) {',
+            '        const nombre_emp = e && e.nombre_empresa;',
+            '        if (!nombre_emp) continue;',
+            '        if (excluir.includes(nombre_emp)) continue;',
+            '        const r_veh = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/listar",',
+            '            nombre_dueno: nombre_dueno,',
+            '            nombre_empresa: nombre_emp',
+            '        });',
+            '        if (!r_veh || !r_veh.json || !r_veh.json.exito) continue;',
+            '        const vehiculos = r_veh.json.vehiculos || [];',
+            '        for (const v of vehiculos) {',
+            '            if (v && v.nombre_vehiculo && v.asientos && parseInt(v.asientos) > 0) {',
+            '                return { nombre_empresa: nombre_emp, nombre_vehiculo: v.nombre_vehiculo };',
             '            }',
+            '        }',
+            '    }',
+            '    return null;',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno, excluir = []) {',
+            '    // Silencioso: cualquier error devuelve null, para que el',
+            '    // llamador siga con la logica de "precondicion no cumplida".',
+            '    try {',
+            '        const r_emp = await _post(ctx, "empresas/listar", {',
+            '            nombre_dueno: nombre_dueno',
+            '        });',
+            '        if (!r_emp || !r_emp.exito) return null;',
+            '        const empresas = r_emp.empresas || [];',
+            '        for (const e of empresas) {',
+            '            const nombre_emp = e && e.nombre_empresa;',
+            '            if (!nombre_emp) continue;',
+            '            if (excluir.includes(nombre_emp)) continue;',
+            '            const r_veh = await _post(ctx, "vehiculos/listar", {',
+            '                nombre_dueno: nombre_dueno,',
+            '                nombre_empresa: nombre_emp',
+            '            });',
+            '            if (!r_veh || !r_veh.exito) continue;',
+            '            const vehiculos = r_veh.vehiculos || [];',
+            '            for (const v of vehiculos) {',
+            '                if (v && v.nombre_vehiculo && v.asientos && parseInt(v.asientos) > 0) {',
+            '                    return { nombre_empresa: nombre_emp, nombre_vehiculo: v.nombre_vehiculo };',
+            '                }',
+            '            }',
+            '        }',
+            '    } catch (e) {',
+            '        return null;',
+            '    }',
+            '    return null;',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 9. _empresas_helpers.js: agregar import de _post.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_empresas_helpers.js',
+        'descripcion' => '_empresas_helpers.js: import de _post',
+        'buscar' => [
+            ' */',
+            '',
+            '/**',
+            ' * Va a la pestaña Micros, elige el primer dueño, espera a que',
+        ],
+        'reemplazar' => [
+            ' */',
+            '',
+            'import { _post } from "./_helpers.js";',
+            '',
+            '/**',
+            ' * Va a la pestaña Micros, elige el primer dueño, espera a que',
+        ],
+    ],
+
+    // ============================================================
+    // 10. _empresas_helpers.js: eliminar_empresa_por_post.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_empresas_helpers.js',
+        'descripcion' => '_empresas_helpers.js: eliminar_empresa_por_post con _post',
+        'buscar' => [
+            'export async function eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa) {',
+            '    try {',
+            '        await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/eliminar",',
+            '            nombre_dueno,',
+            '            nombre_empresa',
+            '        });',
+            '    } catch (e) {',
+            '        console.warn("No se pudo eliminar la empresa de prueba:", e);',
+            '    }',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa) {',
+            '    try {',
+            '        await _post(ctx, "empresas/eliminar", {',
+            '            nombre_dueno,',
+            '            nombre_empresa',
+            '        });',
+            '    } catch (e) {',
+            '        console.warn("No se pudo eliminar la empresa de prueba:", e);',
+            '    }',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 11. _pasajeros_helpers.js: agregar import de _post.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
+        'descripcion' => '_pasajeros_helpers.js: import de _post',
+        'buscar' => [
+            ' */',
+            '',
+            '// PNG 1x1 transparente (67 bytes). Sirve para las pruebas de',
+            '// subida de archivo.',
+        ],
+        'reemplazar' => [
+            ' */',
+            '',
+            'import { _post } from "./_helpers.js";',
+            '',
+            '// PNG 1x1 transparente (67 bytes). Sirve para las pruebas de',
+            '// subida de archivo.',
+        ],
+    ],
+
+    // ============================================================
+    // 12. _pasajeros_helpers.js: primer_dueno_para_pruebas.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
+        'descripcion' => '_pasajeros_helpers.js: primer_dueno_para_pruebas con _post',
+        'buscar' => [
+            'export async function primer_dueno_para_pruebas(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo listar dueños: "',
+            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '    const lista = r.json.duenos || [];',
+        ],
+        'reemplazar' => [
+            'export async function primer_dueno_para_pruebas(ctx, nombre_solicitante) {',
+            '    const r = await _post(ctx, "administrador/listar_duenos",',
+            '        { nombre_solicitante },',
+            '        { sin_solicitante: true, lanzar_en_error_backend: true });',
+            '    const lista = r.duenos || [];',
+        ],
+    ],
+
+    // ============================================================
+    // 13. _pasajeros_helpers.js: crear_pasajero_de_prueba_admin.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
+        'descripcion' => '_pasajeros_helpers.js: crear_pasajero_de_prueba_admin con _post',
+        'buscar' => [
+            'export async function crear_pasajero_de_prueba_admin(ctx, nombre_solicitante, nombre_dueno, dni) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "pasajeros/crear",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        dni,',
+            '        apellido: "Djtest",',
+            '        nombres: "Pasajero",',
+            '        email: "dj_" + dni + "@test.local",',
+            '        celular: "2983555123",',
+            '        celular_emergencia: "2983555222",',
+            '        fecha_nacimiento: "1990-06-15",',
+            '        direccion: "Calle Dj 1",',
+            '        localidad: "Tres Arroyos"',
+            '    });',
+            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo crear el pasajero: "',
+            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function crear_pasajero_de_prueba_admin(ctx, nombre_solicitante, nombre_dueno, dni) {',
+            '    await _post(ctx, "pasajeros/crear", {',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        dni,',
+            '        apellido: "Djtest",',
+            '        nombres: "Pasajero",',
+            '        email: "dj_" + dni + "@test.local",',
+            '        celular: "2983555123",',
+            '        celular_emergencia: "2983555222",',
+            '        fecha_nacimiento: "1990-06-15",',
+            '        direccion: "Calle Dj 1",',
+            '        localidad: "Tres Arroyos"',
+            '    }, { sin_solicitante: true, lanzar_en_error_backend: true });',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 14. _pasajeros_helpers.js: eliminar_pasajero_por_post.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
+        'descripcion' => '_pasajeros_helpers.js: eliminar_pasajero_por_post con _post',
+        'buscar' => [
+            'export async function eliminar_pasajero_por_post(ctx, nombre_solicitante, nombre_dueno, dni) {',
+            '    try {',
+            '        await ctx.pedir_post("index.php", {',
+            '            accion: "pasajeros/eliminar",',
+            '            nombre_solicitante,',
+            '            nombre_dueno,',
+            '            dni',
+            '        });',
+            '    } catch (e) {',
+            '        console.warn("No se pudo eliminar el pasajero de prueba:", e);',
+            '    }',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function eliminar_pasajero_por_post(ctx, nombre_solicitante, nombre_dueno, dni) {',
+            '    try {',
+            '        await _post(ctx, "pasajeros/eliminar", {',
+            '            nombre_solicitante,',
+            '            nombre_dueno,',
+            '            dni',
+            '        }, { sin_solicitante: true });',
+            '    } catch (e) {',
+            '        console.warn("No se pudo eliminar el pasajero de prueba:", e);',
+            '    }',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 15. _pasajeros_helpers.js: leer_pasajero.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
+        'descripcion' => '_pasajeros_helpers.js: leer_pasajero con _post',
+        'buscar' => [
+            'export async function leer_pasajero(ctx, nombre_solicitante, nombre_dueno, dni) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "pasajeros/obtener",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        dni',
+            '    });',
+            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo leer el pasajero " + dni + ": "',
+            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '    return r.json.pasajero;',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function leer_pasajero(ctx, nombre_solicitante, nombre_dueno, dni) {',
+            '    const r = await _post(ctx, "pasajeros/obtener", {',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        dni',
+            '    }, { sin_solicitante: true, lanzar_en_error_backend: true });',
+            '    return r.pasajero;',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 16. _pasajeros_helpers.js: contar_huerfanos.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
+        'descripcion' => '_pasajeros_helpers.js: contar_huerfanos con _post',
+        'buscar' => [
+            'export async function contar_huerfanos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
+            '        throw new Error("No se pudo consultar grafo/resumen: "',
+            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
+            '    }',
+            '    return r.json.resumen.huerfanos;',
+            '}',
+        ],
+        'reemplazar' => [
+            'export async function contar_huerfanos(ctx, nombre_solicitante) {',
+            '    const r = await _post(ctx, "grafo/resumen",',
+            '        { nombre_solicitante },',
+            '        { sin_solicitante: true, lanzar_en_error_backend: true });',
+            '    return r.resumen.huerfanos;',
+            '}',
         ],
     ],
 
