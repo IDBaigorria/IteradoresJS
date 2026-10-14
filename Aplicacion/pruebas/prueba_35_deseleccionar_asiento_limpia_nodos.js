@@ -24,7 +24,7 @@
  * menos una terminal y una empresa con un vehículo con
  * asientos configurados.
  *
- * @version 1.5plugin.6s
+ * @version 1.5plugin.6w
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";

@@ -26,7 +26,7 @@
  * configurados (en una o más empresas). Si solo hay uno,
  * la prueba falla con mensaje claro.
  *
- * @version 1.5plugin.6u
+ * @version 1.5plugin.6w
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";

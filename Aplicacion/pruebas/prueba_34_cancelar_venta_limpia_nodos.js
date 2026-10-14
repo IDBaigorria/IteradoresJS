@@ -25,7 +25,7 @@
  * una terminal (con dueño asignado) y una empresa con un
  * vehículo con asientos configurados.
  *
- * @version 1.5plugin.6v
+ * @version 1.5plugin.6w
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
