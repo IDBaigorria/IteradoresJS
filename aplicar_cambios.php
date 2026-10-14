@@ -1,42 +1,39 @@
 <?php
 /**
- * Aplicador — P55: subir_foto con nombre_campo.
+ * Aplicador — Fix P35 (v2): insertar `} finally { try {` faltantes.
  *
- * El helper ctx.subir_archivo espera `nombre_campo` en el objeto
- * archivo_info para saber bajo qué nombre mandar el archivo en el
- * FormData. El endpoint vehiculos/subir_foto lee $_FILES['foto'],
- * pero la prueba no pasaba nombre_campo, así que el helper usaba
- * su default ('archivo') y el backend respondía "Archivo no enviado".
+ * El script anterior no matcheó porque el `await ctx.pedir_post`
+ * interno tiene 16 espacios de indentación, no 20. Este script
+ * usa el bloque exacto pegado.
  *
  * Uso (parado en iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.6x';
-$htmls_a_bumpear = [];  // El plugin no usa ?v=.
+$version_nueva = '1.5plugin.6y';
+$htmls_a_bumpear = [];
 
 $cambios = [
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: nombre_campo "foto" en subida A',
+        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+        'descripcion' => 'P35: insertar } finally { try { faltantes',
         'buscar' => [
-            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
+            '            + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));',
+            '                await ctx.pedir_post("index.php", {',
+            '                    accion: "viajes/reiniciar_seleccion_completa",',
         ],
         'reemplazar' => [
-            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64, nombre_campo: "foto" }',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: nombre_campo "foto" en subida B',
-        'buscar' => [
-            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
-        ],
-        'reemplazar' => [
-            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64, nombre_campo: "foto" }',
+            '            + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));',
+            '        } finally {',
+            '            // v79n: cleanup best-effort. Corre incluso si el flujo',
+            '            // falló a mitad. Limpia la venta_actual colgada y el',
+            '            // viaje de prueba. Los errores no se propagan para no',
+            '            // tapar el error original del try.',
+            '            try {',
+            '                await ctx.pedir_post("index.php", {',
+            '                    accion: "viajes/reiniciar_seleccion_completa",',
         ],
     ],
 ];
@@ -45,7 +42,7 @@ $cambios = [
 // Runner v2
 // ============================================================
 
-echo "=== Aplicador — P55: nombre_campo \"foto\" ===\n\n";
+echo "=== Aplicador — Fix P35 (v2) ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
@@ -64,24 +61,15 @@ if (!isset($version_nueva)) $version_nueva = '';
 $version_nueva = trim((string)$version_nueva);
 $bumpear = ($version_nueva !== '');
 
-$creaciones = [];
-$eliminaciones = [];
 $reemplazos_por_archivo = [];
-
 foreach ($cambios as $cambio) {
-    $tipo = $cambio['tipo'] ?? 'reemplazar';
-    if ($tipo === 'crear') { $creaciones[] = $cambio; continue; }
-    if ($tipo === 'eliminar') { $eliminaciones[] = $cambio; continue; }
     if (!isset($cambio['archivo']) || !isset($cambio['buscar']) || !isset($cambio['reemplazar'])) {
         echo "[FALLO] Cambio mal formado.\n"; exit(1);
     }
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
 
-$total_reemplazos = 0;
-foreach ($reemplazos_por_archivo as $l) $total_reemplazos += count($l);
-echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar, "
-    . count($creaciones) . " a crear, " . count($eliminaciones) . " a eliminar.\n\n";
+echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar.\n\n";
 
 $archivos_a_escribir = [];
 $bloques_ok = 0;
@@ -116,18 +104,14 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
 }
 
 $archivos_bump_php_js = [];
-$archivos_bump_js_css = [];
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
     $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
     if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
-    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $rel;
 }
 
 $bumps_atversion = 0;
-$bumps_qv = 0;
 $bumps_detalle = [];
-$info_bumps = [];
 
 if ($bumpear) {
     foreach (array_unique($archivos_bump_php_js) as $archivo_rel) {
@@ -142,8 +126,8 @@ if ($bumpear) {
             $viejo = $m[2];
             return $m[1] . $version_nueva;
         }, $contenido, 1, $count);
-        if ($count === 0) { $info_bumps[] = "$archivo_rel (sin @version)"; continue; }
-        if ($viejo === $version_nueva) { continue; }
+        if ($count === 0) continue;
+        if ($viejo === $version_nueva) continue;
         $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
         $bumps_atversion++;
         $bumps_detalle[] = "$archivo_rel  @version $viejo → $version_nueva";
@@ -162,10 +146,9 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
-if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
+if (!empty($bumps_detalle)) {
     echo "\n--- Bumps ---\n";
     foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
-    foreach ($info_bumps as $i) echo "[INFO] $i\n";
 }
 
 echo "\n=== Resumen ===\n";

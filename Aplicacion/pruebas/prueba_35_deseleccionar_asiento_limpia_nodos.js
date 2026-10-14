@@ -24,7 +24,7 @@
  * menos una terminal y una empresa con un vehículo con
  * asientos configurados.
  *
- * @version 1.5plugin.6w
+ * @version 1.5plugin.6y
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -311,6 +311,12 @@ export const prueba = {
             "deseleccionar_asiento_micro dejó nodos huérfanos. "
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + dif + "."
             + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));
+        } finally {
+            // v79n: cleanup best-effort. Corre incluso si el flujo
+            // falló a mitad. Limpia la venta_actual colgada y el
+            // viaje de prueba. Los errores no se propagan para no
+            // tapar el error original del try.
+            try {
                 await ctx.pedir_post("index.php", {
                     accion: "viajes/reiniciar_seleccion_completa",
                     nombre_solicitante: nombre_admin,
