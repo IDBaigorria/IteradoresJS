@@ -25,7 +25,7 @@
  * una terminal (con dueño asignado) y una empresa con un
  * vehículo con asientos configurados.
  *
- * @version 1.5plugin.6w
+ * @version 1.5plugin.7f
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -35,10 +35,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _resumen_grafo(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -53,10 +50,7 @@ async function _resumen_grafo(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -77,9 +71,7 @@ async function _primer_dueno(ctx, nombre_solicitante) {
 }
 
 async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "dueno/listar_terminales",
-        nombre_solicitante,
+    const r = await ctx.post_accion("dueno/listar_terminales", {
         nombre_dueno
     });
     if (!r || !r.exito || !r.json || !r.json.exito) {
@@ -103,9 +95,7 @@ async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {
 }
 
 async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "empresas/listar",
-        nombre_solicitante,
+    const r = await ctx.post_accion("empresas/listar", {
         nombre_dueno
     });
     if (!r || !r.exito || !r.json || !r.json.exito) return [];
@@ -117,9 +107,7 @@ async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
 }
 
 async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "vehiculos/listar",
-        nombre_solicitante,
+    const r = await ctx.post_accion("vehiculos/listar", {
         nombre_dueno,
         nombre_empresa
     });
@@ -146,9 +134,7 @@ function _dni_unico() {
 
 // Elige el primer asiento libre del micro y devuelve {fila, columna}.
 async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "viajes/estado_asientos",
-        nombre_solicitante,
+    const r = await ctx.post_accion("viajes/estado_asientos", {
         nombre_dueno,
         nombre_viaje,
         nombre_micro
@@ -197,9 +183,7 @@ export const prueba = {
         // Si una corrida anterior falló a mitad de selección, la
         // venta_actual quedó colgada con asientos temporales, y
         // la próxima corrida acumula sobre eso. Idempotente.
-        await ctx.pedir_post("index.php", {
-            accion: "viajes/reiniciar_seleccion_completa",
-            nombre_solicitante: nombre_admin,
+        await ctx.post_accion("viajes/reiniciar_seleccion_completa", {
             nombre_terminal
         });
 
@@ -209,9 +193,7 @@ export const prueba = {
         const sufijo = String(Date.now()).slice(-8);
         nombre_viaje = "viajeventgraf" + sufijo;
 
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "viajes/guardar",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("viajes/guardar", {
             nombre_dueno,
             nombre_viaje,
             nombre: "Viaje de prueba (cancelar venta)",
@@ -244,9 +226,7 @@ export const prueba = {
         for (const empresa of empresas) {
             const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, nombre_dueno, empresa);
             for (const patente of vehiculos) {
-                const r_ag = await ctx.pedir_post("index.php", {
-                    accion: "viajes/agregar_micro",
-                    nombre_solicitante: nombre_admin,
+                const r_ag = await ctx.post_accion("viajes/agregar_micro", {
                     nombre_dueno,
                     nombre_viaje,
                     nombre_empresa: empresa,
@@ -270,9 +250,7 @@ export const prueba = {
         // en su compartido. Sin esto, seleccionar_asiento_micro
         // navega por el compartido (post repuntado B2.3.5) y
         // no encuentra el viaje recién creado.
-        const rT = await ctx.pedir_post("index.php", {
-            accion: "viajes/agregar_terminal",
-            nombre_solicitante: nombre_admin,
+        const rT = await ctx.post_accion("viajes/agregar_terminal", {
             nombre_dueno,
             nombre_viaje,
             nombre_terminal
@@ -284,9 +262,7 @@ export const prueba = {
 
         // 3. Seleccionar un asiento.
         const asiento = await _primer_asiento_libre(ctx, nombre_admin, nombre_dueno, nombre_viaje, nombre_micro);
-        const rs = await ctx.pedir_post("index.php", {
-            accion: "viajes/seleccionar_asiento",
-            nombre_solicitante: nombre_admin,
+        const rs = await ctx.post_accion("viajes/seleccionar_asiento", {
             nombre_dueno,
             nombre_viaje,
             nombre_micro,
@@ -313,9 +289,7 @@ export const prueba = {
             localidad: "Tres Arroyos"
         };
 
-        const rv = await ctx.pedir_post("index.php", {
-            accion: "ventas/confirmar",
-            nombre_solicitante: nombre_admin,
+        const rv = await ctx.post_accion("ventas/confirmar", {
             nombre_terminal,
             metodo_pago: "efectivo",
             // Con cuotas=1 el backend exige monto_pagado
@@ -354,9 +328,7 @@ export const prueba = {
         // vive en el árbol del compartido y encolada en el
         // buzón. Pasar nombre_terminal hace que cancelar_venta
         // navegue por el árbol del compartido y la encuentre.
-        const rcan = await ctx.pedir_post("index.php", {
-            accion: "ventas/cancelar",
-            nombre_solicitante: nombre_admin,
+        const rcan = await ctx.post_accion("ventas/cancelar", {
             id_venta,
             nombre_terminal,
             motivo: "Prueba automática (limpieza de nodos)"
@@ -380,17 +352,13 @@ export const prueba = {
             // viaje de prueba. Los errores no se propagan para no
             // tapar el error original del try.
             try {
-                await ctx.pedir_post("index.php", {
-                    accion: "viajes/reiniciar_seleccion_completa",
-                    nombre_solicitante: nombre_admin,
+                await ctx.post_accion("viajes/reiniciar_seleccion_completa", {
                     nombre_terminal
                 });
             } catch (e) { /* best-effort */ }
             if (nombre_viaje) {
                 try {
-                    await ctx.pedir_post("index.php", {
-                        accion: "viajes/eliminar",
-                        nombre_solicitante: nombre_admin,
+                    await ctx.post_accion("viajes/eliminar", {
                         nombre_dueno,
                         nombre_viaje
                     });

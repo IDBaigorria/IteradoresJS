@@ -19,7 +19,7 @@
  *
  * Requisitos de entorno: al menos un dueño existente.
  *
- * @version 1.5plugin.5o
+ * @version 1.5plugin.7f
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -29,10 +29,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _resumen_grafo(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -47,10 +44,7 @@ async function _resumen_grafo(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -78,10 +72,8 @@ function _fecha_manana() {
 }
 
 // Arma el body de viajes/guardar con las paradas dadas.
-function _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas) {
+function _body_viaje(nombre_dueno, nombre_viaje, paradas) {
     return {
-        accion: "viajes/guardar",
-        nombre_solicitante: nombre_admin,
         nombre_dueno,
         nombre_viaje,
         nombre: "Viaje de prueba (paradas sin hora)",
@@ -131,8 +123,8 @@ export const prueba = {
             { nombre: "Parada A", hora_estimada: "09:30" },
             { nombre: "Parada B", hora_estimada: "10:45" }
         ];
-        const rc = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_con_hora));
+        const rc = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, nombre_viaje, paradas_con_hora));
         if (!rc || !rc.exito || !rc.json || !rc.json.exito) {
             throw new Error("No se pudo crear el viaje: "
                 + ((rc && rc.json && rc.json.error) ? rc.json.error : "(sin detalle)"));
@@ -151,8 +143,8 @@ export const prueba = {
             { nombre: "Parada A" },
             { nombre: "Parada B" }
         ];
-        const re = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_sin_hora));
+        const re = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, nombre_viaje, paradas_sin_hora));
         if (!re || !re.exito || !re.json || !re.json.exito) {
             throw new Error("No se pudo editar el viaje: "
                 + ((re && re.json && re.json.error) ? re.json.error : "(sin detalle)"));
@@ -167,9 +159,7 @@ export const prueba = {
             + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));
 
         // 3. Limpieza: eliminar el viaje.
-        await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje
         });

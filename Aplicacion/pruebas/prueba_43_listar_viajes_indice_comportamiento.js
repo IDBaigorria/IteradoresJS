@@ -30,7 +30,7 @@
  * menos una terminal y una empresa con un vehículo con
  * asientos configurados.
  *
- * @version 1.5plugin.6q
+ * @version 1.5plugin.7f
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -40,10 +40,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -63,9 +60,7 @@ async function _primer_dueno(ctx, nombre_solicitante) {
 }
 
 async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "dueno/listar_terminales",
-        nombre_solicitante,
+    const r = await ctx.post_accion("dueno/listar_terminales", {
         nombre_dueno
     });
     if (!r || !r.exito || !r.json || !r.json.exito) {
@@ -83,9 +78,7 @@ async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {
 }
 
 async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "empresas/listar",
-        nombre_solicitante,
+    const r = await ctx.post_accion("empresas/listar", {
         nombre_dueno
     });
     if (!r || !r.exito || !r.json || !r.json.exito) return [];
@@ -97,9 +90,7 @@ async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
 }
 
 async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "vehiculos/listar",
-        nombre_solicitante,
+    const r = await ctx.post_accion("vehiculos/listar", {
         nombre_dueno,
         nombre_empresa
     });
@@ -124,9 +115,7 @@ function _dni_unico() {
 }
 
 async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "viajes/estado_asientos",
-        nombre_solicitante,
+    const r = await ctx.post_accion("viajes/estado_asientos", {
         nombre_dueno,
         nombre_viaje,
         nombre_micro
@@ -145,10 +134,8 @@ async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nomb
 }
 
 // Arma el body de viajes/guardar.
-function _body_viaje(nombre_admin, nombre_dueno, nombre_viaje) {
+function _body_viaje(nombre_dueno, nombre_viaje) {
     return {
-        accion: "viajes/guardar",
-        nombre_solicitante: nombre_admin,
         nombre_dueno,
         nombre_viaje,
         nombre: "Viaje regresión (índice)",
@@ -193,16 +180,16 @@ export const prueba = {
         const viaje_b = "viajeregresB" + sufijo;
 
         // 1. Crear viaje A (sin ventas).
-        const rA = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, viaje_a));
+        const rA = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, viaje_a));
         if (!rA || !rA.exito || !rA.json || !rA.json.exito) {
             throw new Error("No se pudo crear viaje A: "
                 + ((rA && rA.json && rA.json.error) ? rA.json.error : "(sin detalle)"));
         }
 
         // 2. Crear viaje B (con ventas).
-        const rB = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, viaje_b));
+        const rB = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, viaje_b));
         if (!rB || !rB.exito || !rB.json || !rB.json.exito) {
             throw new Error("No se pudo crear viaje B: "
                 + ((rB && rB.json && rB.json.error) ? rB.json.error : "(sin detalle)"));
@@ -210,9 +197,7 @@ export const prueba = {
 
         // 3. Autorizar la terminal en el viaje B. Sin esto,
         //    listar_por_terminal filtra el viaje B y no aparece.
-        const rT = await ctx.pedir_post("index.php", {
-            accion: "viajes/agregar_terminal",
-            nombre_solicitante: nombre_admin,
+        const rT = await ctx.post_accion("viajes/agregar_terminal", {
             nombre_dueno,
             nombre_viaje: viaje_b,
             nombre_terminal
@@ -233,9 +218,7 @@ export const prueba = {
         for (const empresa of empresas) {
             const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, nombre_dueno, empresa);
             for (const patente of vehiculos) {
-                const r_ag = await ctx.pedir_post("index.php", {
-                    accion: "viajes/agregar_micro",
-                    nombre_solicitante: nombre_admin,
+                const r_ag = await ctx.post_accion("viajes/agregar_micro", {
                     nombre_dueno,
                     nombre_viaje: viaje_b,
                     nombre_empresa: empresa,
@@ -257,9 +240,7 @@ export const prueba = {
 
         // 5. Seleccionar asiento y confirmar venta.
         const asiento = await _primer_asiento_libre(ctx, nombre_admin, nombre_dueno, viaje_b, nombre_micro);
-        const rs = await ctx.pedir_post("index.php", {
-            accion: "viajes/seleccionar_asiento",
-            nombre_solicitante: nombre_admin,
+        const rs = await ctx.post_accion("viajes/seleccionar_asiento", {
             nombre_dueno,
             nombre_viaje: viaje_b,
             nombre_micro,
@@ -285,9 +266,7 @@ export const prueba = {
             localidad: "Tres Arroyos"
         };
 
-        const rv = await ctx.pedir_post("index.php", {
-            accion: "ventas/confirmar",
-            nombre_solicitante: nombre_admin,
+        const rv = await ctx.post_accion("ventas/confirmar", {
             nombre_terminal,
             metodo_pago: "efectivo",
             cuotas: "1",
@@ -306,9 +285,7 @@ export const prueba = {
         const id_venta = rv.json.id_venta;
 
         // 6. Listar por dueño y verificar tiene_ventas.
-        const rl = await ctx.pedir_post("index.php", {
-            accion: "viajes/listar_por_dueno",
-            nombre_solicitante: nombre_admin,
+        const rl = await ctx.post_accion("viajes/listar_por_dueno", {
             nombre_dueno
         });
         if (!rl || !rl.exito || !rl.json || !rl.json.exito) {
@@ -334,9 +311,7 @@ export const prueba = {
             + "Esperado: \"1\".");
 
         // 7. Listar por terminal y verificar vendidos_aqui.
-        const rt = await ctx.pedir_post("index.php", {
-            accion: "viajes/listar_por_terminal",
-            nombre_solicitante: nombre_admin,
+        const rt = await ctx.post_accion("viajes/listar_por_terminal", {
             nombre_terminal
         });
         if (!rt || !rt.exito || !rt.json || !rt.json.exito) {
@@ -362,21 +337,15 @@ export const prueba = {
             "Ningún micro del viaje B tiene vendidos_aqui > 0 en listar_por_terminal.");
 
         // 8. Limpieza: cancelar la venta y eliminar los viajes.
-        await ctx.pedir_post("index.php", {
-            accion: "ventas/cancelar",
-            nombre_solicitante: nombre_admin,
+        await ctx.post_accion("ventas/cancelar", {
             id_venta,
             motivo: "Prueba automática (índice de viajes)"
         });
-        await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje: viaje_a
         });
-        await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje: viaje_b
         });
