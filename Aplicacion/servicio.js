@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.7a
+ * @version 1.5plugin.7b
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -317,6 +317,7 @@ function _crear_ctx(pestana_id) {
             }
 
             const body = Object.assign({}, params);
+            body.accion = accion;
             if (nombre_solicitante) body.nombre_solicitante = nombre_solicitante;
             if (nombre_dueno) body.nombre_dueno = nombre_dueno;
 
