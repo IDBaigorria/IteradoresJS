@@ -26,7 +26,7 @@
  * configurados (en una o más empresas). Si solo hay uno,
  * la prueba falla con mensaje claro.
  *
- * @version 1.5plugin.6q
+ * @version 1.5plugin.6r
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -193,6 +193,69 @@ export const prueba = {
                 candidatos.push({ empresa, patente });
             }
         }
+
+        // Garantizar al menos 2 vehículos configurados.
+        // Si el dueño tiene menos, creamos uno de prueba con
+        // 4 asientos 2x2 y lo eliminamos al final.
+        const _prefijo_veh_auto = "viajecambiomicro_veh_" + sufijo;
+        const _nombre_empresa_auto = "viajecambiomicro_emp_" + sufijo;
+        let _creado_empresa_auto = false;
+        let _creado_vehiculo_auto = false;
+        if (candidatos.length < 2) {
+            const r_emp = await ctx.pedir_post("index.php", {
+                accion: "empresas/agregar",
+                nombre_solicitante: nombre_admin,
+                nombre_dueno,
+                nombre_empresa: _nombre_empresa_auto,
+                nombre_real: "Empresa setup cambiar micro"
+            });
+            if (!r_emp || !r_emp.exito || !r_emp.json || !r_emp.json.exito) {
+                throw new Error("No se pudo crear la empresa de setup: "
+                    + ((r_emp && r_emp.json && r_emp.json.error) ? r_emp.json.error : "(sin detalle)"));
+            }
+            _creado_empresa_auto = true;
+
+            const r_veh = await ctx.pedir_post("index.php", {
+                accion: "vehiculos/agregar",
+                nombre_solicitante: nombre_admin,
+                nombre_dueno,
+                nombre_empresa: _nombre_empresa_auto,
+                nombre_vehiculo: _prefijo_veh_auto,
+                nombre_real: "Vehículo setup cambiar micro"
+            });
+            if (!r_veh || !r_veh.exito || !r_veh.json || !r_veh.json.exito) {
+                throw new Error("No se pudo crear el vehículo de setup: "
+                    + ((r_veh && r_veh.json && r_veh.json.error) ? r_veh.json.error : "(sin detalle)"));
+            }
+            _creado_vehiculo_auto = true;
+
+            const _config_2x2 = JSON.stringify({
+                pisos: [{
+                    filas: 2,
+                    columnas: 2,
+                    asientos: [
+                        { fila: "1", columna: "1", numero: "1" },
+                        { fila: "1", columna: "2", numero: "2" },
+                        { fila: "2", columna: "1", numero: "3" },
+                        { fila: "2", columna: "2", numero: "4" }
+                    ]
+                }]
+            });
+            const r_cf = await ctx.pedir_post("index.php", {
+                accion: "vehiculos/actualizar_configuracion",
+                nombre_solicitante: nombre_admin,
+                nombre_dueno,
+                nombre_empresa: _nombre_empresa_auto,
+                nombre_vehiculo: _prefijo_veh_auto,
+                configuracion: _config_2x2
+            });
+            if (!r_cf || !r_cf.exito || !r_cf.json || !r_cf.json.exito) {
+                throw new Error("No se pudo configurar el vehículo de setup: "
+                    + ((r_cf && r_cf.json && r_cf.json.error) ? r_cf.json.error : "(sin detalle)"));
+            }
+
+            candidatos.push({ empresa: _nombre_empresa_auto, patente: _prefijo_veh_auto });
+        }
         if (candidatos.length < 2) {
             throw new Error("Se necesitan al menos 2 vehículos configurados en las empresas del dueño " + nombre_dueno + ". Encontrados: " + candidatos.length + ". Cargá más vehículos o ajustá la prueba.");
         }
@@ -285,6 +348,41 @@ export const prueba = {
 
         const H1 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;
         const dif = H1 - H0;
+
+        // Cleanup del setup. Si creamos empresa+vehículo, los
+        // eliminamos. Pero si el micro que agregamos al viaje
+        // usa ese vehículo, primero hay que quitar los micros
+        // del viaje. Y el viaje entero.
+        try {
+            await ctx.pedir_post("index.php", {
+                accion: "viajes/eliminar",
+                nombre_solicitante: nombre_admin,
+                nombre_dueno,
+                nombre_viaje
+            });
+        } catch (e) { /* best-effort */ }
+        if (_creado_vehiculo_auto) {
+            try {
+                await ctx.pedir_post("index.php", {
+                    accion: "vehiculos/eliminar",
+                    nombre_solicitante: nombre_admin,
+                    nombre_dueno,
+                    nombre_empresa: _nombre_empresa_auto,
+                    nombre_vehiculo: _prefijo_veh_auto
+                });
+            } catch (e) { /* best-effort */ }
+        }
+        if (_creado_empresa_auto) {
+            try {
+                await ctx.pedir_post("index.php", {
+                    accion: "empresas/eliminar",
+                    nombre_solicitante: nombre_admin,
+                    nombre_dueno,
+                    nombre_empresa: _nombre_empresa_auto
+                });
+            } catch (e) { /* best-effort */ }
+        }
+
         ctx.assert(H1 === H0,
             "Cambiar de micro a mitad de selección dejó nodos huérfanos. "
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + dif + "."

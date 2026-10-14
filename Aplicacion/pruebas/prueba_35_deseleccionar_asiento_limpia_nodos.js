@@ -24,7 +24,7 @@
  * menos una terminal y una empresa con un vehículo con
  * asientos configurados.
  *
- * @version 1.5plugin.6q
+ * @version 1.5plugin.6r
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -238,6 +238,22 @@ export const prueba = {
         }
         if (!nombre_micro) {
             throw new Error("Ningún vehículo pudo agregarse como micro. Último error: " + ultimo_error);
+        }
+
+        // Autorizar la terminal en el viaje para que aparezca
+        // en su compartido. Sin esto, seleccionar_asiento_micro
+        // navega por el compartido (post repuntado B2.3.5) y
+        // no encuentra el viaje recién creado.
+        const rT = await ctx.pedir_post("index.php", {
+            accion: "viajes/agregar_terminal",
+            nombre_solicitante: nombre_admin,
+            nombre_dueno,
+            nombre_viaje,
+            nombre_terminal
+        });
+        if (!rT || !rT.exito || !rT.json || !rT.json.exito) {
+            throw new Error("No se pudo autorizar la terminal en el viaje: "
+                + ((rT && rT.json && rT.json.error) ? rT.json.error : "(sin detalle)"));
         }
 
         // 3. Seleccionar un asiento.
