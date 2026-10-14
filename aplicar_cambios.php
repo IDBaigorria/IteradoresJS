@@ -1,11 +1,12 @@
 <?php
 /**
- * Aplicador — Fix del helper cancelar_venta.
+ * Aplicador — Agregar nombre_dueno a los POSTs de vehiculos/*.
  *
- * El helper llamaba a ctx.nombre_usuario_actual() sin extraer
- * `.nombre_usuario`. El objeto se serializaba como
- * "[object Object]" al hacer el POST. El backend buscaba
- * us_[object Object], no lo encontraba, y moría con 500.
+ * El piloto v77v cambió vehiculos/agregar, actualizar_configuracion,
+ * eliminar y listar para exigir `nombre_dueno`. Los POSTs del
+ * plugin no lo mandaban y el backend respondía
+ * "Dueño no especificado" (o, en el caso de listar, devolvía
+ * vacío, rompiendo las pruebas que buscan vehículos configurados).
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -16,95 +17,179 @@ $raiz_proyecto = __DIR__;
 
 $cambios = [
     // ============================================================
-    // 1. cancelar_venta: extraer .nombre_usuario
+    // 1. Prueba 37: vehiculos/agregar
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => 'cancelar_venta: extraer nombre_usuario',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: vehiculos/agregar con nombre_dueno',
         'buscar' => [
-            '    // El backend necesita nombre_solicitante para saber qué',
-            '    // contexto cargar y qué terminal es el solicitante. Sin',
-            '    // él, cae al fallback que itera sobre `usuarios` y, con',
-            '    // carga parcial, devuelve "Venta no encontrada".',
-            '    const nombre_sol = await ctx.nombre_usuario_actual();',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/cancelar",',
-            '        id_venta,',
-            '        motivo,',
-            '        nombre_solicitante: nombre_sol',
-            '    });',
+            '        const r_ve = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_empresa,',
+            '            nombre_vehiculo,',
+            '            nombre_real: "Vehículo prueba grafo"',
+            '        });',
         ],
         'reemplazar' => [
-            '    // El backend necesita nombre_solicitante para saber qué',
-            '    // contexto cargar y qué terminal es el solicitante. Sin',
-            '    // él, cae al fallback que itera sobre `usuarios` y, con',
-            '    // carga parcial, devuelve "Venta no encontrada".',
-            '    //',
-            '    // Ojo: ctx.nombre_usuario_actual() devuelve un objeto',
-            '    // `{exito, nombre_usuario}`. Hay que extraer el string.',
-            '    // Si se pasa el objeto directo, se serializa como',
-            '    // "[object Object]" y el backend muere con 500.',
-            '    const r_nombre = await ctx.nombre_usuario_actual();',
-            '    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
-            '        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
-            '    }',
-            '    const nombre_sol = r_nombre.nombre_usuario;',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/cancelar",',
-            '        id_venta,',
-            '        motivo,',
-            '        nombre_solicitante: nombre_sol',
-            '    });',
+            '        const r_ve = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_dueno,',
+            '            nombre_empresa,',
+            '            nombre_vehiculo,',
+            '            nombre_real: "Vehículo prueba grafo"',
+            '        });',
         ],
     ],
 
     // ============================================================
-    // 2. obtener_venta_por_id: mismo fix
+    // 2. Prueba 37: vehiculos/actualizar_configuracion
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => 'obtener_venta_por_id: extraer nombre_usuario',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: actualizar_configuracion con nombre_dueno',
         'buscar' => [
-            '    // Mismo motivo que cancelar_venta: el backend necesita',
-            '    // nombre_solicitante para resolver el contexto del terminal.',
-            '    const nombre_sol = await ctx.nombre_usuario_actual();',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/obtener",',
-            '        id_venta,',
-            '        nombre_solicitante: nombre_sol',
-            '    });',
+            '        const r_cf = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/actualizar_configuracion",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_empresa,',
+            '            nombre_vehiculo,',
+            '            configuracion: _config_asientos_2x2()',
+            '        });',
         ],
         'reemplazar' => [
-            '    // Mismo motivo que cancelar_venta: el backend necesita',
-            '    // nombre_solicitante para resolver el contexto del terminal.',
-            '    // Y mismo detalle: hay que extraer `.nombre_usuario`.',
-            '    const r_nombre = await ctx.nombre_usuario_actual();',
-            '    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
-            '        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
-            '    }',
-            '    const nombre_sol = r_nombre.nombre_usuario;',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/obtener",',
-            '        id_venta,',
-            '        nombre_solicitante: nombre_sol',
-            '    });',
+            '        const r_cf = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/actualizar_configuracion",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_dueno,',
+            '            nombre_empresa,',
+            '            nombre_vehiculo,',
+            '            configuracion: _config_asientos_2x2()',
+            '        });',
         ],
     ],
 
     // ============================================================
-    // 3. Bump
+    // 3. Prueba 37: vehiculos/eliminar
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_helpers.js',
-        'descripcion' => 'Bump _helpers.js',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: eliminar con nombre_dueno',
         'buscar' => [
-            ' * @version 1.5plugin.6m',
+            '        const r_del = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_empresa,',
+            '            nombre_vehiculo',
+            '        });',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.6n',
+            '        const r_del = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_dueno,',
+            '            nombre_empresa,',
+            '            nombre_vehiculo',
+            '        });',
+        ],
+    ],
+
+    // ============================================================
+    // 4. Prueba 37: bump
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5k',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6o',
+        ],
+    ],
+
+    // ============================================================
+    // 5. Prueba 38: vehiculos/agregar
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: vehiculos/agregar con nombre_dueno',
+        'buscar' => [
+            '            const r_ve = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/agregar",',
+            '                nombre_solicitante: nombre_admin,',
+            '                nombre_empresa,',
+            '                nombre_vehiculo,',
+            '                nombre_real: "Vehículo prueba grafo"',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const r_ve = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/agregar",',
+            '                nombre_solicitante: nombre_admin,',
+            '                nombre_dueno,',
+            '                nombre_empresa,',
+            '                nombre_vehiculo,',
+            '                nombre_real: "Vehículo prueba grafo"',
+            '            });',
+        ],
+    ],
+
+    // ============================================================
+    // 6. Prueba 38: bump
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5k',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6o',
+        ],
+    ],
+
+    // ============================================================
+    // 7. _compartidos_helpers.js: vehiculos/listar
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => 'helpers compartidos: vehiculos/listar con nombre_dueno',
+        'buscar' => [
+            '        const r_veh = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/listar",',
+            '            nombre_empresa: nombre_emp',
+            '        });',
+        ],
+        'reemplazar' => [
+            '        const r_veh = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/listar",',
+            '            nombre_dueno: nombre_dueno,',
+            '            nombre_empresa: nombre_emp',
+            '        });',
+        ],
+    ],
+
+    // ============================================================
+    // 8. _compartidos_helpers.js: bump
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
+        'descripcion' => 'helpers compartidos: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.6h',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6o',
         ],
     ],
 ];
@@ -113,7 +198,7 @@ $cambios = [
 // Runner
 // ============================================================
 
-echo "=== Aplicador — Fix helper cancelar_venta ===\n\n";
+echo "=== Aplicador — nombre_dueno en vehiculos/* ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }

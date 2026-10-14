@@ -6,7 +6,7 @@
  * las operaciones de viajes/terminales son costosas en UI
  * y no necesitan verificación visual.
  *
- * @version 1.5plugin.6h
+ * @version 1.5plugin.6o
  */
 
 // ============================================================
@@ -150,6 +150,7 @@ export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno,
         if (excluir.includes(nombre_emp)) continue;
         const r_veh = await ctx.pedir_post("index.php", {
             accion: "vehiculos/listar",
+            nombre_dueno: nombre_dueno,
             nombre_empresa: nombre_emp
         });
         if (!r_veh || !r_veh.json || !r_veh.json.exito) continue;

@@ -17,7 +17,7 @@
  *
  * Requisitos de entorno: solo un dueño existente.
  *
- * @version 1.5plugin.5k
+ * @version 1.5plugin.6o
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -127,6 +127,7 @@ export const prueba = {
             const r_ve = await ctx.pedir_post("index.php", {
                 accion: "vehiculos/agregar",
                 nombre_solicitante: nombre_admin,
+                nombre_dueno,
                 nombre_empresa,
                 nombre_vehiculo,
                 nombre_real: "Vehículo prueba grafo"
