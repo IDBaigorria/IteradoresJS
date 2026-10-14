@@ -25,7 +25,7 @@
  * una terminal (con dueño asignado) y una empresa con un
  * vehículo con asientos configurados.
  *
- * @version 1.5plugin.6t
+ * @version 1.5plugin.6v
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -187,6 +187,16 @@ export const prueba = {
         const nombre_dueno = await _primer_dueno(ctx, nombre_admin);
         const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);
 
+        // Limpiar cualquier venta_actual colgada de la terminal.
+        // Si una corrida anterior falló a mitad de selección, la
+        // venta_actual quedó colgada con asientos temporales, y
+        // la próxima corrida acumula sobre eso. Idempotente.
+        await ctx.pedir_post("index.php", {
+            accion: "viajes/reiniciar_seleccion_completa",
+            nombre_solicitante: nombre_admin,
+            nombre_terminal
+        });
+
         const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;
 
         // 1. Crear viaje de prueba.
@@ -302,11 +312,15 @@ export const prueba = {
             nombre_solicitante: nombre_admin,
             nombre_terminal,
             metodo_pago: "efectivo",
-            cuotas: "1",
-            // Un monto grande evita la validación de v77m
-            // ("con 1 cuota el monto debe cubrir el total").
-            // El backend ajusta al total real.
-            monto_pagado: "999999",
+            // Con cuotas=1 el backend exige monto_pagado
+            // === total exactamente (dos validaciones
+            // opuestas: "debe cubrir el total" y "no puede
+            // superar el total"). La prueba no conoce el
+            // total real, así que usamos cuotas=2 con un
+            // monto chico. La aserción de huérfanos no
+            // depende de la cantidad de cuotas.
+            cuotas: "2",
+            monto_pagado: "100",
             comprador_dni: dni_comprador,
             comprador_apellido: pasajero.apellido,
             comprador_nombres: pasajero.nombres,

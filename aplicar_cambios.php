@@ -1,56 +1,140 @@
 <?php
 /**
- * Aplicador — P34: monto_pagado robusto.
+ * Aplicador — Reiniciar selección en pruebas 34, 35, 36 (v2).
  *
- * La prueba 34 pasa `monto_pagado: monto_micro` (= "1000"
- * hardcodeado). Con `cuotas: "1"`, el backend valida
- * `monto_pagado >= total` (v77m). Si el total del viaje
- * no es exactamente 1000 (por ejemplo, porque el micro
- * tiene un monto distinto al que se pasó), falla con
- * "Con 1 sola cuota, el monto a pagar debe cubrir el total".
+ * El script anterior abortó por bumps mal calculados. Este
+ * usa las versiones reales:
+ *   P34: 6u → 6v
+ *   P35: 6r → 6s
+ *   P36: 6t → 6u
  *
- * Fix: usar un monto grande. El backend ajusta al total real.
+ * Inserta la llamada a viajes/reiniciar_seleccion_completa al
+ * inicio de cada prueba.
  *
- * Uso (parado en iteradoresJS/):
- *   php aplicar_cambios.php
+ * Requiere el endpoint del piloto V1.5piloto.79h. Correr el
+ * script A (piloto) ANTES que este.
+ *
+ * Uso (parado en iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
+$reinicio = [
+    '',
+    '        // Limpiar cualquier venta_actual colgada de la terminal.',
+    '        // Si una corrida anterior falló a mitad de selección, la',
+    '        // venta_actual quedó colgada con asientos temporales, y',
+    '        // la próxima corrida acumula sobre eso. Idempotente.',
+    '        await ctx.pedir_post("index.php", {',
+    '            accion: "viajes/reiniciar_seleccion_completa",',
+    '            nombre_solicitante: nombre_admin,',
+    '            nombre_terminal',
+    '        });',
+];
+
 $cambios = [
+    // ============================================================
+    // Prueba 34
+    // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: monto_pagado grande',
+        'descripcion' => 'P34: reiniciar selección al inicio',
         'buscar' => [
-            '        const rv = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/confirmar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_terminal,',
-            '            metodo_pago: "efectivo",',
-            '            cuotas: "1",',
-            '            monto_pagado: monto_micro,',
+            '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+            '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
+            '',
+            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
         ],
-        'reemplazar' => [
-            '        const rv = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/confirmar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_terminal,',
-            '            metodo_pago: "efectivo",',
-            '            cuotas: "1",',
-            '            // Un monto grande evita la validación de v77m',
-            '            // ("con 1 cuota el monto debe cubrir el total").',
-            '            // El backend ajusta al total real.',
-            '            monto_pagado: "999999",',
-        ],
+        'reemplazar' => array_merge(
+            [
+                '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+                '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
+            ],
+            $reinicio,
+            [
+                '',
+                '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
+            ]
+        ),
     ],
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: bump',
-        'buscar' => [' * @version 1.5plugin.6s'],
-        'reemplazar' => [' * @version 1.5plugin.6t'],
+        'descripcion' => 'P34: bump 6u → 6v',
+        'buscar' => [' * @version 1.5plugin.6u'],
+        'reemplazar' => [' * @version 1.5plugin.6v'],
+    ],
+
+    // ============================================================
+    // Prueba 35
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+        'descripcion' => 'P35: reiniciar selección al inicio',
+        'buscar' => [
+            '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+            '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
+            '',
+            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
+        ],
+        'reemplazar' => array_merge(
+            [
+                '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+                '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
+            ],
+            $reinicio,
+            [
+                '',
+                '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
+            ]
+        ),
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+        'descripcion' => 'P35: bump 6r → 6s',
+        'buscar' => [' * @version 1.5plugin.6r'],
+        'reemplazar' => [' * @version 1.5plugin.6s'],
+    ],
+
+    // ============================================================
+    // Prueba 36
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
+        'descripcion' => 'P36: reiniciar selección al inicio',
+        'buscar' => [
+            '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+            '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
+            '',
+            '        // Sufijo único para esta corrida. Se usa para los',
+            '        // nombres de viaje, empresa y vehículo de setup.',
+            '        const sufijo = String(Date.now()).slice(-8);',
+        ],
+        'reemplazar' => array_merge(
+            [
+                '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
+                '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
+            ],
+            $reinicio,
+            [
+                '',
+                '        // Sufijo único para esta corrida. Se usa para los',
+                '        // nombres de viaje, empresa y vehículo de setup.',
+                '        const sufijo = String(Date.now()).slice(-8);',
+            ]
+        ),
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
+        'descripcion' => 'P36: bump 6t → 6u',
+        'buscar' => [' * @version 1.5plugin.6t'],
+        'reemplazar' => [' * @version 1.5plugin.6u'],
     ],
 ];
 
@@ -58,7 +142,7 @@ $cambios = [
 // Runner
 // ============================================================
 
-echo "=== Aplicador — P34: monto_pagado grande ===\n\n";
+echo "=== Aplicador — Reiniciar selección en pruebas 34, 35, 36 (v2) ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }

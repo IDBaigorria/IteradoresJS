@@ -26,7 +26,7 @@
  * configurados (en una o más empresas). Si solo hay uno,
  * la prueba falla con mensaje claro.
  *
- * @version 1.5plugin.6t
+ * @version 1.5plugin.6u
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -180,6 +180,16 @@ export const prueba = {
 
         const nombre_dueno = await _primer_dueno(ctx, nombre_admin);
         const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);
+
+        // Limpiar cualquier venta_actual colgada de la terminal.
+        // Si una corrida anterior falló a mitad de selección, la
+        // venta_actual quedó colgada con asientos temporales, y
+        // la próxima corrida acumula sobre eso. Idempotente.
+        await ctx.pedir_post("index.php", {
+            accion: "viajes/reiniciar_seleccion_completa",
+            nombre_solicitante: nombre_admin,
+            nombre_terminal
+        });
 
         // Sufijo único para esta corrida. Se usa para los
         // nombres de viaje, empresa y vehículo de setup.
