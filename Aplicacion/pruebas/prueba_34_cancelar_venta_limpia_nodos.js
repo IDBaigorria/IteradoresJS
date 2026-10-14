@@ -25,7 +25,7 @@
  * una terminal (con dueño asignado) y una empresa con un
  * vehículo con asientos configurados.
  *
- * @version 1.5plugin.6r
+ * @version 1.5plugin.6t
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -303,7 +303,10 @@ export const prueba = {
             nombre_terminal,
             metodo_pago: "efectivo",
             cuotas: "1",
-            monto_pagado: monto_micro,
+            // Un monto grande evita la validación de v77m
+            // ("con 1 cuota el monto debe cubrir el total").
+            // El backend ajusta al total real.
+            monto_pagado: "999999",
             comprador_dni: dni_comprador,
             comprador_apellido: pasajero.apellido,
             comprador_nombres: pasajero.nombres,
@@ -327,10 +330,15 @@ export const prueba = {
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + dif_venta + ".");
 
         // 5. Cancelar la venta.
+        // Post v79a, la venta del admin (con nombre_terminal)
+        // vive en el árbol del compartido y encolada en el
+        // buzón. Pasar nombre_terminal hace que cancelar_venta
+        // navegue por el árbol del compartido y la encuentre.
         const rcan = await ctx.pedir_post("index.php", {
             accion: "ventas/cancelar",
             nombre_solicitante: nombre_admin,
             id_venta,
+            nombre_terminal,
             motivo: "Prueba automática (limpieza de nodos)"
         });
         if (!rcan || !rcan.exito || !rcan.json || !rcan.json.exito) {

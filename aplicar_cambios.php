@@ -1,15 +1,15 @@
 <?php
 /**
- * Aplicador — Fix del `sufijo` en la prueba 36.
+ * Aplicador — P34: monto_pagado robusto.
  *
- * La prueba 36 (cambiar_micro_a_mitad_limpia_nodos) usa
- * `sufijo` en el bloque de creación automática de vehículo,
- * pero `sufijo` se declara recién más abajo, después de H0.
- * Con `const`, eso da ReferenceError antes de inicializar.
+ * La prueba 34 pasa `monto_pagado: monto_micro` (= "1000"
+ * hardcodeado). Con `cuotas: "1"`, el backend valida
+ * `monto_pagado >= total` (v77m). Si el total del viaje
+ * no es exactamente 1000 (por ejemplo, porque el micro
+ * tiene un monto distinto al que se pasó), falla con
+ * "Con 1 sola cuota, el monto a pagar debe cubrir el total".
  *
- * Fix: mover la declaración de `sufijo` arriba, junto a
- * `nombre_terminal`. Y eliminar la declaración duplicada
- * que queda abajo.
+ * Fix: usar un monto grande. El backend ajusta al total real.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -19,56 +19,38 @@ $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
 $cambios = [
-    // 1. Declarar `sufijo` temprano, después de nombre_terminal.
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: declarar sufijo temprano',
+        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
+        'descripcion' => 'P34: monto_pagado grande',
         'buscar' => [
-            '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
-            '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
-            '',
-            '        // Requisito: al menos 2 vehículos con asientos.',
+            '        const rv = await ctx.pedir_post("index.php", {',
+            '            accion: "ventas/confirmar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_terminal,',
+            '            metodo_pago: "efectivo",',
+            '            cuotas: "1",',
+            '            monto_pagado: monto_micro,',
         ],
         'reemplazar' => [
-            '        const nombre_dueno = await _primer_dueno(ctx, nombre_admin);',
-            '        const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);',
-            '',
-            '        // Sufijo único para esta corrida. Se usa para los',
-            '        // nombres de viaje, empresa y vehículo de setup.',
-            '        const sufijo = String(Date.now()).slice(-8);',
-            '',
-            '        // Requisito: al menos 2 vehículos con asientos.',
+            '        const rv = await ctx.pedir_post("index.php", {',
+            '            accion: "ventas/confirmar",',
+            '            nombre_solicitante: nombre_admin,',
+            '            nombre_terminal,',
+            '            metodo_pago: "efectivo",',
+            '            cuotas: "1",',
+            '            // Un monto grande evita la validación de v77m',
+            '            // ("con 1 cuota el monto debe cubrir el total").',
+            '            // El backend ajusta al total real.',
+            '            monto_pagado: "999999",',
         ],
     ],
-
-    // 2. Eliminar la declaración duplicada de `sufijo` más abajo.
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: eliminar sufijo duplicado',
-        'buscar' => [
-            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
-            '',
-            '        // Crear viaje de prueba.',
-            '        const sufijo = String(Date.now()).slice(-8);',
-            '        const nombre_viaje = "viajecambiomicro" + sufijo;',
-        ],
-        'reemplazar' => [
-            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
-            '',
-            '        // Crear viaje de prueba.',
-            '        const nombre_viaje = "viajecambiomicro" + sufijo;',
-        ],
-    ],
-
-    // 3. Bump.
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: bump',
-        'buscar' => [' * @version 1.5plugin.6r'],
-        'reemplazar' => [' * @version 1.5plugin.6s'],
+        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
+        'descripcion' => 'P34: bump',
+        'buscar' => [' * @version 1.5plugin.6s'],
+        'reemplazar' => [' * @version 1.5plugin.6t'],
     ],
 ];
 
@@ -76,7 +58,7 @@ $cambios = [
 // Runner
 // ============================================================
 
-echo "=== Aplicador — Fix del sufijo en la prueba 36 ===\n\n";
+echo "=== Aplicador — P34: monto_pagado grande ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
