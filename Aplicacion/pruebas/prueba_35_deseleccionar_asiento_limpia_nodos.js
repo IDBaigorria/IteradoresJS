@@ -24,7 +24,7 @@
  * menos una terminal y una empresa con un vehículo con
  * asientos configurados.
  *
- * @version 1.5plugin.6p
+ * @version 1.5plugin.6q
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -115,7 +115,7 @@ async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
     }).filter(function (n) { return !!n; });
 }
 
-async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_empresa) {
+async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {
     const r = await ctx.pedir_post("index.php", {
         accion: "vehiculos/listar",
         nombre_solicitante,
@@ -217,7 +217,7 @@ export const prueba = {
         let nombre_micro = null;
         let ultimo_error = "";
         for (const empresa of empresas) {
-            const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, empresa);
+            const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, nombre_dueno, empresa);
             for (const patente of vehiculos) {
                 const r_ag = await ctx.pedir_post("index.php", {
                     accion: "viajes/agregar_micro",

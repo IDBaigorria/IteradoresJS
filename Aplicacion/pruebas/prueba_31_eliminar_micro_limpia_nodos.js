@@ -21,7 +21,7 @@
  * La prueba itera empresas × vehículos intentando agregar
  * el micro; si ninguno anda, falla con mensaje claro.
  *
- * @version 1.5plugin.6p
+ * @version 1.5plugin.6q
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -103,7 +103,7 @@ async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
 
 // Pide vehiculos/listar para una empresa y devuelve el
 // array de patentes.
-async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_empresa) {
+async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {
     const r = await ctx.pedir_post("index.php", {
         accion: "vehiculos/listar",
         nombre_solicitante,
@@ -191,7 +191,7 @@ export const prueba = {
         let ultimo_error = "";
         let intentos = 0;
         for (const empresa of empresas) {
-            const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, empresa);
+            const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, nombre_dueno, empresa);
             for (const patente of vehiculos) {
                 intentos++;
                 const r_ag = await ctx.pedir_post("index.php", {

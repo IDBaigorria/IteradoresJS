@@ -1,11 +1,14 @@
 <?php
 /**
- * Aplicador — nombre_dueno en el resto de los POSTs de vehiculos/*.
+ * Aplicador — Fix del helper _vehiculos_de_empresa.
  *
- * Continúa el fix del script anterior. Los POSTs de
- * vehiculos/listar, vehiculos/actualizar_configuracion y
- * vehiculos/subir_foto en varias pruebas todavía no mandaban
- * `nombre_dueno`. El piloto lo exige desde v77v.
+ * El script anterior agregó `nombre_dueno` al pedir_post del
+ * helper, pero no cambió la firma ni las llamadas. El helper
+ * seguía recibiendo (ctx, nombre_solicitante, nombre_empresa),
+ * así que `nombre_dueno` era undefined.
+ *
+ * Fix: agregar `nombre_dueno` a la firma del helper y
+ * propagarlo en todas las llamadas. 5 archivos.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -14,264 +17,62 @@
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
-$cambios = [
-    // ============================================================
-    // Prueba 31
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
-        'descripcion' => 'P31: vehiculos/listar con nombre_dueno',
-        'buscar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
-        'descripcion' => 'P31: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.5g',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6p',
-        ],
-    ],
-
-    // ============================================================
-    // Prueba 34
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: vehiculos/listar con nombre_dueno',
-        'buscar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.5i',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6p',
-        ],
-    ],
-
-    // ============================================================
-    // Prueba 35
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: vehiculos/listar con nombre_dueno',
-        'buscar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.5j',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6p',
-        ],
-    ],
-
-    // ============================================================
-    // Prueba 36
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: vehiculos/listar con nombre_dueno',
-        'buscar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.5j',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6p',
-        ],
-    ],
-
-    // ============================================================
-    // Prueba 38: actualizar_configuracion
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
-        'descripcion' => 'P38: actualizar_configuracion con nombre_dueno',
-        'buscar' => [
-            '                accion: "vehiculos/actualizar_configuracion",',
-            '                nombre_solicitante: nombre_admin,',
-            '                nombre_empresa,',
-            '                nombre_vehiculo,',
-            '                configuracion: _config_asientos_2x2()',
-        ],
-        'reemplazar' => [
-            '                accion: "vehiculos/actualizar_configuracion",',
-            '                nombre_solicitante: nombre_admin,',
-            '                nombre_dueno,',
-            '                nombre_empresa,',
-            '                nombre_vehiculo,',
-            '                configuracion: _config_asientos_2x2()',
-        ],
-    ],
-
-    // ============================================================
-    // Prueba 43
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: vehiculos/listar con nombre_dueno',
-        'buscar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.5p',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6p',
-        ],
-    ],
-
-    // ============================================================
-    // Prueba 55: subir_foto x2 (agregar nombre_dueno a campos)
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: subir_foto A con nombre_dueno',
-        'buscar' => [
-            '                "vehiculos/subir_foto",',
-            '                { nombre_empresa, nombre_vehiculo },',
-            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
-        ],
-        'reemplazar' => [
-            '                "vehiculos/subir_foto",',
-            '                { nombre_empresa, nombre_vehiculo, nombre_dueno },',
-            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: subir_foto B con nombre_dueno',
-        'buscar' => [
-            '                "vehiculos/subir_foto",',
-            '                { nombre_empresa, nombre_vehiculo },',
-            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
-        ],
-        'reemplazar' => [
-            '                "vehiculos/subir_foto",',
-            '                { nombre_empresa, nombre_vehiculo, nombre_dueno },',
-            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: vehiculos/listar con nombre_solicitante y nombre_dueno',
-        'buscar' => [
-            '                accion: "vehiculos/listar",',
-            '                nombre_empresa',
-            '            });',
-        ],
-        'reemplazar' => [
-            '                accion: "vehiculos/listar",',
-            '                nombre_solicitante: nombre_admin,',
-            '                nombre_dueno,',
-            '                nombre_empresa',
-            '            });',
-        ],
-    ],
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.5u',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6p',
-        ],
-    ],
+// Texto de la firma actual del helper y de la llamada.
+$firma_vieja = [
+    'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_empresa) {',
 ];
+$firma_nueva = [
+    'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
+];
+$llamada_vieja = [
+    '            const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, empresa);',
+];
+$llamada_nueva = [
+    '            const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, nombre_dueno, empresa);',
+];
+
+$archivos = [
+    'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
+    'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
+];
+
+$cambios = [];
+foreach ($archivos as $archivo) {
+    $cambios[] = [
+        'tipo' => 'reemplazar',
+        'archivo' => $archivo,
+        'descripcion' => "Firma del helper en " . basename($archivo),
+        'buscar' => $firma_vieja,
+        'reemplazar' => $firma_nueva,
+    ];
+    $cambios[] = [
+        'tipo' => 'reemplazar',
+        'archivo' => $archivo,
+        'descripcion' => "Llamada al helper en " . basename($archivo),
+        'buscar' => $llamada_vieja,
+        'reemplazar' => $llamada_nueva,
+    ];
+    $cambios[] = [
+        'tipo' => 'reemplazar',
+        'archivo' => $archivo,
+        'descripcion' => "Bump de " . basename($archivo),
+        'buscar' => [
+            ' * @version 1.5plugin.6p',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6q',
+        ],
+    ];
+}
 
 // ============================================================
 // Runner
 // ============================================================
 
-echo "=== Aplicador — nombre_dueno en el resto de vehiculos/* ===\n\n";
+echo "=== Aplicador — Fix _vehiculos_de_empresa ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
