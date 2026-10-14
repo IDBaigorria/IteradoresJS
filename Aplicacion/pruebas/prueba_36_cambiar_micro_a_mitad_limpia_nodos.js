@@ -16,10 +16,9 @@
  *            El segundo dispara `limpiar_lista = true`.
  *   H1: después del segundo seleccionar. Assert H1 === H0.
  *
- * Nota: la prueba deja la venta_actual colgada de la terminal
- * con el último asiento seleccionado. Es alcanzable, no es
- * huérfano. No se limpia el viaje al final para no dejar
- * referencias colgando.
+ * Nota: la prueba limpia la venta_actual y elimina el viaje
+ * de prueba (y la empresa/vehículo de setup, si se crearon)
+ * en un bloque finally.
  *
  * Requisitos de entorno: el dueño elegido debe tener al menos
  * una terminal, y al menos DOS vehículos con asientos
@@ -181,6 +180,16 @@ export const prueba = {
         const nombre_dueno = await _primer_dueno(ctx, nombre_admin);
         const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);
 
+        // v79n: declarar afuera del try/finally para que el finally
+        // los conozca aunque el flujo falle antes de crearlos.
+        const sufijo = String(Date.now()).slice(-8);
+        let nombre_viaje = null;
+        const _prefijo_veh_auto = "viajecambiomicro_veh_" + sufijo;
+        const _nombre_empresa_auto = "viajecambiomicro_emp_" + sufijo;
+        let _creado_empresa_auto = false;
+        let _creado_vehiculo_auto = false;
+
+        try {
         // Limpiar cualquier venta_actual colgada de la terminal.
         // Si una corrida anterior falló a mitad de selección, la
         // venta_actual quedó colgada con asientos temporales, y
@@ -190,10 +199,6 @@ export const prueba = {
             nombre_solicitante: nombre_admin,
             nombre_terminal
         });
-
-        // Sufijo único para esta corrida. Se usa para los
-        // nombres de viaje, empresa y vehículo de setup.
-        const sufijo = String(Date.now()).slice(-8);
 
         // Requisito: al menos 2 vehículos con asientos.
         const empresas = await _empresas_del_dueno(ctx, nombre_admin, nombre_dueno);
@@ -210,11 +215,7 @@ export const prueba = {
 
         // Garantizar al menos 2 vehículos configurados.
         // Si el dueño tiene menos, creamos uno de prueba con
-        // 4 asientos 2x2 y lo eliminamos al final.
-        const _prefijo_veh_auto = "viajecambiomicro_veh_" + sufijo;
-        const _nombre_empresa_auto = "viajecambiomicro_emp_" + sufijo;
-        let _creado_empresa_auto = false;
-        let _creado_vehiculo_auto = false;
+        // 4 asientos 2x2.
         if (candidatos.length < 2) {
             const r_emp = await ctx.pedir_post("index.php", {
                 accion: "empresas/agregar",
@@ -277,7 +278,7 @@ export const prueba = {
         const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;
 
         // Crear viaje de prueba.
-        const nombre_viaje = "viajecambiomicro" + sufijo;
+        nombre_viaje = "viajecambiomicro" + sufijo;
 
         const rc = await ctx.pedir_post("index.php", {
             accion: "viajes/guardar",
@@ -378,43 +379,53 @@ export const prueba = {
         const H1 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;
         const dif = H1 - H0;
 
-        // Cleanup del setup. Si creamos empresa+vehículo, los
-        // eliminamos. Pero si el micro que agregamos al viaje
-        // usa ese vehículo, primero hay que quitar los micros
-        // del viaje. Y el viaje entero.
-        try {
-            await ctx.pedir_post("index.php", {
-                accion: "viajes/eliminar",
-                nombre_solicitante: nombre_admin,
-                nombre_dueno,
-                nombre_viaje
-            });
-        } catch (e) { /* best-effort */ }
-        if (_creado_vehiculo_auto) {
-            try {
-                await ctx.pedir_post("index.php", {
-                    accion: "vehiculos/eliminar",
-                    nombre_solicitante: nombre_admin,
-                    nombre_dueno,
-                    nombre_empresa: _nombre_empresa_auto,
-                    nombre_vehiculo: _prefijo_veh_auto
-                });
-            } catch (e) { /* best-effort */ }
-        }
-        if (_creado_empresa_auto) {
-            try {
-                await ctx.pedir_post("index.php", {
-                    accion: "empresas/eliminar",
-                    nombre_solicitante: nombre_admin,
-                    nombre_dueno,
-                    nombre_empresa: _nombre_empresa_auto
-                });
-            } catch (e) { /* best-effort */ }
-        }
-
         ctx.assert(H1 === H0,
             "Cambiar de micro a mitad de selección dejó nodos huérfanos. "
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + dif + "."
             + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos de los asientos-en-venta viejos." : " Algo inesperado."));
+        } finally {
+            // v79n: cleanup best-effort. Corre incluso si el flujo
+            // falló a mitad. Orden: reiniciar selección, eliminar
+            // viaje, eliminar vehículo de setup, eliminar empresa
+            // de setup.
+            try {
+                await ctx.pedir_post("index.php", {
+                    accion: "viajes/reiniciar_seleccion_completa",
+                    nombre_solicitante: nombre_admin,
+                    nombre_terminal
+                });
+            } catch (e) { /* best-effort */ }
+            if (nombre_viaje) {
+                try {
+                    await ctx.pedir_post("index.php", {
+                        accion: "viajes/eliminar",
+                        nombre_solicitante: nombre_admin,
+                        nombre_dueno,
+                        nombre_viaje
+                    });
+                } catch (e) { /* best-effort */ }
+            }
+            if (_creado_vehiculo_auto) {
+                try {
+                    await ctx.pedir_post("index.php", {
+                        accion: "vehiculos/eliminar",
+                        nombre_solicitante: nombre_admin,
+                        nombre_dueno,
+                        nombre_empresa: _nombre_empresa_auto,
+                        nombre_vehiculo: _prefijo_veh_auto
+                    });
+                } catch (e) { /* best-effort */ }
+            }
+            if (_creado_empresa_auto) {
+                try {
+                    await ctx.pedir_post("index.php", {
+                        accion: "empresas/eliminar",
+                        nombre_solicitante: nombre_admin,
+                        nombre_dueno,
+                        nombre_empresa: _nombre_empresa_auto
+                    });
+                } catch (e) { /* best-effort */ }
+            }
+        }
     }
 };

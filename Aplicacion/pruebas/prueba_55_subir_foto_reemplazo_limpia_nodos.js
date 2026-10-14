@@ -14,7 +14,7 @@
  *   6. Verificar que el vehículo tiene la foto B.
  *   7. Limpieza: eliminar la empresa (arrastra el vehículo).
  *
- * @version 1.5plugin.6p
+ * @version 1.5plugin.6x
  * @since 1.5plugin.5u
  */
 

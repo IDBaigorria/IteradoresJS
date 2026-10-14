@@ -14,11 +14,11 @@
  *   Después: seleccionar 1 asiento y deseleccionarlo.
  *   H1: después del deseleccionar. Assert H1 === H0.
  *
- * Nota: la prueba deja la venta_actual colgada de la
- * terminal (con los campos viaje y micro apuntando al viaje
- * de prueba). Es alcanzable desde la terminal, no es un
- * huérfano. No se limpia el viaje al final para no dejar
- * la venta_actual con referencias colgando.
+ * Nota: la prueba limpia la venta_actual y elimina el
+ * viaje de prueba en un bloque finally, así una corrida
+ * fallida no deja basura acumulada. El orden es: limpiar
+ * la venta_actual con `viajes/reiniciar_seleccion_completa`,
+ * después eliminar el viaje.
  *
  * Requisitos de entorno: el dueño elegido debe tener al
  * menos una terminal y una empresa con un vehículo con
@@ -179,6 +179,12 @@ export const prueba = {
         const nombre_dueno = await _primer_dueno(ctx, nombre_admin);
         const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);
 
+        // v79n: declarar nombre_viaje afuera del try/finally para
+        // que el finally lo conozca aunque el flujo falle antes de
+        // crearlo.
+        let nombre_viaje = null;
+
+        try {
         // Limpiar cualquier venta_actual colgada de la terminal.
         // Si una corrida anterior falló a mitad de selección, la
         // venta_actual quedó colgada con asientos temporales, y
@@ -193,7 +199,7 @@ export const prueba = {
 
         // 1. Crear viaje de prueba.
         const sufijo = String(Date.now()).slice(-8);
-        const nombre_viaje = "viajedeselegraf" + sufijo;
+        nombre_viaje = "viajedeselegraf" + sufijo;
 
         const rc = await ctx.pedir_post("index.php", {
             accion: "viajes/guardar",
@@ -305,5 +311,22 @@ export const prueba = {
             "deseleccionar_asiento_micro dejó nodos huérfanos. "
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + dif + "."
             + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));
+                await ctx.pedir_post("index.php", {
+                    accion: "viajes/reiniciar_seleccion_completa",
+                    nombre_solicitante: nombre_admin,
+                    nombre_terminal
+                });
+            } catch (e) { /* best-effort */ }
+            if (nombre_viaje) {
+                try {
+                    await ctx.pedir_post("index.php", {
+                        accion: "viajes/eliminar",
+                        nombre_solicitante: nombre_admin,
+                        nombre_dueno,
+                        nombre_viaje
+                    });
+                } catch (e) { /* best-effort */ }
+            }
+        }
     }
 };

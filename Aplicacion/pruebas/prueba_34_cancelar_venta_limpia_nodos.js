@@ -187,6 +187,12 @@ export const prueba = {
         const nombre_dueno = await _primer_dueno(ctx, nombre_admin);
         const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);
 
+        // v79n: declarar nombre_viaje afuera del try/finally para
+        // que el finally lo conozca aunque el flujo falle antes de
+        // crearlo.
+        let nombre_viaje = null;
+
+        try {
         // Limpiar cualquier venta_actual colgada de la terminal.
         // Si una corrida anterior falló a mitad de selección, la
         // venta_actual quedó colgada con asientos temporales, y
@@ -201,7 +207,7 @@ export const prueba = {
 
         // 1. Crear viaje de prueba.
         const sufijo = String(Date.now()).slice(-8);
-        const nombre_viaje = "viajeventgraf" + sufijo;
+        nombre_viaje = "viajeventgraf" + sufijo;
 
         const rc = await ctx.pedir_post("index.php", {
             accion: "viajes/guardar",
@@ -368,12 +374,28 @@ export const prueba = {
             + ", diferencia vs H0=" + dif_cancel + "."
             + (dif_cancel > 0 ? " Quedaron " + dif_cancel + " nodos huérfanos." : " Algo inesperado."));
 
-        // 6. Limpieza: eliminar el viaje.
-        await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
-            nombre_dueno,
-            nombre_viaje
-        });
+        } finally {
+            // v79n: cleanup best-effort. Corre incluso si el flujo
+            // falló a mitad. Limpia la venta_actual colgada y el
+            // viaje de prueba. Los errores no se propagan para no
+            // tapar el error original del try.
+            try {
+                await ctx.pedir_post("index.php", {
+                    accion: "viajes/reiniciar_seleccion_completa",
+                    nombre_solicitante: nombre_admin,
+                    nombre_terminal
+                });
+            } catch (e) { /* best-effort */ }
+            if (nombre_viaje) {
+                try {
+                    await ctx.pedir_post("index.php", {
+                        accion: "viajes/eliminar",
+                        nombre_solicitante: nombre_admin,
+                        nombre_dueno,
+                        nombre_viaje
+                    });
+                } catch (e) { /* best-effort */ }
+            }
+        }
     }
 };
