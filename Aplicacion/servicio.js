@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.7b
+ * @version 1.5plugin.7c
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -290,8 +290,17 @@ function _crear_ctx(pestana_id) {
             // Devuelve la respuesta cruda de pedir_post:
             //   { exito, status, texto, json } o
             //   { exito: false, error: "..." } si falla la red.
+            // Prioridad: params.nombre_solicitante si viene. Un
+            // test puede querer operar como otro usuario (por
+            // ejemplo, admin vendiendo como terminal); en ese
+            // caso pasa `nombre_solicitante` explicito y NO
+            // queremos que se pise con el del logueado. Mismo
+            // criterio que `nombre_dueno` mas abajo.
+            const tiene_solicitante = params
+                && params.nombre_solicitante !== undefined
+                && params.nombre_solicitante !== "";
             let nombre_solicitante = null;
-            if (!opts.sin_solicitante) {
+            if (!opts.sin_solicitante && !tiene_solicitante) {
                 if (_cache_nombre_solicitante === null) {
                     const r_nombre = await this.nombre_usuario_actual();
                     if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {

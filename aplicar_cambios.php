@@ -1,20 +1,22 @@
 <?php
 /**
- * Aplicador — Fase 2b.1: fix de post_accion.
+ * Aplicador — Fase 2c.0: fix de post_accion.
  *
- * Bug: post_accion armaba el body con los params y los inyectados
- * (nombre_solicitante, nombre_dueno), pero nunca agregaba
- * body.accion. El enrutador recibia un POST vacio y devolvia una
- * respuesta no-JSON. Las pruebas 59 y 60 fallaban con
- * "Respuesta sin JSON en ventas/..." porque son las unicas que
- * pasan por _post.
+ * Bug: post_accion pisaba siempre params.nombre_solicitante con
+ * el del logueado, incluso si el test pasaba uno explícito. Eso
+ * rompe los casos "admin operando como terminal" (prueba_58,
+ * prueba_60, prueba_65, listar_empresas_del_terminal).
+ *
+ * Fix: si params.nombre_solicitante viene, tiene prioridad y no
+ * se resuelve del logueado. Mismo criterio que ya usa
+ * nombre_dueno.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7b';
+$version_nueva = '1.5plugin.7c';
 
 $htmls_a_bumpear = [];
 
@@ -23,17 +25,41 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: agregar body.accion en post_accion',
+        'descripcion' => 'servicio.js: post_accion respeta params.nombre_solicitante',
         'buscar' => [
-            '            const body = Object.assign({}, params);',
-            '            if (nombre_solicitante) body.nombre_solicitante = nombre_solicitante;',
-            '            if (nombre_dueno) body.nombre_dueno = nombre_dueno;',
+            '            let nombre_solicitante = null;',
+            '            if (!opts.sin_solicitante) {',
+            '                if (_cache_nombre_solicitante === null) {',
+            '                    const r_nombre = await this.nombre_usuario_actual();',
+            '                    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
+            '                        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
+            '                    }',
+            '                    _cache_nombre_solicitante = r_nombre.nombre_usuario;',
+            '                }',
+            '                nombre_solicitante = _cache_nombre_solicitante;',
+            '            }',
         ],
         'reemplazar' => [
-            '            const body = Object.assign({}, params);',
-            '            body.accion = accion;',
-            '            if (nombre_solicitante) body.nombre_solicitante = nombre_solicitante;',
-            '            if (nombre_dueno) body.nombre_dueno = nombre_dueno;',
+            '            // Prioridad: params.nombre_solicitante si viene. Un',
+            '            // test puede querer operar como otro usuario (por',
+            '            // ejemplo, admin vendiendo como terminal); en ese',
+            '            // caso pasa `nombre_solicitante` explicito y NO',
+            '            // queremos que se pise con el del logueado. Mismo',
+            '            // criterio que `nombre_dueno` mas abajo.',
+            '            const tiene_solicitante = params',
+            '                && params.nombre_solicitante !== undefined',
+            '                && params.nombre_solicitante !== "";',
+            '            let nombre_solicitante = null;',
+            '            if (!opts.sin_solicitante && !tiene_solicitante) {',
+            '                if (_cache_nombre_solicitante === null) {',
+            '                    const r_nombre = await this.nombre_usuario_actual();',
+            '                    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
+            '                        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
+            '                    }',
+            '                    _cache_nombre_solicitante = r_nombre.nombre_usuario;',
+            '                }',
+            '                nombre_solicitante = _cache_nombre_solicitante;',
+            '            }',
         ],
     ],
 
@@ -114,23 +140,14 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     exit(1);
 }
 
-// --- Fase 2: bumps automaticos ---
 $archivos_bump_php_js = [];
-$archivos_bump_js_css = [];
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
     $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
     if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
-    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $rel;
-}
-foreach ($creaciones as $cr) {
-    $ext = strtolower(pathinfo($cr['archivo'], PATHINFO_EXTENSION));
-    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $cr['archivo'];
-    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $cr['archivo'];
 }
 
 $bumps_atversion = 0;
-$bumps_qv = 0;
 $bumps_detalle = [];
 $info_bumps = [];
 
@@ -159,7 +176,6 @@ if ($bumpear) {
     }
 }
 
-// --- Fase 3: escribir ---
 $archivos_escritos = 0;
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     list($contenido_unix, $eol) = $info;
@@ -172,26 +188,6 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
-foreach ($creaciones as $creacion) {
-    $ruta_abs = $raiz_proyecto . '/' . $creacion['archivo'];
-    $dir_destino = dirname($ruta_abs);
-    if (!is_dir($dir_destino)) mkdir($dir_destino, 0777, true);
-    $contenido_nuevo = implode("\n", $creacion['contenido']);
-    $ya_existia = file_exists($ruta_abs);
-    if (file_put_contents($ruta_abs, $contenido_nuevo) === false) {
-        echo "[FALLO] No se pudo crear: {$creacion['archivo']}\n"; continue;
-    }
-    $accion = $ya_existia ? 'sobrescrito' : 'creado';
-    echo "[OK] {$creacion['archivo']} ($accion)\n";
-}
-
-foreach ($eliminaciones as $elim) {
-    $ruta_abs = $raiz_proyecto . '/' . $elim['archivo'];
-    if (!file_exists($ruta_abs)) { echo "[INFO] " . $elim['archivo'] . " no existia.\n"; continue; }
-    if (unlink($ruta_abs)) echo "[OK] " . $elim['archivo'] . " (eliminado)\n";
-    else echo "[FALLO] No se pudo eliminar: " . $elim['archivo'] . "\n";
-}
-
 if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
     echo "\n--- Bumps ---\n";
     foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
@@ -201,10 +197,7 @@ if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
-if ($bumpear) {
-    echo "Bumps @version:    $bumps_atversion\n";
-    echo "Bumps ?v=:         $bumps_qv\n";
-}
+if ($bumpear) echo "Bumps @version:    $bumps_atversion\n";
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";
