@@ -8,7 +8,7 @@
  * sean independientes y no se agoten los asientos del viaje
  * de setup.
  *
- * @version 1.5plugin.5t
+ * @version 1.5plugin.6n
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -483,9 +483,18 @@ export async function cerrar_form_venta_y_liberar(ctx) {
 // devuelve el objeto `venta` del JSON. No depende del DOM,
 // asi que funciona aunque no estemos en la pestaña Vendidos.
 export async function obtener_venta_por_id(ctx, id_venta) {
+    // Mismo motivo que cancelar_venta: el backend necesita
+    // nombre_solicitante para resolver el contexto del terminal.
+    // Y mismo detalle: hay que extraer `.nombre_usuario`.
+    const r_nombre = await ctx.nombre_usuario_actual();
+    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {
+        throw new Error("No se pudo resolver el nombre de usuario del solicitante");
+    }
+    const nombre_sol = r_nombre.nombre_usuario;
     const r = await ctx.pedir_post("index.php", {
         accion: "ventas/obtener",
-        id_venta
+        id_venta,
+        nombre_solicitante: nombre_sol
     });
     if (!r || !r.exito) {
         throw new Error("Error de red al obtener la venta: " + (r && r.error ? r.error : "(sin detalle)"));
@@ -497,10 +506,25 @@ export async function obtener_venta_por_id(ctx, id_venta) {
 }
 
 export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {
+    // El backend necesita nombre_solicitante para saber qué
+    // contexto cargar y qué terminal es el solicitante. Sin
+    // él, cae al fallback que itera sobre `usuarios` y, con
+    // carga parcial, devuelve "Venta no encontrada".
+    //
+    // Ojo: ctx.nombre_usuario_actual() devuelve un objeto
+    // `{exito, nombre_usuario}`. Hay que extraer el string.
+    // Si se pasa el objeto directo, se serializa como
+    // "[object Object]" y el backend muere con 500.
+    const r_nombre = await ctx.nombre_usuario_actual();
+    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {
+        throw new Error("No se pudo resolver el nombre de usuario del solicitante");
+    }
+    const nombre_sol = r_nombre.nombre_usuario;
     const r = await ctx.pedir_post("index.php", {
         accion: "ventas/cancelar",
         id_venta,
-        motivo
+        motivo,
+        nombre_solicitante: nombre_sol
     });
     if (!r || !r.exito) {
         throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));

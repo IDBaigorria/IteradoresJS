@@ -1,97 +1,110 @@
 <?php
 /**
- * Aplicador — Espejo JS del fix v1.5i.8c.
+ * Aplicador — Fix del helper cancelar_venta.
  *
- * Propagación de máscaras a nodos nuevos por enlaces
- * entrantes en `#guardar_con_filtro`.
+ * El helper llamaba a ctx.nombre_usuario_actual() sin extraer
+ * `.nombre_usuario`. El objeto se serializaba como
+ * "[object Object]" al hacer el POST. El backend buscaba
+ * us_[object Object], no lo encontraba, y moría con 500.
  *
- * Uso (parado en iteradoresJS/): php aplicar_cambios.php
+ * Uso (parado en iteradoresJS/):
+ *   php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
 
 $cambios = [
+    // ============================================================
+    // 1. cancelar_venta: extraer .nombre_usuario
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Persistencia/PerdurarSuperestructuraStringIndexedDB64.js',
-        'descripcion' => 'Bump IndexedDB64 V1.5i.8b -> V1.5i.8c',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => 'cancelar_venta: extraer nombre_usuario',
         'buscar' => [
-            ' * @version V1.5i.8b',
+            '    // El backend necesita nombre_solicitante para saber qué',
+            '    // contexto cargar y qué terminal es el solicitante. Sin',
+            '    // él, cae al fallback que itera sobre `usuarios` y, con',
+            '    // carga parcial, devuelve "Venta no encontrada".',
+            '    const nombre_sol = await ctx.nombre_usuario_actual();',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/cancelar",',
+            '        id_venta,',
+            '        motivo,',
+            '        nombre_solicitante: nombre_sol',
+            '    });',
         ],
         'reemplazar' => [
-            ' * @version V1.5i.8c',
+            '    // El backend necesita nombre_solicitante para saber qué',
+            '    // contexto cargar y qué terminal es el solicitante. Sin',
+            '    // él, cae al fallback que itera sobre `usuarios` y, con',
+            '    // carga parcial, devuelve "Venta no encontrada".',
+            '    //',
+            '    // Ojo: ctx.nombre_usuario_actual() devuelve un objeto',
+            '    // `{exito, nombre_usuario}`. Hay que extraer el string.',
+            '    // Si se pasa el objeto directo, se serializa como',
+            '    // "[object Object]" y el backend muere con 500.',
+            '    const r_nombre = await ctx.nombre_usuario_actual();',
+            '    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
+            '        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
+            '    }',
+            '    const nombre_sol = r_nombre.nombre_usuario;',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/cancelar",',
+            '        id_venta,',
+            '        motivo,',
+            '        nombre_solicitante: nombre_sol',
+            '    });',
         ],
     ],
+
+    // ============================================================
+    // 2. obtener_venta_por_id: mismo fix
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Persistencia/PerdurarSuperestructuraStringIndexedDB64.js',
-        'descripcion' => 'Propagación de máscaras a nodos nuevos',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => 'obtener_venta_por_id: extraer nombre_usuario',
         'buscar' => [
-            '        // Con filtro, unir con la máscara previa del nodo.',
-            '        if (mascara_filtro !== 0) {',
-            '            Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
-            '                const id = String(nodo.id());',
-            '                const m_previa = Number(nodo.contexto_mascara() || 0) | 0;',
-            '                const m_bfs = Number(mascaras.get(id) || 0) | 0;',
-            '                mascaras.set(id, (m_previa | m_bfs) | 0);',
-            '            }, null);',
-            '        }',
-            '',
-            '        // Snapshot del mapa (id_nodo_framework -> id_fila).',
-            '        const mapa_previo = Object.assign({}, this.#mapa_id_a_fila[nombre] || {});',
+            '    // Mismo motivo que cancelar_venta: el backend necesita',
+            '    // nombre_solicitante para resolver el contexto del terminal.',
+            '    const nombre_sol = await ctx.nombre_usuario_actual();',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/obtener",',
+            '        id_venta,',
+            '        nombre_solicitante: nombre_sol',
+            '    });',
         ],
         'reemplazar' => [
-            '        // Con filtro, unir con la máscara previa del nodo.',
-            '        if (mascara_filtro !== 0) {',
-            '            Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
-            '                const id = String(nodo.id());',
-            '                const m_previa = Number(nodo.contexto_mascara() || 0) | 0;',
-            '                const m_bfs = Number(mascaras.get(id) || 0) | 0;',
-            '                mascaras.set(id, (m_previa | m_bfs) | 0);',
-            '            }, null);',
-            '        }',
-            '',
-            '        // Snapshot del mapa (id_nodo_framework -> id_fila).',
-            '        const mapa_previo = Object.assign({}, this.#mapa_id_a_fila[nombre] || {});',
-            '',
-            '        // Propagar máscaras a nodos nuevos (los que no están',
-            '        // en el mapa previo) a partir de enlaces entrantes.',
-            '        // Iterar hasta punto fijo. Fix V1.5i.8c.',
-            '        if (mascara_filtro !== 0 && Object.keys(mapa_previo).length > 0) {',
-            '            const nuevos = new Set();',
-            '            Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
-            '                const id = String(nodo.id());',
-            '                if (!(id in mapa_previo)) {',
-            '                    nuevos.add(id);',
-            '                }',
-            '            }, null);',
-            '            if (nuevos.size > 0) {',
-            '                let cambio = true;',
-            '                let iter = 0;',
-            '                while (cambio && iter < 10) {',
-            '                    cambio = false;',
-            '                    iter++;',
-            '                    Nodo.por_cada_nodo_ejecutar(this.#token, (nodo) => {',
-            '                        const id_origen = String(nodo.id());',
-            '                        const m_origen = Number(mascaras.get(id_origen) || 0) | 0;',
-            '                        if (m_origen === 0) return;',
-            '                        const ady = nodo.adyacentes();',
-            '                        if (!ady) return;',
-            '                        for (const [, dest] of ady) {',
-            '                            const id_dest = String(dest.id());',
-            '                            if (!nuevos.has(id_dest)) continue;',
-            '                            const m_dest = Number(mascaras.get(id_dest) || 0) | 0;',
-            '                            const m_nueva = (m_dest | m_origen) | 0;',
-            '                            if (m_nueva !== m_dest) {',
-            '                                mascaras.set(id_dest, m_nueva);',
-            '                                cambio = true;',
-            '                            }',
-            '                        }',
-            '                    }, null);',
-            '                }',
-            '            }',
-            '        }',
+            '    // Mismo motivo que cancelar_venta: el backend necesita',
+            '    // nombre_solicitante para resolver el contexto del terminal.',
+            '    // Y mismo detalle: hay que extraer `.nombre_usuario`.',
+            '    const r_nombre = await ctx.nombre_usuario_actual();',
+            '    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {',
+            '        throw new Error("No se pudo resolver el nombre de usuario del solicitante");',
+            '    }',
+            '    const nombre_sol = r_nombre.nombre_usuario;',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/obtener",',
+            '        id_venta,',
+            '        nombre_solicitante: nombre_sol',
+            '    });',
+        ],
+    ],
+
+    // ============================================================
+    // 3. Bump
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/_helpers.js',
+        'descripcion' => 'Bump _helpers.js',
+        'buscar' => [
+            ' * @version 1.5plugin.6m',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6n',
         ],
     ],
 ];
@@ -100,7 +113,7 @@ $cambios = [
 // Runner
 // ============================================================
 
-echo "=== Aplicador — Espejo JS 1.5i.8c ===\n\n";
+echo "=== Aplicador — Fix helper cancelar_venta ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
