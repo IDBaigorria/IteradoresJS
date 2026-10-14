@@ -26,7 +26,7 @@
  * configurados (en una o más empresas). Si solo hay uno,
  * la prueba falla con mensaje claro.
  *
- * @version 1.5plugin.6r
+ * @version 1.5plugin.6s
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -181,6 +181,10 @@ export const prueba = {
         const nombre_dueno = await _primer_dueno(ctx, nombre_admin);
         const nombre_terminal = await _primera_terminal(ctx, nombre_admin, nombre_dueno);
 
+        // Sufijo único para esta corrida. Se usa para los
+        // nombres de viaje, empresa y vehículo de setup.
+        const sufijo = String(Date.now()).slice(-8);
+
         // Requisito: al menos 2 vehículos con asientos.
         const empresas = await _empresas_del_dueno(ctx, nombre_admin, nombre_dueno);
         if (empresas.length === 0) {
@@ -263,7 +267,6 @@ export const prueba = {
         const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;
 
         // Crear viaje de prueba.
-        const sufijo = String(Date.now()).slice(-8);
         const nombre_viaje = "viajecambiomicro" + sufijo;
 
         const rc = await ctx.pedir_post("index.php", {
