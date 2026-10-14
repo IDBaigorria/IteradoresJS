@@ -14,7 +14,7 @@
  *   6. Verificar que el vehículo tiene la foto B.
  *   7. Limpieza: eliminar la empresa (arrastra el vehículo).
  *
- * @version 1.5plugin.5u
+ * @version 1.5plugin.6p
  * @since 1.5plugin.5u
  */
 
@@ -82,7 +82,7 @@ export const prueba = {
             // 1. Subir foto A.
             const r_foto_a = await ctx.subir_archivo(
                 "vehiculos/subir_foto",
-                { nombre_empresa, nombre_vehiculo },
+                { nombre_empresa, nombre_vehiculo, nombre_dueno },
                 { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }
             );
             ctx.assert(r_foto_a && r_foto_a.exito && r_foto_a.json && r_foto_a.json.exito,
@@ -94,7 +94,7 @@ export const prueba = {
             // 2. Subir foto B (reemplaza la A).
             const r_foto_b = await ctx.subir_archivo(
                 "vehiculos/subir_foto",
-                { nombre_empresa, nombre_vehiculo },
+                { nombre_empresa, nombre_vehiculo, nombre_dueno },
                 { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }
             );
             ctx.assert(r_foto_b && r_foto_b.exito && r_foto_b.json && r_foto_b.json.exito,
@@ -109,6 +109,8 @@ export const prueba = {
             // 3. Verificar que el vehículo tiene la foto B.
             const r_listar = await ctx.pedir_post("index.php", {
                 accion: "vehiculos/listar",
+                nombre_solicitante: nombre_admin,
+                nombre_dueno,
                 nombre_empresa
             });
             ctx.assert(r_listar && r_listar.exito && r_listar.json && r_listar.json.exito,

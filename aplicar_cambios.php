@@ -1,12 +1,11 @@
 <?php
 /**
- * Aplicador — Agregar nombre_dueno a los POSTs de vehiculos/*.
+ * Aplicador — nombre_dueno en el resto de los POSTs de vehiculos/*.
  *
- * El piloto v77v cambió vehiculos/agregar, actualizar_configuracion,
- * eliminar y listar para exigir `nombre_dueno`. Los POSTs del
- * plugin no lo mandaban y el backend respondía
- * "Dueño no especificado" (o, en el caso de listar, devolvía
- * vacío, rompiendo las pruebas que buscan vehículos configurados).
+ * Continúa el fix del script anterior. Los POSTs de
+ * vehiculos/listar, vehiculos/actualizar_configuracion y
+ * vehiculos/subir_foto en varias pruebas todavía no mandaban
+ * `nombre_dueno`. El piloto lo exige desde v77v.
  *
  * Uso (parado en iteradoresJS/):
  *   php aplicar_cambios.php
@@ -17,179 +16,253 @@ $raiz_proyecto = __DIR__;
 
 $cambios = [
     // ============================================================
-    // 1. Prueba 37: vehiculos/agregar
+    // Prueba 31
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
-        'descripcion' => 'P37: vehiculos/agregar con nombre_dueno',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: vehiculos/listar con nombre_dueno',
         'buscar' => [
-            '        const r_ve = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/agregar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_empresa,',
-            '            nombre_vehiculo,',
-            '            nombre_real: "Vehículo prueba grafo"',
-            '        });',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_empresa',
+            '    });',
         ],
         'reemplazar' => [
-            '        const r_ve = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/agregar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            nombre_empresa,',
-            '            nombre_vehiculo,',
-            '            nombre_real: "Vehículo prueba grafo"',
-            '        });',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5g',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6p',
         ],
     ],
 
     // ============================================================
-    // 2. Prueba 37: vehiculos/actualizar_configuracion
+    // Prueba 34
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
-        'descripcion' => 'P37: actualizar_configuracion con nombre_dueno',
+        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
+        'descripcion' => 'P34: vehiculos/listar con nombre_dueno',
         'buscar' => [
-            '        const r_cf = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/actualizar_configuracion",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_empresa,',
-            '            nombre_vehiculo,',
-            '            configuracion: _config_asientos_2x2()',
-            '        });',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_empresa',
+            '    });',
         ],
         'reemplazar' => [
-            '        const r_cf = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/actualizar_configuracion",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            nombre_empresa,',
-            '            nombre_vehiculo,',
-            '            configuracion: _config_asientos_2x2()',
-            '        });',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
+        'descripcion' => 'P34: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5i',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6p',
         ],
     ],
 
     // ============================================================
-    // 3. Prueba 37: vehiculos/eliminar
+    // Prueba 35
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
-        'descripcion' => 'P37: eliminar con nombre_dueno',
+        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+        'descripcion' => 'P35: vehiculos/listar con nombre_dueno',
         'buscar' => [
-            '        const r_del = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/eliminar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_empresa,',
-            '            nombre_vehiculo',
-            '        });',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_empresa',
+            '    });',
         ],
         'reemplazar' => [
-            '        const r_del = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/eliminar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            nombre_empresa,',
-            '            nombre_vehiculo',
-            '        });',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
+        'descripcion' => 'P35: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6p',
         ],
     ],
 
     // ============================================================
-    // 4. Prueba 37: bump
+    // Prueba 36
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
-        'descripcion' => 'P37: bump',
+        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
+        'descripcion' => 'P36: vehiculos/listar con nombre_dueno',
         'buscar' => [
-            ' * @version 1.5plugin.5k',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_empresa',
+            '    });',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.6o',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
+        'descripcion' => 'P36: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5j',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6p',
         ],
     ],
 
     // ============================================================
-    // 5. Prueba 38: vehiculos/agregar
+    // Prueba 38: actualizar_configuracion
     // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
-        'descripcion' => 'P38: vehiculos/agregar con nombre_dueno',
+        'descripcion' => 'P38: actualizar_configuracion con nombre_dueno',
         'buscar' => [
-            '            const r_ve = await ctx.pedir_post("index.php", {',
-            '                accion: "vehiculos/agregar",',
+            '                accion: "vehiculos/actualizar_configuracion",',
             '                nombre_solicitante: nombre_admin,',
             '                nombre_empresa,',
             '                nombre_vehiculo,',
-            '                nombre_real: "Vehículo prueba grafo"',
-            '            });',
+            '                configuracion: _config_asientos_2x2()',
         ],
         'reemplazar' => [
-            '            const r_ve = await ctx.pedir_post("index.php", {',
-            '                accion: "vehiculos/agregar",',
+            '                accion: "vehiculos/actualizar_configuracion",',
             '                nombre_solicitante: nombre_admin,',
             '                nombre_dueno,',
             '                nombre_empresa,',
             '                nombre_vehiculo,',
-            '                nombre_real: "Vehículo prueba grafo"',
+            '                configuracion: _config_asientos_2x2()',
+        ],
+    ],
+
+    // ============================================================
+    // Prueba 43
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
+        'descripcion' => 'P43: vehiculos/listar con nombre_dueno',
+        'buscar' => [
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_empresa',
+            '    });',
+        ],
+        'reemplazar' => [
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
+        'descripcion' => 'P43: bump',
+        'buscar' => [
+            ' * @version 1.5plugin.5p',
+        ],
+        'reemplazar' => [
+            ' * @version 1.5plugin.6p',
+        ],
+    ],
+
+    // ============================================================
+    // Prueba 55: subir_foto x2 (agregar nombre_dueno a campos)
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: subir_foto A con nombre_dueno',
+        'buscar' => [
+            '                "vehiculos/subir_foto",',
+            '                { nombre_empresa, nombre_vehiculo },',
+            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
+        ],
+        'reemplazar' => [
+            '                "vehiculos/subir_foto",',
+            '                { nombre_empresa, nombre_vehiculo, nombre_dueno },',
+            '                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: subir_foto B con nombre_dueno',
+        'buscar' => [
+            '                "vehiculos/subir_foto",',
+            '                { nombre_empresa, nombre_vehiculo },',
+            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
+        ],
+        'reemplazar' => [
+            '                "vehiculos/subir_foto",',
+            '                { nombre_empresa, nombre_vehiculo, nombre_dueno },',
+            '                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }',
+        ],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: vehiculos/listar con nombre_solicitante y nombre_dueno',
+        'buscar' => [
+            '                accion: "vehiculos/listar",',
+            '                nombre_empresa',
+            '            });',
+        ],
+        'reemplazar' => [
+            '                accion: "vehiculos/listar",',
+            '                nombre_solicitante: nombre_admin,',
+            '                nombre_dueno,',
+            '                nombre_empresa',
             '            });',
         ],
     ],
-
-    // ============================================================
-    // 6. Prueba 38: bump
-    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
-        'descripcion' => 'P38: bump',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: bump',
         'buscar' => [
-            ' * @version 1.5plugin.5k',
+            ' * @version 1.5plugin.5u',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.6o',
-        ],
-    ],
-
-    // ============================================================
-    // 7. _compartidos_helpers.js: vehiculos/listar
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => 'helpers compartidos: vehiculos/listar con nombre_dueno',
-        'buscar' => [
-            '        const r_veh = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/listar",',
-            '            nombre_empresa: nombre_emp',
-            '        });',
-        ],
-        'reemplazar' => [
-            '        const r_veh = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/listar",',
-            '            nombre_dueno: nombre_dueno,',
-            '            nombre_empresa: nombre_emp',
-            '        });',
-        ],
-    ],
-
-    // ============================================================
-    // 8. _compartidos_helpers.js: bump
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => 'helpers compartidos: bump',
-        'buscar' => [
-            ' * @version 1.5plugin.6h',
-        ],
-        'reemplazar' => [
-            ' * @version 1.5plugin.6o',
+            ' * @version 1.5plugin.6p',
         ],
     ],
 ];
@@ -198,7 +271,7 @@ $cambios = [
 // Runner
 // ============================================================
 
-echo "=== Aplicador — nombre_dueno en vehiculos/* ===\n\n";
+echo "=== Aplicador — nombre_dueno en el resto de vehiculos/* ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }

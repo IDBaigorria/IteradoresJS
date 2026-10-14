@@ -140,6 +140,7 @@ export const prueba = {
             const r_cf = await ctx.pedir_post("index.php", {
                 accion: "vehiculos/actualizar_configuracion",
                 nombre_solicitante: nombre_admin,
+                nombre_dueno,
                 nombre_empresa,
                 nombre_vehiculo,
                 configuracion: _config_asientos_2x2()

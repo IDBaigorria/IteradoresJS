@@ -24,7 +24,7 @@
  * menos una terminal y una empresa con un vehículo con
  * asientos configurados.
  *
- * @version 1.5plugin.5j
+ * @version 1.5plugin.6p
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -119,6 +119,7 @@ async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_empresa) {
     const r = await ctx.pedir_post("index.php", {
         accion: "vehiculos/listar",
         nombre_solicitante,
+        nombre_dueno,
         nombre_empresa
     });
     if (!r || !r.exito || !r.json || !r.json.exito) return [];
