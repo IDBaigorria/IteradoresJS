@@ -23,7 +23,7 @@
  *
  * Requisitos de entorno: solo un dueño existente.
  *
- * @version 1.5plugin.5l
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -33,10 +33,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _resumen_grafo(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -51,10 +48,7 @@ async function _resumen_grafo(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -107,9 +101,7 @@ export const prueba = {
         const sufijo = String(Date.now()).slice(-8);
         const nombre_viaje = "viajeprueba" + sufijo;
 
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "viajes/guardar",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("viajes/guardar", {
             nombre_dueno,
             nombre_viaje,
             nombre: "Viaje de prueba (limpieza)",
@@ -137,9 +129,7 @@ export const prueba = {
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + (H1 - H0) + ".");
 
         // 2. Ejecutar la limpieza.
-        const rl = await ctx.pedir_post("index.php", {
-            accion: "viajes/limpiar_prueba",
-            nombre_solicitante: nombre_admin,
+        const rl = await ctx.post_accion("viajes/limpiar_prueba", {
             nombre_dueno
         });
         if (!rl || !rl.exito || !rl.json || !rl.json.exito) {

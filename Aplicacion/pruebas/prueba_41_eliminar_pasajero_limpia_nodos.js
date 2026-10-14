@@ -22,7 +22,7 @@
  *
  * Requisitos de entorno: al menos un dueño existente.
  *
- * @version 1.5plugin.5n
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -32,10 +32,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _resumen_grafo(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -50,10 +47,7 @@ async function _resumen_grafo(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -105,9 +99,7 @@ export const prueba = {
         const dni = _dni_unico();
         const sufijo = String(Date.now()).slice(-8);
 
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "pasajeros/crear",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("pasajeros/crear", {
             nombre_dueno,
             dni,
             apellido: "Prueba",
@@ -130,9 +122,7 @@ export const prueba = {
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + (H1 - H0) + ".");
 
         // 2. Eliminar el pasajero.
-        const rd = await ctx.pedir_post("index.php", {
-            accion: "pasajeros/eliminar",
-            nombre_solicitante: nombre_admin,
+        const rd = await ctx.post_accion("pasajeros/eliminar", {
             nombre_dueno,
             dni
         });

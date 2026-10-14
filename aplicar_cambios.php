@@ -1,576 +1,904 @@
 <?php
 /**
- * Aplicador — Fase 2c.1: migracion de helpers auxiliares a _post.
+ * Aplicador — Fase 2c.2a-1: migracion de pruebas 30, 31, 32, 33,
+ * 37, 38, 39, 40, 41 a ctx.post_accion.
  *
- * Migra _compartidos_helpers.js, _empresas_helpers.js y
- * _pasajeros_helpers.js para que usen el wrapper _post en lugar
- * de ctx.pedir_post directo. Sin cambio de comportamiento
- * observable en las pruebas.
+ * Cada prueba usaba ctx.pedir_post("index.php", {accion, ...,
+ * nombre_solicitante: nombre_admin, ...}). Como en todas
+ * nombre_solicitante es el logueado (admin), se reemplaza por
+ * ctx.post_accion(accion, {...}) que inyecta el del logueado y
+ * cachea el nombre.
+ *
+ * No se toca el resto del codigo: los chequeos de error siguen
+ * funcionando porque post_accion devuelve lo mismo que pedir_post.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7d';
+$version_nueva = '1.5plugin.7e';
 
 $htmls_a_bumpear = [];
 
 $cambios = [
 
     // ============================================================
-    // 1. _compartidos_helpers.js: agregar import de _post.
+    // PRUEBA 30
     // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: import de _post',
-        'buscar' => [
-            ' */',
-            '',
-            '// ============================================================',
-            '// Resolución de nombres de usuario',
-            '// ============================================================',
-        ],
-        'reemplazar' => [
-            ' */',
-            '',
-            'import { _post } from "./_helpers.js";',
-            '',
-            '// ============================================================',
-            '// Resolución de nombres de usuario',
-            '// ============================================================',
-        ],
-    ],
 
-    // ============================================================
-    // 2. _compartidos_helpers.js: crear_viaje_vacio.
-    // ============================================================
+    // 30.1: _contar_nodos
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: crear_viaje_vacio con _post',
+        'archivo' => 'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
+        'descripcion' => 'P30: _contar_nodos con post_accion',
         'buscar' => [
-            'export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto") {',
-            '    const nombre_viaje = prefijo + "_" + Date.now();',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/guardar",',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_viaje: nombre_viaje,',
-            '        nombre: "Viaje de prueba " + nombre_viaje,',
-            '        fecha: "a confirmar",',
-            '        hora: "a confirmar",',
-            '        origen: "Origen de prueba",',
-            '        destino: "Destino de prueba"',
-            '    });',
-            '    if (!r || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo crear el viaje: " + JSON.stringify(r && r.json ? r.json : r));',
-            '    }',
-            '    return nombre_viaje;',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function crear_viaje_vacio(ctx, nombre_dueno, prefijo = "viajeauto") {',
-            '    const nombre_viaje = prefijo + "_" + Date.now();',
-            '    await _post(ctx, "viajes/guardar", {',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_viaje: nombre_viaje,',
-            '        nombre: "Viaje de prueba " + nombre_viaje,',
-            '        fecha: "a confirmar",',
-            '        hora: "a confirmar",',
-            '        origen: "Origen de prueba",',
-            '        destino: "Destino de prueba"',
-            '    }, { lanzar_en_error_backend: true });',
-            '    return nombre_viaje;',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 3. _compartidos_helpers.js: eliminar_viaje_si_existe.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: eliminar_viaje_si_existe con _post',
-        'buscar' => [
-            'export async function eliminar_viaje_si_existe(ctx, nombre_dueno, nombre_viaje) {',
-            '    if (!nombre_viaje) return;',
-            '    try {',
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/eliminar",',
-            '            nombre_dueno: nombre_dueno,',
-            '            nombre_viaje: nombre_viaje',
-            '        });',
-            '    } catch (e) { /* best-effort */ }',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function eliminar_viaje_si_existe(ctx, nombre_dueno, nombre_viaje) {',
-            '    if (!nombre_viaje) return;',
-            '    try {',
-            '        await _post(ctx, "viajes/eliminar", {',
-            '            nombre_dueno: nombre_dueno,',
-            '            nombre_viaje: nombre_viaje',
-            '        });',
-            '    } catch (e) { /* best-effort */ }',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 4. _compartidos_helpers.js: autorizar_terminal.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: autorizar_terminal con _post',
-        'buscar' => [
-            'export async function autorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/agregar_terminal",',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_viaje: nombre_viaje,',
-            '        nombre_terminal: nombre_terminal',
-            '    });',
-            '    if (!r || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo autorizar: " + JSON.stringify(r && r.json ? r.json : r));',
-            '    }',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function autorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
-            '    await _post(ctx, "viajes/agregar_terminal", {',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_viaje: nombre_viaje,',
-            '        nombre_terminal: nombre_terminal',
-            '    }, { lanzar_en_error_backend: true });',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 5. _compartidos_helpers.js: desautorizar_terminal.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: desautorizar_terminal con _post',
-        'buscar' => [
-            'export async function desautorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/eliminar_terminal",',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_viaje: nombre_viaje,',
-            '        nombre_terminal: nombre_terminal',
-            '    });',
-            '    if (!r || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo desautorizar: " + JSON.stringify(r && r.json ? r.json : r));',
-            '    }',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function desautorizar_terminal(ctx, nombre_dueno, nombre_viaje, nombre_terminal) {',
-            '    await _post(ctx, "viajes/eliminar_terminal", {',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_viaje: nombre_viaje,',
-            '        nombre_terminal: nombre_terminal',
-            '    }, { lanzar_en_error_backend: true });',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 6. _compartidos_helpers.js: terminal_ve_viaje.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: terminal_ve_viaje con _post',
-        'buscar' => [
-            'export async function terminal_ve_viaje(ctx, nombre_terminal, nombre_viaje) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/listar_por_terminal",',
-            '        nombre_terminal: nombre_terminal',
-            '    });',
-            '    if (!r || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo listar viajes del terminal: "',
-            '            + JSON.stringify(r && r.json ? r.json : r));',
-            '    }',
-            '    const viajes = r.json.viajes || [];',
-            '    return viajes.some(v => v && v.nombre_viaje === nombre_viaje);',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function terminal_ve_viaje(ctx, nombre_terminal, nombre_viaje) {',
-            '    const r = await _post(ctx, "viajes/listar_por_terminal", {',
-            '        nombre_terminal: nombre_terminal',
-            '    }, { lanzar_en_error_backend: true });',
-            '    const viajes = r.viajes || [];',
-            '    return viajes.some(v => v && v.nombre_viaje === nombre_viaje);',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 7. _compartidos_helpers.js: listar_empresas_del_terminal.
-    //    Caso especial: admin opera "como" el terminal.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: listar_empresas_del_terminal con _post',
-        'buscar' => [
-            'export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_terminal) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "empresas/listar",',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_solicitante: nombre_terminal',
-            '    });',
-            '    if (!r || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo listar empresas: "',
-            '            + JSON.stringify(r && r.json ? r.json : r));',
-            '    }',
-            '    return (r.json.empresas || []).map(e => (e && e.nombre_empresa) || "");',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function listar_empresas_del_terminal(ctx, nombre_dueno, nombre_terminal) {',
-            '    // Caso especial: el admin opera "como" el terminal. Pasamos',
-            '    // `nombre_solicitante` explicito y `sin_solicitante: true`',
-            '    // para que post_accion no lo pise con el del logueado.',
-            '    const r = await _post(ctx, "empresas/listar", {',
-            '        nombre_dueno: nombre_dueno,',
-            '        nombre_solicitante: nombre_terminal',
-            '    }, { sin_solicitante: true, lanzar_en_error_backend: true });',
-            '    return (r.empresas || []).map(e => (e && e.nombre_empresa) || "");',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 8. _compartidos_helpers.js: buscar_empresa_con_vehiculo_configurado.
-    //    Silencioso: try/catch que devuelve null.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_compartidos_helpers.js',
-        'descripcion' => '_compartidos_helpers.js: buscar_empresa_con_vehiculo_configurado con _post',
-        'buscar' => [
-            'export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno, excluir = []) {',
-            '    const r_emp = await ctx.pedir_post("index.php", {',
-            '        accion: "empresas/listar",',
-            '        nombre_dueno: nombre_dueno',
-            '    });',
-            '    if (!r_emp || !r_emp.json || !r_emp.json.exito) return null;',
-            '    const empresas = r_emp.json.empresas || [];',
-            '    for (const e of empresas) {',
-            '        const nombre_emp = e && e.nombre_empresa;',
-            '        if (!nombre_emp) continue;',
-            '        if (excluir.includes(nombre_emp)) continue;',
-            '        const r_veh = await ctx.pedir_post("index.php", {',
-            '            accion: "vehiculos/listar",',
-            '            nombre_dueno: nombre_dueno,',
-            '            nombre_empresa: nombre_emp',
-            '        });',
-            '        if (!r_veh || !r_veh.json || !r_veh.json.exito) continue;',
-            '        const vehiculos = r_veh.json.vehiculos || [];',
-            '        for (const v of vehiculos) {',
-            '            if (v && v.nombre_vehiculo && v.asientos && parseInt(v.asientos) > 0) {',
-            '                return { nombre_empresa: nombre_emp, nombre_vehiculo: v.nombre_vehiculo };',
-            '            }',
-            '        }',
-            '    }',
-            '    return null;',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function buscar_empresa_con_vehiculo_configurado(ctx, nombre_dueno, excluir = []) {',
-            '    // Silencioso: cualquier error devuelve null, para que el',
-            '    // llamador siga con la logica de "precondicion no cumplida".',
-            '    try {',
-            '        const r_emp = await _post(ctx, "empresas/listar", {',
-            '            nombre_dueno: nombre_dueno',
-            '        });',
-            '        if (!r_emp || !r_emp.exito) return null;',
-            '        const empresas = r_emp.empresas || [];',
-            '        for (const e of empresas) {',
-            '            const nombre_emp = e && e.nombre_empresa;',
-            '            if (!nombre_emp) continue;',
-            '            if (excluir.includes(nombre_emp)) continue;',
-            '            const r_veh = await _post(ctx, "vehiculos/listar", {',
-            '                nombre_dueno: nombre_dueno,',
-            '                nombre_empresa: nombre_emp',
-            '            });',
-            '            if (!r_veh || !r_veh.exito) continue;',
-            '            const vehiculos = r_veh.vehiculos || [];',
-            '            for (const v of vehiculos) {',
-            '                if (v && v.nombre_vehiculo && v.asientos && parseInt(v.asientos) > 0) {',
-            '                    return { nombre_empresa: nombre_emp, nombre_vehiculo: v.nombre_vehiculo };',
-            '                }',
-            '            }',
-            '        }',
-            '    } catch (e) {',
-            '        return null;',
-            '    }',
-            '    return null;',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 9. _empresas_helpers.js: agregar import de _post.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_empresas_helpers.js',
-        'descripcion' => '_empresas_helpers.js: import de _post',
-        'buscar' => [
-            ' */',
-            '',
-            '/**',
-            ' * Va a la pestaña Micros, elige el primer dueño, espera a que',
-        ],
-        'reemplazar' => [
-            ' */',
-            '',
-            'import { _post } from "./_helpers.js";',
-            '',
-            '/**',
-            ' * Va a la pestaña Micros, elige el primer dueño, espera a que',
-        ],
-    ],
-
-    // ============================================================
-    // 10. _empresas_helpers.js: eliminar_empresa_por_post.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_empresas_helpers.js',
-        'descripcion' => '_empresas_helpers.js: eliminar_empresa_por_post con _post',
-        'buscar' => [
-            'export async function eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa) {',
-            '    try {',
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "empresas/eliminar",',
-            '            nombre_dueno,',
-            '            nombre_empresa',
-            '        });',
-            '    } catch (e) {',
-            '        console.warn("No se pudo eliminar la empresa de prueba:", e);',
-            '    }',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa) {',
-            '    try {',
-            '        await _post(ctx, "empresas/eliminar", {',
-            '            nombre_dueno,',
-            '            nombre_empresa',
-            '        });',
-            '    } catch (e) {',
-            '        console.warn("No se pudo eliminar la empresa de prueba:", e);',
-            '    }',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 11. _pasajeros_helpers.js: agregar import de _post.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => '_pasajeros_helpers.js: import de _post',
-        'buscar' => [
-            ' */',
-            '',
-            '// PNG 1x1 transparente (67 bytes). Sirve para las pruebas de',
-            '// subida de archivo.',
-        ],
-        'reemplazar' => [
-            ' */',
-            '',
-            'import { _post } from "./_helpers.js";',
-            '',
-            '// PNG 1x1 transparente (67 bytes). Sirve para las pruebas de',
-            '// subida de archivo.',
-        ],
-    ],
-
-    // ============================================================
-    // 12. _pasajeros_helpers.js: primer_dueno_para_pruebas.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => '_pasajeros_helpers.js: primer_dueno_para_pruebas con _post',
-        'buscar' => [
-            'export async function primer_dueno_para_pruebas(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo listar dueños: "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    const lista = r.json.duenos || [];',
-        ],
-        'reemplazar' => [
-            'export async function primer_dueno_para_pruebas(ctx, nombre_solicitante) {',
-            '    const r = await _post(ctx, "administrador/listar_duenos",',
-            '        { nombre_solicitante },',
-            '        { sin_solicitante: true, lanzar_en_error_backend: true });',
-            '    const lista = r.duenos || [];',
-        ],
-    ],
-
-    // ============================================================
-    // 13. _pasajeros_helpers.js: crear_pasajero_de_prueba_admin.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => '_pasajeros_helpers.js: crear_pasajero_de_prueba_admin con _post',
-        'buscar' => [
-            'export async function crear_pasajero_de_prueba_admin(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "pasajeros/crear",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        dni,',
-            '        apellido: "Djtest",',
-            '        nombres: "Pasajero",',
-            '        email: "dj_" + dni + "@test.local",',
-            '        celular: "2983555123",',
-            '        celular_emergencia: "2983555222",',
-            '        fecha_nacimiento: "1990-06-15",',
-            '        direccion: "Calle Dj 1",',
-            '        localidad: "Tres Arroyos"',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo crear el pasajero: "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function crear_pasajero_de_prueba_admin(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    await _post(ctx, "pasajeros/crear", {',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        dni,',
-            '        apellido: "Djtest",',
-            '        nombres: "Pasajero",',
-            '        email: "dj_" + dni + "@test.local",',
-            '        celular: "2983555123",',
-            '        celular_emergencia: "2983555222",',
-            '        fecha_nacimiento: "1990-06-15",',
-            '        direccion: "Calle Dj 1",',
-            '        localidad: "Tres Arroyos"',
-            '    }, { sin_solicitante: true, lanzar_en_error_backend: true });',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 14. _pasajeros_helpers.js: eliminar_pasajero_por_post.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => '_pasajeros_helpers.js: eliminar_pasajero_por_post con _post',
-        'buscar' => [
-            'export async function eliminar_pasajero_por_post(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    try {',
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "pasajeros/eliminar",',
-            '            nombre_solicitante,',
-            '            nombre_dueno,',
-            '            dni',
-            '        });',
-            '    } catch (e) {',
-            '        console.warn("No se pudo eliminar el pasajero de prueba:", e);',
-            '    }',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function eliminar_pasajero_por_post(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    try {',
-            '        await _post(ctx, "pasajeros/eliminar", {',
-            '            nombre_solicitante,',
-            '            nombre_dueno,',
-            '            dni',
-            '        }, { sin_solicitante: true });',
-            '    } catch (e) {',
-            '        console.warn("No se pudo eliminar el pasajero de prueba:", e);',
-            '    }',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 15. _pasajeros_helpers.js: leer_pasajero.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => '_pasajeros_helpers.js: leer_pasajero con _post',
-        'buscar' => [
-            'export async function leer_pasajero(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "pasajeros/obtener",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        dni',
-            '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo leer el pasajero " + dni + ": "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    return r.json.pasajero;',
-            '}',
-        ],
-        'reemplazar' => [
-            'export async function leer_pasajero(ctx, nombre_solicitante, nombre_dueno, dni) {',
-            '    const r = await _post(ctx, "pasajeros/obtener", {',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        dni',
-            '    }, { sin_solicitante: true, lanzar_en_error_backend: true });',
-            '    return r.pasajero;',
-            '}',
-        ],
-    ],
-
-    // ============================================================
-    // 16. _pasajeros_helpers.js: contar_huerfanos.
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/_pasajeros_helpers.js',
-        'descripcion' => '_pasajeros_helpers.js: contar_huerfanos con _post',
-        'buscar' => [
-            'export async function contar_huerfanos(ctx, nombre_solicitante) {',
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
             '    const r = await ctx.pedir_post("index.php", {',
             '        accion: "grafo/resumen",',
             '        nombre_solicitante',
             '    });',
-            '    if (!r || !r.exito || !r.json || !r.json.exito) {',
-            '        throw new Error("No se pudo consultar grafo/resumen: "',
-            '            + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));',
-            '    }',
-            '    return r.json.resumen.huerfanos;',
-            '}',
         ],
         'reemplazar' => [
-            'export async function contar_huerfanos(ctx, nombre_solicitante) {',
-            '    const r = await _post(ctx, "grafo/resumen",',
-            '        { nombre_solicitante },',
-            '        { sin_solicitante: true, lanzar_en_error_backend: true });',
-            '    return r.resumen.huerfanos;',
-            '}',
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 30.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
+        'descripcion' => 'P30: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 30.3: viajes/guardar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
+        'descripcion' => 'P30: viajes/guardar con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/guardar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("viajes/guardar", {',
+        ],
+    ],
+
+    // 30.4: viajes/eliminar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_30_eliminar_viaje_limpia_nodos.js',
+        'descripcion' => 'P30: viajes/eliminar con post_accion',
+        'buscar' => [
+            '        const rd = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rd = await ctx.post_accion("viajes/eliminar", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 31
+    // ============================================================
+
+    // 31.1: _contar_nodos
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: _contar_nodos con post_accion',
+        'buscar' => [
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 31.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 31.3: _empresas_del_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: _empresas_del_dueno con post_accion',
+        'buscar' => [
+            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "empresas/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
+            '    const r = await ctx.post_accion("empresas/listar", {',
+            '        nombre_dueno',
+            '    });',
+        ],
+    ],
+
+    // 31.4: _vehiculos_de_empresa
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: _vehiculos_de_empresa con post_accion',
+        'buscar' => [
+            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "vehiculos/listar",',
+            '        nombre_solicitante,',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
+            '    const r = await ctx.post_accion("vehiculos/listar", {',
+            '        nombre_dueno,',
+            '        nombre_empresa',
+            '    });',
+        ],
+    ],
+
+    // 31.5: viajes/guardar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: viajes/guardar con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/guardar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("viajes/guardar", {',
+        ],
+    ],
+
+    // 31.6: viajes/agregar_micro
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: viajes/agregar_micro con post_accion',
+        'buscar' => [
+            '                const r_ag = await ctx.pedir_post("index.php", {',
+            '                    accion: "viajes/agregar_micro",',
+            '                    nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '                const r_ag = await ctx.post_accion("viajes/agregar_micro", {',
+        ],
+    ],
+
+    // 31.7: viajes/eliminar_micro
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: viajes/eliminar_micro con post_accion',
+        'buscar' => [
+            '        const re = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar_micro",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const re = await ctx.post_accion("viajes/eliminar_micro", {',
+        ],
+    ],
+
+    // 31.8: viajes/eliminar (final)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_31_eliminar_micro_limpia_nodos.js',
+        'descripcion' => 'P31: viajes/eliminar con post_accion',
+        'buscar' => [
+            '        const rv = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rv = await ctx.post_accion("viajes/eliminar", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 32
+    // ============================================================
+
+    // 32.1: _contar_nodos
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: _contar_nodos con post_accion',
+        'buscar' => [
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 32.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 32.3: _primera_terminal
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: _primera_terminal con post_accion',
+        'buscar' => [
+            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "dueno/listar_terminales",',
+            '        nombre_solicitante,',
+            '        nombre_dueno',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
+            '    const r = await ctx.post_accion("dueno/listar_terminales", {',
+            '        nombre_dueno',
+            '    });',
+        ],
+    ],
+
+    // 32.4: viajes/guardar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: viajes/guardar con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/guardar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("viajes/guardar", {',
+        ],
+    ],
+
+    // 32.5: viajes/agregar_terminal
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: viajes/agregar_terminal con post_accion',
+        'buscar' => [
+            '        const ra = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/agregar_terminal",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const ra = await ctx.post_accion("viajes/agregar_terminal", {',
+        ],
+    ],
+
+    // 32.6: viajes/eliminar_terminal
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: viajes/eliminar_terminal con post_accion',
+        'buscar' => [
+            '        const rd = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar_terminal",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rd = await ctx.post_accion("viajes/eliminar_terminal", {',
+        ],
+    ],
+
+    // 32.7: viajes/eliminar (final)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_32_eliminar_terminal_limpia_nodos.js',
+        'descripcion' => 'P32: viajes/eliminar con post_accion',
+        'buscar' => [
+            '        const rv = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rv = await ctx.post_accion("viajes/eliminar", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 33
+    // ============================================================
+
+    // 33.1: _contar_nodos
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: _contar_nodos con post_accion',
+        'buscar' => [
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _contar_nodos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 33.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 33.3: _body_viaje (refactor de firma)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: refactor _body_viaje',
+        'buscar' => [
+            'function _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas, sufijo) {',
+            '    return {',
+            '        accion: "viajes/guardar",',
+            '        nombre_solicitante: nombre_admin,',
+            '        nombre_dueno,',
+        ],
+        'reemplazar' => [
+            'function _body_viaje(nombre_dueno, nombre_viaje, paradas, sufijo) {',
+            '    return {',
+            '        nombre_dueno,',
+        ],
+    ],
+
+    // 33.4: primera llamada a _body_viaje (crear viaje)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: crear viaje con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php",',
+            '            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_abc, sufijo));',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("viajes/guardar",',
+            '            _body_viaje(nombre_dueno, nombre_viaje, paradas_abc, sufijo));',
+        ],
+    ],
+
+    // 33.5: segunda llamada a _body_viaje (mismas paradas)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: editar viaje (mismas paradas) con post_accion',
+        'buscar' => [
+            '        const re = await ctx.pedir_post("index.php",',
+            '            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_abc, sufijo));',
+        ],
+        'reemplazar' => [
+            '        const re = await ctx.post_accion("viajes/guardar",',
+            '            _body_viaje(nombre_dueno, nombre_viaje, paradas_abc, sufijo));',
+        ],
+    ],
+
+    // 33.6: tercera llamada a _body_viaje (paradas nuevas)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: editar viaje (paradas nuevas) con post_accion',
+        'buscar' => [
+            '        const rx = await ctx.pedir_post("index.php",',
+            '            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_xyz, sufijo));',
+        ],
+        'reemplazar' => [
+            '        const rx = await ctx.post_accion("viajes/guardar",',
+            '            _body_viaje(nombre_dueno, nombre_viaje, paradas_xyz, sufijo));',
+        ],
+    ],
+
+    // 33.7: viajes/eliminar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_33_editar_paradas_limpia_nodos.js',
+        'descripcion' => 'P33: viajes/eliminar con post_accion',
+        'buscar' => [
+            '        const rv = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rv = await ctx.post_accion("viajes/eliminar", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 37
+    // ============================================================
+
+    // 37.1: _resumen_grafo
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: _resumen_grafo con post_accion',
+        'buscar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 37.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 37.3: empresas/agregar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: empresas/agregar con post_accion',
+        'buscar' => [
+            '        const r_em = await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_em = await ctx.post_accion("empresas/agregar", {',
+        ],
+    ],
+
+    // 37.4: vehiculos/agregar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: vehiculos/agregar con post_accion',
+        'buscar' => [
+            '        const r_ve = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_ve = await ctx.post_accion("vehiculos/agregar", {',
+        ],
+    ],
+
+    // 37.5: vehiculos/actualizar_configuracion
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: vehiculos/actualizar_configuracion con post_accion',
+        'buscar' => [
+            '        const r_cf = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/actualizar_configuracion",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_cf = await ctx.post_accion("vehiculos/actualizar_configuracion", {',
+        ],
+    ],
+
+    // 37.6: vehiculos/eliminar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: vehiculos/eliminar con post_accion',
+        'buscar' => [
+            '        const r_del = await ctx.pedir_post("index.php", {',
+            '            accion: "vehiculos/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_del = await ctx.post_accion("vehiculos/eliminar", {',
+        ],
+    ],
+
+    // 37.7: empresas/eliminar (limpieza)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_37_eliminar_vehiculo_limpia_nodos.js',
+        'descripcion' => 'P37: empresas/eliminar con post_accion',
+        'buscar' => [
+            '        await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        await ctx.post_accion("empresas/eliminar", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 38
+    // ============================================================
+
+    // 38.1: _resumen_grafo
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: _resumen_grafo con post_accion',
+        'buscar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 38.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 38.3: empresas/agregar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: empresas/agregar con post_accion',
+        'buscar' => [
+            '        const r_em = await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_em = await ctx.post_accion("empresas/agregar", {',
+        ],
+    ],
+
+    // 38.4: vehiculos/agregar (dentro del for)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: vehiculos/agregar con post_accion',
+        'buscar' => [
+            '            const r_ve = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/agregar",',
+            '                nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '            const r_ve = await ctx.post_accion("vehiculos/agregar", {',
+        ],
+    ],
+
+    // 38.5: vehiculos/actualizar_configuracion (dentro del for)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: vehiculos/actualizar_configuracion con post_accion',
+        'buscar' => [
+            '            const r_cf = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/actualizar_configuracion",',
+            '                nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '            const r_cf = await ctx.post_accion("vehiculos/actualizar_configuracion", {',
+        ],
+    ],
+
+    // 38.6: empresas/eliminar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_38_eliminar_empresa_limpia_nodos.js',
+        'descripcion' => 'P38: empresas/eliminar con post_accion',
+        'buscar' => [
+            '        const r_del = await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_del = await ctx.post_accion("empresas/eliminar", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 39
+    // ============================================================
+
+    // 39.1: _resumen_grafo
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_39_limpiar_viajes_prueba_limpia_nodos.js',
+        'descripcion' => 'P39: _resumen_grafo con post_accion',
+        'buscar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 39.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_39_limpiar_viajes_prueba_limpia_nodos.js',
+        'descripcion' => 'P39: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 39.3: viajes/guardar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_39_limpiar_viajes_prueba_limpia_nodos.js',
+        'descripcion' => 'P39: viajes/guardar con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/guardar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("viajes/guardar", {',
+        ],
+    ],
+
+    // 39.4: viajes/limpiar_prueba
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_39_limpiar_viajes_prueba_limpia_nodos.js',
+        'descripcion' => 'P39: viajes/limpiar_prueba con post_accion',
+        'buscar' => [
+            '        const rl = await ctx.pedir_post("index.php", {',
+            '            accion: "viajes/limpiar_prueba",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rl = await ctx.post_accion("viajes/limpiar_prueba", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 40
+    // ============================================================
+
+    // 40.1: _resumen_grafo
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_40_eliminar_usuario_limpia_nodos.js',
+        'descripcion' => 'P40: _resumen_grafo con post_accion',
+        'buscar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 40.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_40_eliminar_usuario_limpia_nodos.js',
+        'descripcion' => 'P40: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 40.3: administrador/agregar_usuario
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_40_eliminar_usuario_limpia_nodos.js',
+        'descripcion' => 'P40: administrador/agregar_usuario con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "administrador/agregar_usuario",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("administrador/agregar_usuario", {',
+        ],
+    ],
+
+    // 40.4: administrador/eliminar_usuario
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_40_eliminar_usuario_limpia_nodos.js',
+        'descripcion' => 'P40: administrador/eliminar_usuario con post_accion',
+        'buscar' => [
+            '        const rd = await ctx.pedir_post("index.php", {',
+            '            accion: "administrador/eliminar_usuario",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rd = await ctx.post_accion("administrador/eliminar_usuario", {',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 41
+    // ============================================================
+
+    // 41.1: _resumen_grafo
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_41_eliminar_pasajero_limpia_nodos.js',
+        'descripcion' => 'P41: _resumen_grafo con post_accion',
+        'buscar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 41.2: _primer_dueno
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_41_eliminar_pasajero_limpia_nodos.js',
+        'descripcion' => 'P41: _primer_dueno con post_accion',
+        'buscar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "administrador/listar_duenos",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _primer_dueno(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
+        ],
+    ],
+
+    // 41.3: pasajeros/crear
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_41_eliminar_pasajero_limpia_nodos.js',
+        'descripcion' => 'P41: pasajeros/crear con post_accion',
+        'buscar' => [
+            '        const rc = await ctx.pedir_post("index.php", {',
+            '            accion: "pasajeros/crear",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rc = await ctx.post_accion("pasajeros/crear", {',
+        ],
+    ],
+
+    // 41.4: pasajeros/eliminar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_41_eliminar_pasajero_limpia_nodos.js',
+        'descripcion' => 'P41: pasajeros/eliminar con post_accion',
+        'buscar' => [
+            '        const rd = await ctx.pedir_post("index.php", {',
+            '            accion: "pasajeros/eliminar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const rd = await ctx.post_accion("pasajeros/eliminar", {',
         ],
     ],
 

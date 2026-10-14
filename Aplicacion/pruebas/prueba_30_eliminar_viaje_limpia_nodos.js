@@ -19,7 +19,7 @@
  * de micros + copia de vehículo + asientos se verifica
  * aparte (pendiente).
  *
- * @version 1.5plugin.5f
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -32,10 +32,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // El módulo `grafo` del enrutador exige nombre_solicitante
 // con nivel admin o soporte.
 async function _contar_nodos(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -58,10 +55,7 @@ async function _contar_nodos(ctx, nombre_solicitante) {
 // primer dueño. El módulo `administrador` exige
 // nombre_solicitante con nivel admin o soporte.
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al listar dueños: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -121,9 +115,7 @@ export const prueba = {
         const sufijo = String(Date.now()).slice(-8);
         const nombre_viaje = "viajelimpia" + sufijo;
 
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "viajes/guardar",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("viajes/guardar", {
             nombre_dueno,
             nombre_viaje,
             nombre: "Viaje de prueba (limpieza de nodos)",
@@ -156,9 +148,7 @@ export const prueba = {
             + " ¿La acción viajes/guardar es la correcta?");
 
         // Eliminar el viaje.
-        const rd = await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        const rd = await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje
         });

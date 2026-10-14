@@ -19,7 +19,7 @@
  *
  * Requisitos de entorno: solo un dueño existente.
  *
- * @version 1.5plugin.6o
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -29,10 +29,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _resumen_grafo(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -47,10 +44,7 @@ async function _resumen_grafo(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -114,9 +108,7 @@ export const prueba = {
         const nombre_vehiculo = "vehgraf" + sufijo;
 
         // 1. Crear empresa.
-        const r_em = await ctx.pedir_post("index.php", {
-            accion: "empresas/agregar",
-            nombre_solicitante: nombre_admin,
+        const r_em = await ctx.post_accion("empresas/agregar", {
             nombre_dueno,
             nombre_empresa,
             nombre_real: "Empresa prueba grafo"
@@ -127,9 +119,7 @@ export const prueba = {
         }
 
         // 2. Crear vehículo.
-        const r_ve = await ctx.pedir_post("index.php", {
-            accion: "vehiculos/agregar",
-            nombre_solicitante: nombre_admin,
+        const r_ve = await ctx.post_accion("vehiculos/agregar", {
             nombre_dueno,
             nombre_empresa,
             nombre_vehiculo,
@@ -141,9 +131,7 @@ export const prueba = {
         }
 
         // 3. Configurar asientos.
-        const r_cf = await ctx.pedir_post("index.php", {
-            accion: "vehiculos/actualizar_configuracion",
-            nombre_solicitante: nombre_admin,
+        const r_cf = await ctx.post_accion("vehiculos/actualizar_configuracion", {
             nombre_dueno,
             nombre_empresa,
             nombre_vehiculo,
@@ -161,9 +149,7 @@ export const prueba = {
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + dif_crear + ".");
 
         // 4. Eliminar vehículo.
-        const r_del = await ctx.pedir_post("index.php", {
-            accion: "vehiculos/eliminar",
-            nombre_solicitante: nombre_admin,
+        const r_del = await ctx.post_accion("vehiculos/eliminar", {
             nombre_dueno,
             nombre_empresa,
             nombre_vehiculo
@@ -182,9 +168,7 @@ export const prueba = {
             + (dif_eliminar > 0 ? " Quedaron " + dif_eliminar + " nodos huérfanos." : " Algo inesperado."));
 
         // 5. Limpieza: eliminar la empresa.
-        await ctx.pedir_post("index.php", {
-            accion: "empresas/eliminar",
-            nombre_solicitante: nombre_admin,
+        await ctx.post_accion("empresas/eliminar", {
             nombre_dueno,
             nombre_empresa
         });

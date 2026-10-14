@@ -19,7 +19,7 @@
  *       Si hay fuga, N3 = N1 + 3.
  *   N4: después de eliminar el viaje. Assert N4 === N0.
  *
- * @version 1.5plugin.5h
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -29,10 +29,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _contar_nodos(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -52,10 +49,7 @@ async function _contar_nodos(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -83,10 +77,8 @@ function _fecha_manana() {
 }
 
 // Arma el body de viajes/guardar con paradas.
-function _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas, sufijo) {
+function _body_viaje(nombre_dueno, nombre_viaje, paradas, sufijo) {
     return {
-        accion: "viajes/guardar",
-        nombre_solicitante: nombre_admin,
         nombre_dueno,
         nombre_viaje,
         nombre: "Viaje de prueba (paradas) " + sufijo,
@@ -132,8 +124,8 @@ export const prueba = {
 
         // 1. Crear viaje con 3 paradas: A, B, C.
         const paradas_abc = ["Parada A", "Parada B", "Parada C"];
-        const rc = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_abc, sufijo));
+        const rc = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, nombre_viaje, paradas_abc, sufijo));
         if (!rc || !rc.exito || !rc.json || !rc.json.exito) {
             throw new Error("No se pudo crear el viaje: "
                 + ((rc && rc.json && rc.json.error) ? rc.json.error : "(sin detalle)"));
@@ -144,8 +136,8 @@ export const prueba = {
 
         // 2. Editar con las MISMAS 3 paradas. Debe reutilizar los
         //    nodos existentes, sin cambiar el total.
-        const re = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_abc, sufijo));
+        const re = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, nombre_viaje, paradas_abc, sufijo));
         if (!re || !re.exito || !re.json || !re.json.exito) {
             throw new Error("No se pudo editar el viaje (mismas paradas): "
                 + ((re && re.json && re.json.error) ? re.json.error : "(sin detalle)"));
@@ -159,8 +151,8 @@ export const prueba = {
         // 3. Editar con 3 paradas DISTINTAS: X, Y, Z. Debe destruir
         //    las 3 viejas y crear 3 nuevas. Total debe quedar igual.
         const paradas_xyz = ["Parada X", "Parada Y", "Parada Z"];
-        const rx = await ctx.pedir_post("index.php",
-            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_xyz, sufijo));
+        const rx = await ctx.post_accion("viajes/guardar",
+            _body_viaje(nombre_dueno, nombre_viaje, paradas_xyz, sufijo));
         if (!rx || !rx.exito || !rx.json || !rx.json.exito) {
             throw new Error("No se pudo editar el viaje (paradas nuevas): "
                 + ((rx && rx.json && rx.json.error) ? rx.json.error : "(sin detalle)"));
@@ -176,9 +168,7 @@ export const prueba = {
                 : " Algo inesperado."));
 
         // 4. Limpieza.
-        const rv = await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        const rv = await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje
         });

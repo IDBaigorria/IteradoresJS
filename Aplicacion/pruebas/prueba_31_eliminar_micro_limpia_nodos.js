@@ -21,7 +21,7 @@
  * La prueba itera empresas × vehículos intentando agregar
  * el micro; si ninguno anda, falla con mensaje claro.
  *
- * @version 1.5plugin.6q
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -32,10 +32,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 
 // Pide grafo/resumen y devuelve el total de nodos.
 async function _contar_nodos(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -57,10 +54,7 @@ async function _contar_nodos(ctx, nombre_solicitante) {
 // Pide administrador/listar_duenos y devuelve el nombre del
 // primer dueño.
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al listar dueños: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -86,9 +80,7 @@ async function _primer_dueno(ctx, nombre_solicitante) {
 // Pide empresas/listar y devuelve el array de empresas.
 // Cada empresa puede ser un string o un objeto; se normaliza.
 async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "empresas/listar",
-        nombre_solicitante,
+    const r = await ctx.post_accion("empresas/listar", {
         nombre_dueno
     });
     if (!r || !r.exito || !r.json || !r.json.exito) {
@@ -104,9 +96,7 @@ async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {
 // Pide vehiculos/listar para una empresa y devuelve el
 // array de patentes.
 async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "vehiculos/listar",
-        nombre_solicitante,
+    const r = await ctx.post_accion("vehiculos/listar", {
         nombre_dueno,
         nombre_empresa
     });
@@ -153,9 +143,7 @@ export const prueba = {
         const sufijo = String(Date.now()).slice(-8);
         const nombre_viaje = "viajemicrograf" + sufijo;
 
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "viajes/guardar",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("viajes/guardar", {
             nombre_dueno,
             nombre_viaje,
             nombre: "Viaje de prueba (eliminar micro)",
@@ -194,9 +182,7 @@ export const prueba = {
             const vehiculos = await _vehiculos_de_empresa(ctx, nombre_admin, nombre_dueno, empresa);
             for (const patente of vehiculos) {
                 intentos++;
-                const r_ag = await ctx.pedir_post("index.php", {
-                    accion: "viajes/agregar_micro",
-                    nombre_solicitante: nombre_admin,
+                const r_ag = await ctx.post_accion("viajes/agregar_micro", {
                     nombre_dueno,
                     nombre_viaje,
                     nombre_empresa: empresa,
@@ -233,9 +219,7 @@ export const prueba = {
             "Agregar el micro no agregó nodos (N1=" + N1 + ", N2=" + N2 + ").");
 
         // Eliminar el micro.
-        const re = await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar_micro",
-            nombre_solicitante: nombre_admin,
+        const re = await ctx.post_accion("viajes/eliminar_micro", {
             nombre_dueno,
             nombre_viaje,
             nombre_micro
@@ -254,9 +238,7 @@ export const prueba = {
             + (dif_micro > 0 ? " Quedaron " + dif_micro + " nodos huérfanos del micro." : " Algo inesperado."));
 
         // Eliminar el viaje para dejar el entorno limpio.
-        const rv = await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        const rv = await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje
         });

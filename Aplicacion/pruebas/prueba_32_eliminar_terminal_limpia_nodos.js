@@ -15,7 +15,7 @@
  * Si no la tiene, la prueba falla con mensaje claro
  * pidiendo crearla.
  *
- * @version 1.5plugin.5h
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -25,10 +25,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _contar_nodos(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -48,10 +45,7 @@ async function _contar_nodos(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -72,9 +66,7 @@ async function _primer_dueno(ctx, nombre_solicitante) {
 }
 
 async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "dueno/listar_terminales",
-        nombre_solicitante,
+    const r = await ctx.post_accion("dueno/listar_terminales", {
         nombre_dueno
     });
     if (!r || !r.exito || !r.json || !r.json.exito) {
@@ -131,9 +123,7 @@ export const prueba = {
         const sufijo = String(Date.now()).slice(-8);
         const nombre_viaje = "viajetermgraf" + sufijo;
 
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "viajes/guardar",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("viajes/guardar", {
             nombre_dueno,
             nombre_viaje,
             nombre: "Viaje de prueba (eliminar terminal)",
@@ -159,9 +149,7 @@ export const prueba = {
         ctx.assert(N1 > N0, "Crear el viaje no agregó nodos (N0=" + N0 + ", N1=" + N1 + ").");
 
         // Autorizar la terminal.
-        const ra = await ctx.pedir_post("index.php", {
-            accion: "viajes/agregar_terminal",
-            nombre_solicitante: nombre_admin,
+        const ra = await ctx.post_accion("viajes/agregar_terminal", {
             nombre_dueno,
             nombre_viaje,
             nombre_terminal
@@ -176,9 +164,7 @@ export const prueba = {
             "Autorizar la terminal no agregó nodos (N1=" + N1 + ", N2=" + N2 + ").");
 
         // Desautorizar la terminal.
-        const rd = await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar_terminal",
-            nombre_solicitante: nombre_admin,
+        const rd = await ctx.post_accion("viajes/eliminar_terminal", {
             nombre_dueno,
             nombre_viaje,
             nombre_terminal
@@ -197,9 +183,7 @@ export const prueba = {
             + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));
 
         // Limpieza: eliminar el viaje.
-        const rv = await ctx.pedir_post("index.php", {
-            accion: "viajes/eliminar",
-            nombre_solicitante: nombre_admin,
+        const rv = await ctx.post_accion("viajes/eliminar", {
             nombre_dueno,
             nombre_viaje
         });

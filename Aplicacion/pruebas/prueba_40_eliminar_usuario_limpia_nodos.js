@@ -23,7 +23,7 @@
  *
  * Requisitos de entorno: al menos un dueño existente.
  *
- * @version 1.5plugin.5m
+ * @version 1.5plugin.7e
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -33,10 +33,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 // ============================================================
 
 async function _resumen_grafo(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito) {
         throw new Error("Error de red al consultar grafo/resumen: " + (r && r.error ? r.error : "(sin detalle)"));
     }
@@ -51,10 +48,7 @@ async function _resumen_grafo(ctx, nombre_solicitante) {
 }
 
 async function _primer_dueno(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "administrador/listar_duenos",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("administrador/listar_duenos", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo listar dueños: "
             + ((r && r.json && r.json.error) ? r.json.error : "(sin detalle)"));
@@ -102,9 +96,7 @@ export const prueba = {
         const codigo_acceso = "cod" + sufijo;
 
         // 1. Crear usuario.
-        const rc = await ctx.pedir_post("index.php", {
-            accion: "administrador/agregar_usuario",
-            nombre_solicitante: nombre_admin,
+        const rc = await ctx.post_accion("administrador/agregar_usuario", {
             nombre_usuario,
             nivel: "terminal",
             dueno: nombre_dueno,
@@ -123,9 +115,7 @@ export const prueba = {
             + "H0=" + H0 + ", H1=" + H1 + ", diferencia=" + (H1 - H0) + ".");
 
         // 2. Eliminar usuario.
-        const rd = await ctx.pedir_post("index.php", {
-            accion: "administrador/eliminar_usuario",
-            nombre_solicitante: nombre_admin,
+        const rd = await ctx.post_accion("administrador/eliminar_usuario", {
             nombre_usuario
         });
         if (!rd || !rd.exito || !rd.json || !rd.json.exito) {
