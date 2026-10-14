@@ -14,7 +14,7 @@
  *   6. Verificar que el vehículo tiene la foto B.
  *   7. Limpieza: eliminar la empresa (arrastra el vehículo).
  *
- * @version 1.5plugin.6x
+ * @version 1.5plugin.6z
  * @since 1.5plugin.5u
  */
 
@@ -83,11 +83,28 @@ export const prueba = {
             const r_foto_a = await ctx.subir_archivo(
                 "vehiculos/subir_foto",
                 { nombre_empresa, nombre_vehiculo, nombre_dueno },
-                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64 }
+                { nombre: "fotoA_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_TRANSPARENTE_B64, nombre_campo: "foto" }
             );
             ctx.assert(r_foto_a && r_foto_a.exito && r_foto_a.json && r_foto_a.json.exito,
                 "Falló la subida de la foto A: "
                 + (r_foto_a && r_foto_a.json && r_foto_a.json.error ? r_foto_a.json.error : "(sin detalle)"));
+
+            // Capturar la ruta de la foto A. El backend guarda
+            // con nombre derivado del vehículo + timestamp, no
+            // con el nombre original del archivo. Para verificar
+            // que la B reemplazó a la A, comparamos las rutas.
+            const r_listar_a = await ctx.pedir_post("index.php", {
+                accion: "vehiculos/listar",
+                nombre_solicitante: nombre_admin,
+                nombre_dueno,
+                nombre_empresa
+            });
+            ctx.assert(r_listar_a && r_listar_a.exito && r_listar_a.json && r_listar_a.json.exito,
+                "No se pudieron listar los vehículos tras la foto A: "
+                + (r_listar_a && r_listar_a.json && r_listar_a.json.error ? r_listar_a.json.error : "(sin detalle)"));
+            const veh_a = (r_listar_a.json.vehiculos || []).find(v => v.nombre_vehiculo === nombre_vehiculo);
+            ctx.assert(veh_a && veh_a.foto, "El vehículo no tiene foto tras subir la A.");
+            const foto_a_path = veh_a.foto;
 
             const H1 = await _contar_huerfanos(ctx, nombre_admin);
 
@@ -95,7 +112,7 @@ export const prueba = {
             const r_foto_b = await ctx.subir_archivo(
                 "vehiculos/subir_foto",
                 { nombre_empresa, nombre_vehiculo, nombre_dueno },
-                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64 }
+                { nombre: "fotoB_" + sufijo + ".png", tipo: "image/png", contenido_base64: PNG_ALTERNATIVO_B64, nombre_campo: "foto" }
             );
             ctx.assert(r_foto_b && r_foto_b.exito && r_foto_b.json && r_foto_b.json.exito,
                 "Falló la subida de la foto B: "
@@ -119,8 +136,14 @@ export const prueba = {
             const veh = (r_listar.json.vehiculos || []).find(v => v.nombre_vehiculo === nombre_vehiculo);
             ctx.assert(veh && veh.foto,
                 "El vehículo no tiene foto tras la subida.");
-            ctx.assert(veh.foto.indexOf("fotoB_") !== -1,
-                "La foto del vehículo no es la B. Ruta: " + veh.foto);
+            // La ruta debe haber cambiado respecto a la foto A.
+            // El backend genera el nombre (vehículo + timestamp),
+            // así que no se puede chequear contra el nombre
+            // original del archivo. Comparamos rutas.
+            ctx.assert(veh.foto !== foto_a_path,
+                "La foto del vehículo no cambió tras subir la B. "
+                + "Ruta actual: " + veh.foto
+                + " (era: " + foto_a_path + ")");
 
         } finally {
             await eliminar_empresa_por_post(ctx, nombre_dueno, nombre_empresa);

@@ -1,39 +1,91 @@
 <?php
 /**
- * Aplicador — Fix P35 (v2): insertar `} finally { try {` faltantes.
+ * Aplicador — P55: comparar rutas en vez de nombres originales.
  *
- * El script anterior no matcheó porque el `await ctx.pedir_post`
- * interno tiene 16 espacios de indentación, no 20. Este script
- * usa el bloque exacto pegado.
+ * El backend guarda la foto con nombre derivado del vehículo +
+ * timestamp (ej: FOTO<patente>_<unix>.png), no con el nombre
+ * original del archivo subido. El assert final de P55 chequeaba
+ * que la ruta contuviera "fotoB_", lo cual nunca es cierto.
+ *
+ * Fix: capturar la ruta de la foto A antes de subir la B, y
+ * verificar que la ruta cambió. Es más robusto y sigue validando
+ * el fix v75a (reemplazo destruye la vieja).
  *
  * Uso (parado en iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.6y';
+$version_nueva = '1.5plugin.6z';
 $htmls_a_bumpear = [];
 
 $cambios = [
+    // ============================================================
+    // 1. Insertar captura de la foto A antes de H1.
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: insertar } finally { try { faltantes',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: capturar ruta de la foto A',
         'buscar' => [
-            '            + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));',
-            '                await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/reiniciar_seleccion_completa",',
+            '            ctx.assert(r_foto_a && r_foto_a.exito && r_foto_a.json && r_foto_a.json.exito,',
+            '                "Falló la subida de la foto A: "',
+            '                + (r_foto_a && r_foto_a.json && r_foto_a.json.error ? r_foto_a.json.error : "(sin detalle)"));',
+            '',
+            '            const H1 = await _contar_huerfanos(ctx, nombre_admin);',
         ],
         'reemplazar' => [
-            '            + (dif > 0 ? " Quedaron " + dif + " nodos huérfanos." : " Algo inesperado."));',
-            '        } finally {',
-            '            // v79n: cleanup best-effort. Corre incluso si el flujo',
-            '            // falló a mitad. Limpia la venta_actual colgada y el',
-            '            // viaje de prueba. Los errores no se propagan para no',
-            '            // tapar el error original del try.',
-            '            try {',
-            '                await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/reiniciar_seleccion_completa",',
+            '            ctx.assert(r_foto_a && r_foto_a.exito && r_foto_a.json && r_foto_a.json.exito,',
+            '                "Falló la subida de la foto A: "',
+            '                + (r_foto_a && r_foto_a.json && r_foto_a.json.error ? r_foto_a.json.error : "(sin detalle)"));',
+            '',
+            '            // Capturar la ruta de la foto A. El backend guarda',
+            '            // con nombre derivado del vehículo + timestamp, no',
+            '            // con el nombre original del archivo. Para verificar',
+            '            // que la B reemplazó a la A, comparamos las rutas.',
+            '            const r_listar_a = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/listar",',
+            '                nombre_solicitante: nombre_admin,',
+            '                nombre_dueno,',
+            '                nombre_empresa',
+            '            });',
+            '            ctx.assert(r_listar_a && r_listar_a.exito && r_listar_a.json && r_listar_a.json.exito,',
+            '                "No se pudieron listar los vehículos tras la foto A: "',
+            '                + (r_listar_a && r_listar_a.json && r_listar_a.json.error ? r_listar_a.json.error : "(sin detalle)"));',
+            '            const veh_a = (r_listar_a.json.vehiculos || []).find(v => v.nombre_vehiculo === nombre_vehiculo);',
+            '            ctx.assert(veh_a && veh_a.foto, "El vehículo no tiene foto tras subir la A.");',
+            '            const foto_a_path = veh_a.foto;',
+            '',
+            '            const H1 = await _contar_huerfanos(ctx, nombre_admin);',
+        ],
+    ],
+
+    // ============================================================
+    // 2. Reemplazar el assert final.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: assert final compara rutas',
+        'buscar' => [
+            '            const veh = (r_listar.json.vehiculos || []).find(v => v.nombre_vehiculo === nombre_vehiculo);',
+            '            ctx.assert(veh && veh.foto,',
+            '                "El vehículo no tiene foto tras la subida.");',
+            '            ctx.assert(veh.foto.indexOf("fotoB_") !== -1,',
+            '                "La foto del vehículo no es la B. Ruta: " + veh.foto);',
+        ],
+        'reemplazar' => [
+            '            const veh = (r_listar.json.vehiculos || []).find(v => v.nombre_vehiculo === nombre_vehiculo);',
+            '            ctx.assert(veh && veh.foto,',
+            '                "El vehículo no tiene foto tras la subida.");',
+            '            // La ruta debe haber cambiado respecto a la foto A.',
+            '            // El backend genera el nombre (vehículo + timestamp),',
+            '            // así que no se puede chequear contra el nombre',
+            '            // original del archivo. Comparamos rutas.',
+            '            ctx.assert(veh.foto !== foto_a_path,',
+            '                "La foto del vehículo no cambió tras subir la B. "',
+            '                + "Ruta actual: " + veh.foto',
+            '                + " (era: " + foto_a_path + ")");',
         ],
     ],
 ];
@@ -42,7 +94,7 @@ $cambios = [
 // Runner v2
 // ============================================================
 
-echo "=== Aplicador — Fix P35 (v2) ===\n\n";
+echo "=== Aplicador — P55: comparar rutas ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
@@ -68,8 +120,6 @@ foreach ($cambios as $cambio) {
     }
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
-
-echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar.\n\n";
 
 $archivos_a_escribir = [];
 $bloques_ok = 0;
@@ -117,9 +167,13 @@ if ($bumpear) {
     foreach (array_unique($archivos_bump_php_js) as $archivo_rel) {
         $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
         if (!file_exists($ruta_abs)) continue;
-        $contenido_original = file_get_contents($ruta_abs);
-        $eol = detectar_eol($contenido_original);
-        $contenido = normalizar_a_unix($contenido_original);
+        if (isset($archivos_a_escribir[$ruta_abs])) {
+            list($contenido, $eol) = $archivos_a_escribir[$ruta_abs];
+        } else {
+            $contenido_original = file_get_contents($ruta_abs);
+            $eol = detectar_eol($contenido_original);
+            $contenido = normalizar_a_unix($contenido_original);
+        }
         $patron = '/(\*\s+@version\s+)(\S+)/';
         $viejo = '';
         $nuevo = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo) {
