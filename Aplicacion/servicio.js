@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.5t
+ * @version 1.5plugin.7a
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -26,6 +26,19 @@ import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
+
+// ============================================================
+// Cache del solicitante y del dueno
+// ============================================================
+//
+// `ctx.post_accion` inyecta automaticamente `nombre_solicitante`
+// (y opcionalmente `nombre_dueno`) en cada POST. Ambos se leen
+// del page context con `chrome.scripting.executeScript` (MAIN
+// world), que es costoso. Con 65 pruebas x varios POST cada
+// una, el costo se nota. Cacheamos en variables de modulo y
+// las invalidamos cuando cambia la sesion (login / logout).
+let _cache_nombre_solicitante = null;
+let _cache_dueno_actual = null;
 
 function _es_url_piloto(url) {
     if (!url) return false;
@@ -223,6 +236,91 @@ function _crear_ctx(pestana_id) {
             } catch (e) {
                 return { exito: false, error: e.message };
             }
+        },
+        dueno_actual: async () => {
+            // Lee el nombre del dueno activo desde el page
+            // context. Para un dueno, es su propio nombre;
+            // para un terminal, es el de su dueno. Se usa
+            // para inyectar `nombre_dueno` en los POST que
+            // lo requieren sin que la prueba tenga que
+            // pasarlo a mano.
+            try {
+                const r = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        if (typeof usuario_actual === "undefined" || !usuario_actual) {
+                            return { exito: false, error: "sin usuario_actual en el page" };
+                        }
+                        const dueno = usuario_actual.dueno || usuario_actual.nombre_usuario;
+                        if (!dueno) {
+                            return { exito: false, error: "usuario_actual sin dueno ni nombre_usuario" };
+                        }
+                        return { exito: true, dueno: dueno };
+                    }
+                });
+                return (r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" };
+            } catch (e) {
+                return { exito: false, error: e.message };
+            }
+        },
+        refrescar_solicitante: () => {
+            // Fuerza la relectura del solicitante y del dueno
+            // en la proxima llamada a post_accion. Se llama
+            // automaticamente desde asegurar_login /
+            // cerrar_sesion; queda expuesto por si algun
+            // test necesita forzarlo.
+            _cache_nombre_solicitante = null;
+            _cache_dueno_actual = null;
+            return { exito: true };
+        },
+        async post_accion(accion, params = {}, opts = {}) {
+            // POST generico con inyeccion de `nombre_solicitante`
+            // y (opcionalmente) `nombre_dueno`. Centraliza el
+            // patron que estaba repetido a mano en varias
+            // pruebas y helpers.
+            //
+            // opts:
+            //   - sin_solicitante (bool): no inyectar.
+            //   - sin_dueno (bool): no inyectar.
+            //   - (devolver_crudo / lanzar_en_error_backend los
+            //     maneja el wrapper _post en _helpers.js, no
+            //     este metodo).
+            //
+            // Devuelve la respuesta cruda de pedir_post:
+            //   { exito, status, texto, json } o
+            //   { exito: false, error: "..." } si falla la red.
+            let nombre_solicitante = null;
+            if (!opts.sin_solicitante) {
+                if (_cache_nombre_solicitante === null) {
+                    const r_nombre = await this.nombre_usuario_actual();
+                    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {
+                        throw new Error("No se pudo resolver el nombre de usuario del solicitante");
+                    }
+                    _cache_nombre_solicitante = r_nombre.nombre_usuario;
+                }
+                nombre_solicitante = _cache_nombre_solicitante;
+            }
+
+            const tiene_dueno = params
+                && params.nombre_dueno !== undefined
+                && params.nombre_dueno !== "";
+            let nombre_dueno = null;
+            if (!opts.sin_dueno && !tiene_dueno) {
+                if (_cache_dueno_actual === null) {
+                    const r_dueno = await this.dueno_actual();
+                    if (r_dueno && r_dueno.exito) {
+                        _cache_dueno_actual = r_dueno.dueno;
+                    }
+                }
+                nombre_dueno = _cache_dueno_actual;
+            }
+
+            const body = Object.assign({}, params);
+            if (nombre_solicitante) body.nombre_solicitante = nombre_solicitante;
+            if (nombre_dueno) body.nombre_dueno = nombre_dueno;
+
+            return await enviar("pedir_post", { url: "index.php", body });
         },
         liberar_asientos_propios: async () => {
             // Aprieta "Reiniciar seleccion" en el piloto. El boton
@@ -571,6 +669,11 @@ function _crear_ctx(pestana_id) {
 
         // === helpers de sesion ===
         async cerrar_sesion() {
+            // Invalidar el cache del solicitante y del dueno:
+            // la sesion puede cambiar con el login siguiente.
+            _cache_nombre_solicitante = null;
+            _cache_dueno_actual = null;
+
             const app_visible = await this.esta_visible("#aplicacion");
             if (!app_visible) return true;
             await this.clic("#boton_salir");
@@ -578,6 +681,12 @@ function _crear_ctx(pestana_id) {
             return r && r.exito === true;
         },
         async asegurar_login(codigo) {
+            // Invalidar el cache del solicitante antes de
+            // loguear: si ya habia sesion, el usuario que
+            // entra es otro.
+            _cache_nombre_solicitante = null;
+            _cache_dueno_actual = null;
+
             await this.esperar("#pantalla_login, #aplicacion", 8000);
             const app_visible = await this.esta_visible("#aplicacion");
             if (app_visible) {

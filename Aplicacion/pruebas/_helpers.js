@@ -8,10 +8,72 @@
  * sean independientes y no se agoten los asientos del viaje
  * de setup.
  *
- * @version 1.5plugin.6n
+ * @version 1.5plugin.7a
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
+
+// ============================================================
+// POST generico con inyeccion de solicitante y dueno
+// ============================================================
+//
+// `_post` centraliza el patron que estaba repetido a mano en
+// varias pruebas y helpers: resolver el nombre de usuario del
+// solicitante desde el page, resolver el dueno activo, armar
+// el body, hacer el POST y devolver el JSON.
+//
+// Delega en `ctx.post_accion(accion, params, opts)`, que ya
+// cachea el solicitante y el dueno entre llamadas.
+//
+// Parametros:
+//   - accion: string "modulo/subaccion".
+//   - params: object con los parametros del POST.
+//   - opts.sin_solicitante (bool): no inyectar
+//       nombre_solicitante. Util para acciones previas al
+//       login (autenticar).
+//   - opts.sin_dueno (bool): no inyectar nombre_dueno.
+//   - opts.devolver_crudo (bool): devolver la respuesta cruda
+//       de pedir_post ({exito, status, texto, json}), no solo
+//       el JSON.
+//   - opts.lanzar_en_error_backend (bool): si el backend
+//       responde {exito: false}, lanzar Error en lugar de
+//       devolver el JSON. Default: false (el test decide).
+//
+// Devuelve:
+//   - El JSON del backend (objeto con exito: true/false).
+//   - O la respuesta cruda si devolver_crudo: true.
+//
+// Lanza Error si:
+//   - No hay pestana del piloto.
+//   - Falla la red (r.exito === false).
+//   - lanzar_en_error_backend y el backend devolvio exito: false.
+//
+// @since 1.5plugin.7a
+export async function _post(ctx, accion, params = {}, opts = {}) {
+    const r = await ctx.post_accion(accion, params, opts);
+
+    if (opts.devolver_crudo) return r;
+
+    if (!r || !r.exito) {
+        throw new Error(
+            "Error de red en " + accion + ": "
+            + (r && r.error ? r.error : "(sin detalle)")
+        );
+    }
+
+    if (!r.json) {
+        throw new Error("Respuesta sin JSON en " + accion);
+    }
+
+    if (opts.lanzar_en_error_backend && !r.json.exito) {
+        throw new Error(
+            "Backend rechazo " + accion + ": "
+            + (r.json.error || "(sin detalle)")
+        );
+    }
+
+    return r.json;
+}
 
 // ============================================================
 // Generadores de datos unicos
@@ -483,55 +545,21 @@ export async function cerrar_form_venta_y_liberar(ctx) {
 // devuelve el objeto `venta` del JSON. No depende del DOM,
 // asi que funciona aunque no estemos en la pestaña Vendidos.
 export async function obtener_venta_por_id(ctx, id_venta) {
-    // Mismo motivo que cancelar_venta: el backend necesita
-    // nombre_solicitante para resolver el contexto del terminal.
-    // Y mismo detalle: hay que extraer `.nombre_usuario`.
-    const r_nombre = await ctx.nombre_usuario_actual();
-    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {
-        throw new Error("No se pudo resolver el nombre de usuario del solicitante");
-    }
-    const nombre_sol = r_nombre.nombre_usuario;
-    const r = await ctx.pedir_post("index.php", {
-        accion: "ventas/obtener",
-        id_venta,
-        nombre_solicitante: nombre_sol
-    });
-    if (!r || !r.exito) {
-        throw new Error("Error de red al obtener la venta: " + (r && r.error ? r.error : "(sin detalle)"));
-    }
-    if (!r.json || !r.json.exito) {
-        throw new Error("No se pudo obtener la venta: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));
-    }
-    return r.json.venta;
+    const r = await _post(ctx, "ventas/obtener", {
+        id_venta
+    }, { lanzar_en_error_backend: true });
+    return r.venta;
 }
 
 export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prueba automatica") {
-    // El backend necesita nombre_solicitante para saber qué
-    // contexto cargar y qué terminal es el solicitante. Sin
-    // él, cae al fallback que itera sobre `usuarios` y, con
-    // carga parcial, devuelve "Venta no encontrada".
-    //
-    // Ojo: ctx.nombre_usuario_actual() devuelve un objeto
-    // `{exito, nombre_usuario}`. Hay que extraer el string.
-    // Si se pasa el objeto directo, se serializa como
-    // "[object Object]" y el backend muere con 500.
-    const r_nombre = await ctx.nombre_usuario_actual();
-    if (!r_nombre || !r_nombre.exito || !r_nombre.nombre_usuario) {
-        throw new Error("No se pudo resolver el nombre de usuario del solicitante");
-    }
-    const nombre_sol = r_nombre.nombre_usuario;
-    const r = await ctx.pedir_post("index.php", {
-        accion: "ventas/cancelar",
+    // `_post` inyecta el nombre_solicitante y el nombre_dueno.
+    // El backend los necesita para saber que contexto cargar
+    // y que terminal es el solicitante.
+    const r = await _post(ctx, "ventas/cancelar", {
         id_venta,
-        motivo,
-        nombre_solicitante: nombre_sol
-    });
-    if (!r || !r.exito) {
-        throw new Error("Error de red al cancelar: " + (r && r.error ? r.error : "(sin detalle)"));
-    }
-    if (!r.json || !r.json.exito) {
-        throw new Error("No se pudo cancelar: " + (r.json && r.json.error ? r.json.error : "(sin detalle)"));
-    }
+        motivo
+    }, { lanzar_en_error_backend: true });
+
     // Refrescar el croquis del page para que no quede congelado
     // mostrando el asiento como vendido. Es no bloqueante: si
     // falla, la venta ya esta cancelada, solo se ve el croquis
@@ -540,7 +568,7 @@ export async function cancelar_venta(ctx, id_venta, motivo = "Cancelada por prue
     if (!rf || !rf.exito) {
         console.warn("No se pudo refrescar el croquis tras cancelar:", rf && rf.error ? rf.error : "(sin detalle)");
     }
-    return r.json;
+    return r;
 }
 
 export async function crear_pasajero_de_prueba(ctx, dni, datos = {}) {
