@@ -1,18 +1,29 @@
 /**
  * Logica de la ventana del plugin (popup de Chrome).
  *
- * Renderiza las pruebas agrupadas por seccion. Cada seccion
- * tiene un boton "Correr todas" que ejecuta sus pruebas en
- * serie.
+ * Renderiza las pruebas agrupadas en PESTANAS tematicas.
+ * Solo se ve la pestana activa. Cada pestana tiene un
+ * boton "Correr todas" que ejecuta sus pruebas en serie.
+ *
+ * La pestana activa se persiste en localStorage.
+ * ANOTADO: migrar a la persistencia del framework mas
+ * adelante (plan_actual.md).
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.7p
+ * @version 1.5plugin.7s
  */
 
 document.addEventListener("DOMContentLoaded", () => {
     const contenedor = document.getElementById("contenedor_secciones");
     const estado = document.getElementById("mensaje_estado");
+    const tabs_nav = document.getElementById("tabs");
+
+    const LS_KEY_TAB_ACTIVA = "plugin_tab_activa";
+
+    // Secciones cargadas del SW. Se usa para armar las tabs
+    // y saber cual activar.
+    let secciones_cargadas = [];
 
     function mostrar_estado(texto) {
         estado.textContent = texto;
@@ -156,7 +167,6 @@ document.addEventListener("DOMContentLoaded", () => {
             pre.textContent = resp.tabla;
             pre.style.display = "block";
 
-            // Intentar copiar al portapapeles.
             let copiado = false;
             try {
                 await navigator.clipboard.writeText(resp.tabla);
@@ -169,13 +179,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 est.textContent = "Copiado (" + resp.cantidad_filas + " filas)";
                 ta.style.display = "none";
             } else {
-                // Fallback: mostrar la tabla en el textarea,
-                // seleccionarla, pedirle al usuario Ctrl+C.
                 ta.value = resp.tabla;
                 ta.style.display = "block";
                 ta.focus();
                 ta.select();
-                est.textContent = "Copiá con Ctrl+C (" + resp.cantidad_filas + " filas)";
+                est.textContent = "Copia con Ctrl+C (" + resp.cantidad_filas + " filas)";
             }
         } catch (e) {
             est.textContent = "Error: " + e.message;
@@ -189,21 +197,58 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btn) btn.addEventListener("click", copiar_pasajeros);
     })();
 
-    // Listener de progreso (broadcast desde el SW).
     chrome.runtime.onMessage.addListener((msg) => {
         if (msg && msg.tipo === "limpieza_progreso") {
             _procesar_progreso(msg.evento);
         }
     });
 
-    // Conectar el boton directamente: estamos dentro del
-    // handler de DOMContentLoaded original, asi que el DOM
-    // ya esta listo. Un addEventListener("DOMContentLoaded")
-    // anidado nunca dispararia.
     (function _conectar_boton_limpieza() {
         const btn = document.getElementById("btn_limpiar_datos_prueba");
         if (btn) btn.addEventListener("click", limpiar_datos_de_prueba);
     })();
+
+    // ============================================================
+    // Sistema de pestanas
+    // ============================================================
+
+    function _leer_tab_recordada() {
+        try { return localStorage.getItem(LS_KEY_TAB_ACTIVA) || ""; }
+        catch (e) { return ""; }
+    }
+
+    function _guardar_tab_recordada(id) {
+        try { localStorage.setItem(LS_KEY_TAB_ACTIVA, id); }
+        catch (e) { /* ignorar */ }
+    }
+
+    function activar_tab(id_seccion) {
+        // Botones.
+        tabs_nav.querySelectorAll("button").forEach((b) => {
+            b.classList.toggle("active", b.dataset.idSeccion === id_seccion);
+        });
+        // Contenedores de seccion.
+        contenedor.querySelectorAll(".seccion").forEach((div) => {
+            div.style.display = (div.dataset.idSeccion === id_seccion) ? "" : "none";
+        });
+        _guardar_tab_recordada(id_seccion);
+    }
+
+    function renderizar_tabs(secciones) {
+        tabs_nav.innerHTML = "";
+        secciones.forEach((s) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = s.nombre;
+            b.dataset.idSeccion = s.id;
+            b.addEventListener("click", () => activar_tab(s.id));
+            tabs_nav.appendChild(b);
+        });
+    }
+
+    // ============================================================
+    // Render de pruebas
+    // ============================================================
 
     function aplicar_resultado(el, resp) {
         if (!resp || !resp.exito) {
@@ -237,8 +282,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function correr_seccion(seccion, resumen_el) {
         const boton = seccion.querySelector(".btn-correr-todas");
+        if (boton) boton.disabled = true;
         const botones_prueba = seccion.querySelectorAll(".btn-correr-prueba");
-        boton.disabled = true;
         botones_prueba.forEach((b) => { b.disabled = true; });
 
         const lis = Array.from(seccion.querySelectorAll("li[data-id-prueba]"));
@@ -261,8 +306,10 @@ document.addEventListener("DOMContentLoaded", () => {
             li.classList.add("corriendo");
             el.textContent = "Corriendo...";
             el.className = "resultado";
-            resumen_el.textContent = `Corriendo ${i + 1}/${total}...`;
-            resumen_el.className = "seccion-resumen";
+            if (resumen_el) {
+                resumen_el.textContent = `Corriendo ${i + 1}/${total}...`;
+                resumen_el.className = "seccion-resumen";
+            }
 
             let resp;
             try {
@@ -282,9 +329,11 @@ document.addEventListener("DOMContentLoaded", () => {
             else fallo++;
         }
 
-        resumen_el.textContent = ok + "/" + total + " OK";
-        resumen_el.className = "seccion-resumen " + (fallo === 0 ? "ok" : "fallo");
-        boton.disabled = false;
+        if (resumen_el) {
+            resumen_el.textContent = ok + "/" + total + " OK";
+            resumen_el.className = "seccion-resumen " + (fallo === 0 ? "ok" : "fallo");
+        }
+        if (boton) boton.disabled = false;
         botones_prueba.forEach((b) => { b.disabled = false; });
     }
 
@@ -317,10 +366,22 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         div.appendChild(ul);
 
+        if (seccion.pruebas.length === 0) {
+            const vacia = document.createElement("div");
+            vacia.className = "seccion-vacia";
+            vacia.textContent = "(sin pruebas por ahora)";
+            div.appendChild(vacia);
+        }
+
         const resumen_el = header.querySelector(".seccion-resumen");
-        header.querySelector(".btn-correr-todas").addEventListener("click", () => {
-            correr_seccion(div, resumen_el);
-        });
+        const btn_todas = header.querySelector(".btn-correr-todas");
+        if (seccion.pruebas.length === 0) {
+            btn_todas.disabled = true;
+        } else {
+            btn_todas.addEventListener("click", () => {
+                correr_seccion(div, resumen_el);
+            });
+        }
 
         return div;
     }
@@ -335,18 +396,31 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         contenedor.innerHTML = "";
+        tabs_nav.innerHTML = "";
 
         if (!resp || !resp.exito) {
             mostrar_estado("Error: " + (resp && resp.error ? resp.error : "desconocido"));
             return;
         }
 
-        const secciones = resp.secciones || [];
-        mostrar_estado(secciones.length + " sección(es) disponibles");
+        secciones_cargadas = resp.secciones || [];
+        const total_pruebas = secciones_cargadas.reduce(
+            (acc, s) => acc + (s.pruebas ? s.pruebas.length : 0), 0);
+        mostrar_estado(total_pruebas + " pruebas en "
+            + secciones_cargadas.length + " pestanas");
 
-        secciones.forEach((s) => {
+        renderizar_tabs(secciones_cargadas);
+
+        secciones_cargadas.forEach((s) => {
             contenedor.appendChild(renderizar_seccion(s));
         });
+
+        // Activar la tab recordada o la primera.
+        const recordada = _leer_tab_recordada();
+        const existe_recordada = secciones_cargadas.some((s) => s.id === recordada);
+        const inicial = existe_recordada ? recordada
+            : (secciones_cargadas[0] ? secciones_cargadas[0].id : null);
+        if (inicial) activar_tab(inicial);
     }
 
     renderizar();

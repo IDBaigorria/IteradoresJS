@@ -4,14 +4,44 @@
   <meta charset="UTF-8">
   <title>Iteradores Pruebas</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 400px; }
+    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 600px; }
     h1 { font-size: 14px; margin: 0 0 8px 0; }
+
+    /* Pestanas */
+    #tabs {
+      display: flex;
+      overflow-x: auto;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 12px;
+      gap: 2px;
+    }
+    #tabs button {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #555;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    #tabs button.active {
+      color: #1a73e8;
+      font-weight: 700;
+      border-bottom-color: #1a73e8;
+    }
+    #tabs button:hover:not(.active) {
+      background: #f1f1f1;
+    }
+
     .seccion { border: 1px solid #ddd; border-radius: 6px; padding: 10px; margin-bottom: 12px; }
     .seccion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .seccion-nombre { font-weight: 700; font-size: 13px; }
     .seccion-resumen { font-size: 11px; color: #555; margin-left: 8px; }
     .seccion-resumen.ok { color: #137333; }
     .seccion-resumen.fallo { color: #c5221f; }
+    .seccion-vacia { font-size: 12px; color: #888; padding: 10px 0; font-style: italic; }
     ul { list-style: none; padding: 0; margin: 0; }
     li { padding: 6px 0; border-top: 1px solid #eee; }
     li:first-child { border-top: none; }
@@ -41,7 +71,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 8px 10px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       background: #f8f9fa;
       border: 1px solid #e0e0e0;
       border-radius: 6px;
@@ -62,7 +92,7 @@
       color: #d4d4d4;
       padding: 8px;
       border-radius: 4px;
-      margin: 0 0 12px 0;
+      margin: 0 0 8px 0;
       max-height: 260px;
       overflow-y: auto;
       white-space: pre-wrap;
@@ -124,6 +154,8 @@
   </div>
   <pre id="copiar_pre" style="display:none"></pre>
   <textarea id="copiar_textarea" style="display:none" readonly></textarea>
+
+  <nav id="tabs"></nav>
 
   <div class="estado" id="mensaje_estado">Cargando...</div>
   <div id="contenedor_secciones"></div>
