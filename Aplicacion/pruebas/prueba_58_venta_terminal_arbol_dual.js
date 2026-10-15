@@ -17,7 +17,7 @@
  * Si la venta aparece en los dos listados, está en los dos
  * árboles.
  *
- * @version 1.5plugin.7j
+ * @version 1.5plugin.7k
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -82,10 +82,13 @@ export const prueba = {
         // 3. Verificar que la venta esté en el árbol del DUEÑO.
         // `ventas/listar` con tipo=dueno recorre privado/ventas
         // (hmi/hd/p) desde la raíz `usuarios`.
+        // Carga total: el backend navega us_<dueno> (arbol
+        // del dueño). Con carga parcial del terminal eso no
+        // estaria en memoria. Sin solicitante ni dueño.
         const r_dueno = await ctx.post_accion("ventas/listar", {
             tipo: "dueno",
             nombre: nombre_dueno
-        });
+        }, { sin_solicitante: true, sin_dueno: true });
         if (!r_dueno || !r_dueno.json || !r_dueno.json.exito) {
             throw new Error("ventas/listar (dueno) devolvió error: "
                 + JSON.stringify(r_dueno && r_dueno.json ? r_dueno.json : r_dueno));
@@ -104,7 +107,7 @@ export const prueba = {
         const r_term = await ctx.post_accion("ventas/listar", {
             tipo: "terminal",
             nombre: nombre_term
-        });
+        }, { sin_solicitante: true, sin_dueno: true });
         if (!r_term || !r_term.json || !r_term.json.exito) {
             throw new Error("ventas/listar (terminal) devolvió error: "
                 + JSON.stringify(r_term && r_term.json ? r_term.json : r_term));

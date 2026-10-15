@@ -1,97 +1,65 @@
 <?php
 /**
- * Aplicador — Fase 2c.3 (cierre): migracion de pruebas 57, 58,
- * 60, 61, 63, 64, 65 a ctx.post_accion.
+ * Aplicador — Fase 2c.3.1: fix de ventas/listar en pruebas 58 y 60.
  *
- * Ultima tanda de la Fase 2c. En todas, el logueado al momento
- * del POST es el usuario apropiado para `nombre_solicitante`
- * (terminal cuando opera el terminal, dueno cuando opera el
- * dueno, admin cuando opera el admin). No hace falta
- * sin_solicitante: true.
+ * Sintoma: prueba 58 (venta_terminal_arbol_dual) falla con
+ * "La venta NO aparece en el arbol del dueno. Total: 0".
  *
- * Casos con cambio de sesion (57): los `ctx.nombre_usuario_actual()`
- * previos al cambio de login NO se tocan.
+ * Causa raiz: post_accion inyecta nombre_solicitante, lo que
+ * cambia el modo de carga a parcial (us_<terminal>). El backend
+ * intenta navegar us_<dueno> (para listar_ventas_por_dueno) y no
+ * esta en memoria. Antes, con pedir_post sin solicitante, la
+ * carga era total y el nodo estaba disponible.
+ *
+ * Fix: pasar {sin_solicitante: true, sin_dueno: true} en los
+ * POSTs a ventas/listar de las pruebas 58 y 60 (helper _en_ambos).
+ * Asi el body es identico al original y la carga vuelve a ser
+ * total. Con comentario explicando por que.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7j';
+$version_nueva = '1.5plugin.7k';
 
 $htmls_a_bumpear = [];
 
 $cambios = [
 
     // ============================================================
-    // PRUEBA 57
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_57_enlace_dueno_apunta_al_compartido.js',
-        'descripcion' => 'P57: grafo/nodo con post_accion',
-        'buscar' => [
-            '        const r_nodo = await ctx.pedir_post("index.php", {',
-            '            accion: "grafo/nodo",',
-            '            nombre_solicitante: nombre_admin,',
-            '            id: "us_" + nombre_term',
-            '        });',
-        ],
-        'reemplazar' => [
-            '        const r_nodo = await ctx.post_accion("grafo/nodo", {',
-            '            id: "us_" + nombre_term',
-            '        });',
-        ],
-    ],
-
-    // ============================================================
     // PRUEBA 58
     // ============================================================
 
-    // 58.1: usuarios/mi_perfil
+    // 58.1: ventas/listar dueno
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
-        'descripcion' => 'P58: usuarios/mi_perfil con post_accion',
+        'descripcion' => 'P58: ventas/listar dueno con sin_solicitante+sin_dueno',
         'buscar' => [
-            '        const r_perfil = await ctx.pedir_post("index.php", {',
-            '            accion: "usuarios/mi_perfil",',
-            '            nombre_solicitante: nombre_term',
-            '        });',
-        ],
-        'reemplazar' => [
-            '        const r_perfil = await ctx.post_accion("usuarios/mi_perfil", {});',
-        ],
-    ],
-
-    // 58.2: ventas/listar (dueno)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
-        'descripcion' => 'P58: ventas/listar dueno con post_accion',
-        'buscar' => [
-            '        const r_dueno = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/listar",',
-            '            tipo: "dueno",',
-            '            nombre: nombre_dueno',
-            '        });',
-        ],
-        'reemplazar' => [
             '        const r_dueno = await ctx.post_accion("ventas/listar", {',
             '            tipo: "dueno",',
             '            nombre: nombre_dueno',
             '        });',
         ],
+        'reemplazar' => [
+            '        // Carga total: el backend navega us_<dueno> (arbol',
+            '        // del dueño). Con carga parcial del terminal eso no',
+            '        // estaria en memoria. Sin solicitante ni dueño.',
+            '        const r_dueno = await ctx.post_accion("ventas/listar", {',
+            '            tipo: "dueno",',
+            '            nombre: nombre_dueno',
+            '        }, { sin_solicitante: true, sin_dueno: true });',
+        ],
     ],
 
-    // 58.3: ventas/listar (terminal)
+    // 58.2: ventas/listar terminal
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
-        'descripcion' => 'P58: ventas/listar terminal con post_accion',
+        'descripcion' => 'P58: ventas/listar terminal con sin_solicitante+sin_dueno',
         'buscar' => [
-            '        const r_term = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/listar",',
+            '        const r_term = await ctx.post_accion("ventas/listar", {',
             '            tipo: "terminal",',
             '            nombre: nombre_term',
             '        });',
@@ -100,152 +68,30 @@ $cambios = [
             '        const r_term = await ctx.post_accion("ventas/listar", {',
             '            tipo: "terminal",',
             '            nombre: nombre_term',
-            '        });',
+            '        }, { sin_solicitante: true, sin_dueno: true });',
         ],
     ],
 
     // ============================================================
     // PRUEBA 60
     // ============================================================
-
-    // 60.1: helper _en_ambos (2 POSTs)
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/pruebas/prueba_60_cancelar_venta_arbol_dual.js',
-        'descripcion' => 'P60: _en_ambos con post_accion',
+        'descripcion' => 'P60: _en_ambos con sin_solicitante+sin_dueno',
         'buscar' => [
-            '    const r_d = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/listar", tipo: "dueno", nombre: nombre_dueno',
-            '    });',
-            '    const r_t = await ctx.pedir_post("index.php", {',
-            '        accion: "ventas/listar", tipo: "terminal", nombre: nombre_term',
-            '    });',
-        ],
-        'reemplazar' => [
             '    const r_d = await ctx.post_accion("ventas/listar", { tipo: "dueno", nombre: nombre_dueno });',
             '    const r_t = await ctx.post_accion("ventas/listar", { tipo: "terminal", nombre: nombre_term });',
         ],
-    ],
-
-    // 60.2: usuarios/mi_perfil
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_60_cancelar_venta_arbol_dual.js',
-        'descripcion' => 'P60: usuarios/mi_perfil con post_accion',
-        'buscar' => [
-            '        const r_perfil = await ctx.pedir_post("index.php", {',
-            '            accion: "usuarios/mi_perfil",',
-            '            nombre_solicitante: nombre_term',
-            '        });',
-        ],
         'reemplazar' => [
-            '        const r_perfil = await ctx.post_accion("usuarios/mi_perfil", {});',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 61
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_61_eliminar_viaje_con_terminal.js',
-        'descripcion' => 'P61: viajes/eliminar con post_accion',
-        'buscar' => [
-            '            const r_elim = await ctx.pedir_post("index.php", {',
-            '                accion: "viajes/eliminar",',
-            '                nombre_dueno: nombre_dueno,',
-            '                nombre_viaje: nombre_viaje',
-            '            });',
-        ],
-        'reemplazar' => [
-            '            const r_elim = await ctx.post_accion("viajes/eliminar", {',
-            '                nombre_dueno: nombre_dueno,',
-            '                nombre_viaje: nombre_viaje',
-            '            });',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 63
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_63_desautorizar_terminal_compartido.js',
-        'descripcion' => 'P63: viajes/listar_por_dueno con post_accion',
-        'buscar' => [
-            '            const r_dueno = await ctx.pedir_post("index.php", {',
-            '                accion: "viajes/listar_por_dueno",',
-            '                nombre_dueno: nombre_dueno',
-            '            });',
-        ],
-        'reemplazar' => [
-            '            const r_dueno = await ctx.post_accion("viajes/listar_por_dueno", {',
-            '                nombre_dueno: nombre_dueno',
-            '            });',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 64
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_64_agregar_micro_empresa_compartido.js',
-        'descripcion' => 'P64: viajes/agregar_micro con post_accion',
-        'buscar' => [
-            '            const r_micro = await ctx.pedir_post("index.php", {',
-            '                accion: "viajes/agregar_micro",',
-            '                nombre_dueno: nombre_dueno,',
-            '                nombre_viaje: nombre_viaje,',
-            '                nombre_empresa: empresa.nombre_empresa,',
-            '                nombre_vehiculo: empresa.nombre_vehiculo,',
-            '                monto: "100"',
-            '            });',
-        ],
-        'reemplazar' => [
-            '            const r_micro = await ctx.post_accion("viajes/agregar_micro", {',
-            '                nombre_dueno: nombre_dueno,',
-            '                nombre_viaje: nombre_viaje,',
-            '                nombre_empresa: empresa.nombre_empresa,',
-            '                nombre_vehiculo: empresa.nombre_vehiculo,',
-            '                monto: "100"',
-            '            });',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 65
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_65_cambiar_asiento_desde_clientes.js',
-        'descripcion' => 'P65: ventas/obtener con post_accion',
-        'buscar' => [
-            '            const r_nombre = await ctx.nombre_usuario_actual();',
-            '            const nombre_term = r_nombre && r_nombre.nombre_usuario;',
-            '',
-            '            // Pausa inicial para dejar que el backend se estabilice.',
-            '            await ctx.pausa(2000);',
-            '',
-            '            let asientos = [];',
-            '            let ultimo_json = null;',
-            '            const MAX_INTENTOS = 5;',
-            '            for (let intento = 0; intento < MAX_INTENTOS; intento++) {',
-            '                const r = await ctx.pedir_post("index.php", {',
-            '                    accion: "ventas/obtener",',
-            '                    id_venta,',
-            '                    nombre_solicitante: nombre_term',
-            '                });',
-        ],
-        'reemplazar' => [
-            '            // Pausa inicial para dejar que el backend se estabilice.',
-            '            await ctx.pausa(2000);',
-            '',
-            '            let asientos = [];',
-            '            let ultimo_json = null;',
-            '            const MAX_INTENTOS = 5;',
-            '            for (let intento = 0; intento < MAX_INTENTOS; intento++) {',
-            '                const r = await ctx.post_accion("ventas/obtener", { id_venta });',
+            '    // Sin solicitante ni dueño: el backend necesita carga total',
+            '    // para navegar us_<dueno> (arbol del dueño).',
+            '    const r_d = await ctx.post_accion("ventas/listar",',
+            '        { tipo: "dueno", nombre: nombre_dueno },',
+            '        { sin_solicitante: true, sin_dueno: true });',
+            '    const r_t = await ctx.post_accion("ventas/listar",',
+            '        { tipo: "terminal", nombre: nombre_term },',
+            '        { sin_solicitante: true, sin_dueno: true });',
         ],
     ],
 
