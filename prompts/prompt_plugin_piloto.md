@@ -312,6 +312,17 @@ disponibles:
 - `ctx.refrescar_solicitante()` → invalida el cache del
   solicitante y del dueño.
 - `ctx.enviar(tipo, datos)` — mensaje crudo al content script.
+
+**Utilidades del plugin (no del ctx):**
+- `Aplicacion/LimpiezaPrueba.js`: módulo con
+  `limpiar_datos_de_prueba(ctx, al_progreso)`. Itera
+  dueños, llama los 6 endpoints por dueño + el global
+  de usuarios. Chequea modo pruebas + admin antes de
+  empezar. Devuelve `{exito, duenos, res_ini, res_fin,
+  totales}`.
+- `globalThis.limpiar_prueba()` — handler para la
+  consola del SW. En MV3 no se puede hacer import()
+  dinámico; exponerlo es la vía para debug.
 - `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
   archivo por multipart al piloto. `archivo_info` es
   `{nombre, tipo, contenido_base64, nombre_campo}`. El fetch lo
@@ -1039,6 +1050,24 @@ por tema.
     POST que navegue por una parte del grafo que NO es
     del solicitante logueado necesita esos dos flags.
 
+58. **Un `addEventListener("DOMContentLoaded")` anidado
+    nunca dispara.** El evento ya ocurrió cuando el
+    bloque interno se registra (porque el bloque está
+    dentro del handler del evento original). Caso real
+    v1.5plugin.7n: el listener del botón "Limpiar datos
+    de prueba" quedó dentro de un DOMContentLoaded
+    anidado, y el botón no hacía nada. Fix: conectar
+    directo, ya que el DOM está listo en ese punto.
+    Regla general: si estás dentro de un handler de
+    DOMContentLoaded, no hace falta volver a esperarlo.
+
+59. **`chrome.runtime.sendMessage` desde el SW devuelve
+    una promesa.** Si nadie escucha (por ejemplo, el
+    popup está cerrado), la promesa se rechaza con
+    "Could not establish connection". Para broadcast
+    de progreso donde el emisor no necesita acuse,
+    tragarse el rechazo: `.catch(() => {})`.
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -1076,30 +1105,50 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.7l.
-Cierre de la Fase 2c (migración del plugin a `_post`/`post_accion`).
+**Última actualización de este prompt:** v1.5plugin.7o.
+Cierre del botón de limpieza + fix del listener.
 
-**Estado al cierre de v1.5plugin.7l:**
+**Estado al cierre de v1.5plugin.7o:**
 
 - **Fase 2c cerrada.** Las ~50 pruebas y los 3 helpers
   auxiliares usan `_post` (de `_helpers.js`), que delega
   en `ctx.post_accion` (del SW). Ninguna prueba usa
   `ctx.pedir_post` directo.
-- **Cambios del refactor:**
-  - `ctx.post_accion(accion, params, opts)`: inyecta
-    `nombre_solicitante` (con cache) y `nombre_dueno`
-    (si no viene en params). Soporta `sin_solicitante`,
-    `sin_dueno`, `devolver_crudo`, `lanzar_en_error_backend`.
-  - `_post(ctx, accion, params, opts)`: wrapper de
-    `_helpers.js` que devuelve `r.json` pelado y
-    opcionalmente lanza en error de backend.
-  - `ctx.dueno_actual()`, `ctx.refrescar_solicitante()`.
-  - Cache invalidado en `asegurar_login` y `cerrar_sesion`.
-- **Pendientes del plugin:**
-  - **Verificación final:** correr las 65 pruebas
-    completas después del refactor.
-  - **Refactor de la ventana en pestañas por rol.** Idea
-    anotada al cierre de v1.5plugin.7a.
+- **Verificación final:** las **65 pruebas corren en
+  verde** después del refactor.
+- **Botón "Limpiar datos de prueba" agregado** (v7m).
+  Módulo `Aplicacion/LimpiezaPrueba.js` + handler en
+  `servicio.js` + `globalThis.limpiar_prueba`. La UI
+  del popup tiene el botón + un `<pre>` para el log.
+  Confirm previo, progreso incremental y resumen final.
+- **v7n**: fix del listener del botón (un
+  `DOMContentLoaded` anidado nunca disparaba).
+
+**Cambios del refactor (Fase 2c):**
+
+- `ctx.post_accion(accion, params, opts)`: inyecta
+  `nombre_solicitante` (con cache) y `nombre_dueno`
+  (si no viene en params). Soporta `sin_solicitante`,
+  `sin_dueno`, `devolver_crudo`, `lanzar_en_error_backend`.
+- `_post(ctx, accion, params, opts)`: wrapper de
+  `_helpers.js` que devuelve `r.json` pelado y
+  opcionalmente lanza en error de backend.
+- `ctx.dueno_actual()`, `ctx.refrescar_solicitante()`.
+- Cache invalidado en `asegurar_login` y `cerrar_sesion`.
+
+**Pendientes del plugin:**
+
+- **Pruebas 37 y 38 sin `try/finally`:** si el flujo
+  falla a mitad, la empresa/vehículo de setup queda
+  colgada. Los limpiadores ahora la agarran, pero la
+  prueba debería limpiar por su cuenta.
+- **Refactor de la ventana en pestañas por rol.** Idea
+  anotada al cierre de v1.5plugin.7a.
+- **Centralizar prefijos de prueba.** Hoy cada
+  limpiador tiene su lista hardcodeada. Cuando una
+  prueba nueva usa un prefijo distinto, el limpiador
+  no lo reconoce. Idea: una constante compartida o
+  que las pruebas registren su prefijo.
 
 ---
 
