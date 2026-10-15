@@ -7,7 +7,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.7n
+ * @version 1.5plugin.7p
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -130,6 +130,64 @@ document.addEventListener("DOMContentLoaded", () => {
             btn.disabled = false;
         }
     }
+
+    // ============================================================
+    // Copiar tabla de pasajeros
+    // ============================================================
+
+    async function copiar_pasajeros() {
+        const btn = document.getElementById("btn_copiar_pasajeros");
+        const pre = document.getElementById("copiar_pre");
+        const ta = document.getElementById("copiar_textarea");
+        const est = document.getElementById("copiar_estado");
+
+        btn.disabled = true;
+        pre.style.display = "none";
+        ta.style.display = "none";
+        est.textContent = "Leyendo...";
+
+        try {
+            const resp = await enviar({ tipo: "copiar_tabla_pasajeros" });
+            if (!resp || !resp.exito) {
+                est.textContent = "Error: " + (resp && resp.error ? resp.error : "desconocido");
+                return;
+            }
+
+            pre.textContent = resp.tabla;
+            pre.style.display = "block";
+
+            // Intentar copiar al portapapeles.
+            let copiado = false;
+            try {
+                await navigator.clipboard.writeText(resp.tabla);
+                copiado = true;
+            } catch (e) {
+                copiado = false;
+            }
+
+            if (copiado) {
+                est.textContent = "Copiado (" + resp.cantidad_filas + " filas)";
+                ta.style.display = "none";
+            } else {
+                // Fallback: mostrar la tabla en el textarea,
+                // seleccionarla, pedirle al usuario Ctrl+C.
+                ta.value = resp.tabla;
+                ta.style.display = "block";
+                ta.focus();
+                ta.select();
+                est.textContent = "Copiá con Ctrl+C (" + resp.cantidad_filas + " filas)";
+            }
+        } catch (e) {
+            est.textContent = "Error: " + e.message;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    (function _conectar_boton_copiar() {
+        const btn = document.getElementById("btn_copiar_pasajeros");
+        if (btn) btn.addEventListener("click", copiar_pasajeros);
+    })();
 
     // Listener de progreso (broadcast desde el SW).
     chrome.runtime.onMessage.addListener((msg) => {

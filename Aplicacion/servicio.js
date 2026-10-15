@@ -18,13 +18,14 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.7m
+ * @version 1.5plugin.7p
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
 import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 import { limpiar_datos_de_prueba } from "./LimpiezaPrueba.js";
+import { copiar_pasajeros_del_micro } from "./CopiarPasajeros.js";
 
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 
@@ -841,6 +842,21 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                     sendResponse(await _ejecutar_limpieza());
                     break;
 
+                case "copiar_tabla_pasajeros": {
+                    const pestana_cp = await _obtener_pestana_piloto();
+                    if (!pestana_cp) {
+                        sendResponse({ exito: false, error: "No hay una pestana del piloto abierta" });
+                        break;
+                    }
+                    const ctx_cp = _crear_ctx(pestana_cp.id);
+                    try {
+                        sendResponse(await copiar_pasajeros_del_micro(ctx_cp));
+                    } catch (e) {
+                        sendResponse({ exito: false, error: e.message });
+                    }
+                    break;
+                }
+
                 case "refrescar_asientos_pagina": {
                     const pestana = await _obtener_pestana_piloto();
                     if (!pestana) { sendResponse({ exito: false, error: "no hay pestaña del piloto" }); break; }
@@ -878,4 +894,14 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
 // exponerlo en globalThis es la via.
 globalThis.limpiar_prueba = async () => {
     return await _ejecutar_limpieza();
+};
+
+// Copia la tabla de pasajeros del micro abierto. Mismo
+// mecanismo que el boton del popup, para la consola del
+// SW.
+globalThis.copiar_pasajeros = async () => {
+    const pestana = await _obtener_pestana_piloto();
+    if (!pestana) return { exito: false, error: "No hay una pestana del piloto abierta" };
+    const ctx = _crear_ctx(pestana.id);
+    return await copiar_pasajeros_del_micro(ctx);
 };
