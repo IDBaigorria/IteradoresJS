@@ -298,6 +298,19 @@ disponibles:
 
 **Fetch y datos:**
 - `ctx.pedir_post(url, body)` → {exito, status, texto, json}.
+  Transporte crudo. Preferir `ctx.post_accion` (abajo)
+  para POST a `index.php`.
+- `ctx.post_accion(accion, params, opts)` → igual que
+  `pedir_post`, pero con `url: "index.php"` por defecto
+  e inyectando `nombre_solicitante` (del logueado,
+  cacheado) y `nombre_dueno` (si no viene en `params`).
+  Soporta `opts.sin_solicitante`, `opts.sin_dueno`,
+  `opts.devolver_crudo`, `opts.lanzar_en_error_backend`.
+  Es el que usa el wrapper `_post` de `_helpers.js`.
+- `ctx.dueno_actual()` → lee `usuario_actual.dueno` o
+  `usuario_actual.nombre_usuario`.
+- `ctx.refrescar_solicitante()` → invalida el cache del
+  solicitante y del dueño.
 - `ctx.enviar(tipo, datos)` — mensaje crudo al content script.
 - `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
   archivo por multipart al piloto. `archivo_info` es
@@ -1010,6 +1023,22 @@ por tema.
     la ruta cambió. Es más robusto y sigue validando
     el fix (reemplazo destruye la vieja).
 
+57. **`post_accion` cambia el modo de carga del backend.**
+    Con `ctx.pedir_post` sin `nombre_solicitante`, el
+    backend hacía **carga total** (grafo completo en
+    memoria). Con `ctx.post_accion`, el backend hace
+    **carga parcial** (`us_<sol>`) y no puede navegar
+    `us_<dueño>` si el logueado no es el dueño.
+    Caso real v1.5plugin.7k: la prueba 58
+    (`venta_terminal_arbol_dual`) fallaba con "la venta
+    NO aparece en el árbol del dueño. Total: 0" porque
+    `ventas/listar` con `tipo: "dueno"` se llamaba
+    desde un terminal logueado. Fix: usar
+    `{sin_solicitante: true, sin_dueno: true}` en esos
+    POSTs para forzar carga total. Regla: cualquier
+    POST que navegue por una parte del grafo que NO es
+    del solicitante logueado necesita esos dos flags.
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -1046,6 +1075,40 @@ proyecto.
 ---
 
 ## 9. DISCUSIÓN ACTUAL
+
+**Última actualización de este prompt:** v1.5plugin.7l.
+Cierre de la Fase 2c (migración del plugin a `_post`/`post_accion`).
+
+**Estado al cierre de v1.5plugin.7l:**
+
+- **Fase 2c cerrada.** Las ~50 pruebas y los 3 helpers
+  auxiliares usan `_post` (de `_helpers.js`), que delega
+  en `ctx.post_accion` (del SW). Ninguna prueba usa
+  `ctx.pedir_post` directo.
+- **Cambios del refactor:**
+  - `ctx.post_accion(accion, params, opts)`: inyecta
+    `nombre_solicitante` (con cache) y `nombre_dueno`
+    (si no viene en params). Soporta `sin_solicitante`,
+    `sin_dueno`, `devolver_crudo`, `lanzar_en_error_backend`.
+  - `_post(ctx, accion, params, opts)`: wrapper de
+    `_helpers.js` que devuelve `r.json` pelado y
+    opcionalmente lanza en error de backend.
+  - `ctx.dueno_actual()`, `ctx.refrescar_solicitante()`.
+  - Cache invalidado en `asegurar_login` y `cerrar_sesion`.
+- **Pendientes del plugin:**
+  - **Verificación final:** correr las 65 pruebas
+    completas después del refactor.
+  - **Refactor de la ventana en pestañas por rol.** Idea
+    anotada al cierre de v1.5plugin.7a.
+
+---
+
+### Historial (congelado desde v1.5plugin.6z)
+
+Lo que sigue es histórico. La fuente de verdad sobre
+dónde quedamos es el bloque de estado de arriba. El
+detalle completo de la Fase 2c está en el
+`plan_actual.md` §1.11 del proyecto piloto.
 
 **Última actualización de este prompt:** v1.5plugin.6z.
 Cierre de la línea grafo + plugin + scripts (v6w-v6z).

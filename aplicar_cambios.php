@@ -1,97 +1,153 @@
 <?php
 /**
- * Aplicador — Fase 2c.3.1: fix de ventas/listar en pruebas 58 y 60.
+ * Aplicador — Actualizar prompt_plugin_piloto.md con el cierre
+ * de la Fase 2c.
  *
- * Sintoma: prueba 58 (venta_terminal_arbol_dual) falla con
- * "La venta NO aparece en el arbol del dueno. Total: 0".
- *
- * Causa raiz: post_accion inyecta nombre_solicitante, lo que
- * cambia el modo de carga a parcial (us_<terminal>). El backend
- * intenta navegar us_<dueno> (para listar_ventas_por_dueno) y no
- * esta en memoria. Antes, con pedir_post sin solicitante, la
- * carga era total y el nodo estaba disponible.
- *
- * Fix: pasar {sin_solicitante: true, sin_dueno: true} en los
- * POSTs a ventas/listar de las pruebas 58 y 60 (helper _en_ambos).
- * Asi el body es identico al original y la carga vuelve a ser
- * total. Con comentario explicando por que.
+ * Solo documentacion. No bumpea @version (los .md no lo tienen).
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7k';
-
+$version_nueva = '';
 $htmls_a_bumpear = [];
 
 $cambios = [
 
-    // ============================================================
-    // PRUEBA 58
-    // ============================================================
-
-    // 58.1: ventas/listar dueno
+    // 1. §5: documentar ctx.post_accion, dueno_actual, refrescar_solicitante
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
-        'descripcion' => 'P58: ventas/listar dueno con sin_solicitante+sin_dueno',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt_plugin: §5 documentar post_accion',
         'buscar' => [
-            '        const r_dueno = await ctx.post_accion("ventas/listar", {',
-            '            tipo: "dueno",',
-            '            nombre: nombre_dueno',
-            '        });',
+            '**Fetch y datos:**',
+            '- `ctx.pedir_post(url, body)` → {exito, status, texto, json}.',
+            '- `ctx.enviar(tipo, datos)` — mensaje crudo al content script.',
         ],
         'reemplazar' => [
-            '        // Carga total: el backend navega us_<dueno> (arbol',
-            '        // del dueño). Con carga parcial del terminal eso no',
-            '        // estaria en memoria. Sin solicitante ni dueño.',
-            '        const r_dueno = await ctx.post_accion("ventas/listar", {',
-            '            tipo: "dueno",',
-            '            nombre: nombre_dueno',
-            '        }, { sin_solicitante: true, sin_dueno: true });',
+            '**Fetch y datos:**',
+            '- `ctx.pedir_post(url, body)` → {exito, status, texto, json}.',
+            '  Transporte crudo. Preferir `ctx.post_accion` (abajo)',
+            '  para POST a `index.php`.',
+            '- `ctx.post_accion(accion, params, opts)` → igual que',
+            '  `pedir_post`, pero con `url: "index.php"` por defecto',
+            '  e inyectando `nombre_solicitante` (del logueado,',
+            '  cacheado) y `nombre_dueno` (si no viene en `params`).',
+            '  Soporta `opts.sin_solicitante`, `opts.sin_dueno`,',
+            '  `opts.devolver_crudo`, `opts.lanzar_en_error_backend`.',
+            '  Es el que usa el wrapper `_post` de `_helpers.js`.',
+            '- `ctx.dueno_actual()` → lee `usuario_actual.dueno` o',
+            '  `usuario_actual.nombre_usuario`.',
+            '- `ctx.refrescar_solicitante()` → invalida el cache del',
+            '  solicitante y del dueño.',
+            '- `ctx.enviar(tipo, datos)` — mensaje crudo al content script.',
         ],
     ],
 
-    // 58.2: ventas/listar terminal
+    // 2. §8: lección 57
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
-        'descripcion' => 'P58: ventas/listar terminal con sin_solicitante+sin_dueno',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt_plugin: lección 57',
         'buscar' => [
-            '        const r_term = await ctx.post_accion("ventas/listar", {',
-            '            tipo: "terminal",',
-            '            nombre: nombre_term',
-            '        });',
+            '56. **Los asserts sobre nombres de archivos subidos',
+            '    son frágiles.** El backend puede renombrar los',
+            '    archivos subidos (sanitización, timestamp,',
+            '    colisión). Caso real v6z: la prueba 55 chequeaba',
+            '    que la ruta de la foto contuviera `fotoB_`, pero',
+            '    `vehiculos/subir_foto` guarda con nombre derivado',
+            '    del vehículo + timestamp',
+            '    (`FOTO<patente>_<unix>.png`). Fix: capturar la ruta',
+            '    de la foto A antes de subir la B, y verificar que',
+            '    la ruta cambió. Es más robusto y sigue validando',
+            '    el fix (reemplazo destruye la vieja).',
+            '',
+            '---',
+            '',
+            '## 10. REGLAS DE TRABAJO',
         ],
         'reemplazar' => [
-            '        const r_term = await ctx.post_accion("ventas/listar", {',
-            '            tipo: "terminal",',
-            '            nombre: nombre_term',
-            '        }, { sin_solicitante: true, sin_dueno: true });',
+            '56. **Los asserts sobre nombres de archivos subidos',
+            '    son frágiles.** El backend puede renombrar los',
+            '    archivos subidos (sanitización, timestamp,',
+            '    colisión). Caso real v6z: la prueba 55 chequeaba',
+            '    que la ruta de la foto contuviera `fotoB_`, pero',
+            '    `vehiculos/subir_foto` guarda con nombre derivado',
+            '    del vehículo + timestamp',
+            '    (`FOTO<patente>_<unix>.png`). Fix: capturar la ruta',
+            '    de la foto A antes de subir la B, y verificar que',
+            '    la ruta cambió. Es más robusto y sigue validando',
+            '    el fix (reemplazo destruye la vieja).',
+            '',
+            '57. **`post_accion` cambia el modo de carga del backend.**',
+            '    Con `ctx.pedir_post` sin `nombre_solicitante`, el',
+            '    backend hacía **carga total** (grafo completo en',
+            '    memoria). Con `ctx.post_accion`, el backend hace',
+            '    **carga parcial** (`us_<sol>`) y no puede navegar',
+            '    `us_<dueño>` si el logueado no es el dueño.',
+            '    Caso real v1.5plugin.7k: la prueba 58',
+            '    (`venta_terminal_arbol_dual`) fallaba con "la venta',
+            '    NO aparece en el árbol del dueño. Total: 0" porque',
+            '    `ventas/listar` con `tipo: "dueno"` se llamaba',
+            '    desde un terminal logueado. Fix: usar',
+            '    `{sin_solicitante: true, sin_dueno: true}` en esos',
+            '    POSTs para forzar carga total. Regla: cualquier',
+            '    POST que navegue por una parte del grafo que NO es',
+            '    del solicitante logueado necesita esos dos flags.',
+            '',
+            '---',
+            '',
+            '## 10. REGLAS DE TRABAJO',
         ],
     ],
 
-    // ============================================================
-    // PRUEBA 60
-    // ============================================================
+    // 3. §9: nuevo estado + historial congelado
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_60_cancelar_venta_arbol_dual.js',
-        'descripcion' => 'P60: _en_ambos con sin_solicitante+sin_dueno',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt_plugin: §9 nuevo estado + historial',
         'buscar' => [
-            '    const r_d = await ctx.post_accion("ventas/listar", { tipo: "dueno", nombre: nombre_dueno });',
-            '    const r_t = await ctx.post_accion("ventas/listar", { tipo: "terminal", nombre: nombre_term });',
+            '**Última actualización de este prompt:** v1.5plugin.6z.',
+            'Cierre de la línea grafo + plugin + scripts (v6w-v6z).',
         ],
         'reemplazar' => [
-            '    // Sin solicitante ni dueño: el backend necesita carga total',
-            '    // para navegar us_<dueno> (arbol del dueño).',
-            '    const r_d = await ctx.post_accion("ventas/listar",',
-            '        { tipo: "dueno", nombre: nombre_dueno },',
-            '        { sin_solicitante: true, sin_dueno: true });',
-            '    const r_t = await ctx.post_accion("ventas/listar",',
-            '        { tipo: "terminal", nombre: nombre_term },',
-            '        { sin_solicitante: true, sin_dueno: true });',
+            '**Última actualización de este prompt:** v1.5plugin.7l.',
+            'Cierre de la Fase 2c (migración del plugin a `_post`/`post_accion`).',
+            '',
+            '**Estado al cierre de v1.5plugin.7l:**',
+            '',
+            '- **Fase 2c cerrada.** Las ~50 pruebas y los 3 helpers',
+            '  auxiliares usan `_post` (de `_helpers.js`), que delega',
+            '  en `ctx.post_accion` (del SW). Ninguna prueba usa',
+            '  `ctx.pedir_post` directo.',
+            '- **Cambios del refactor:**',
+            '  - `ctx.post_accion(accion, params, opts)`: inyecta',
+            '    `nombre_solicitante` (con cache) y `nombre_dueno`',
+            '    (si no viene en params). Soporta `sin_solicitante`,',
+            '    `sin_dueno`, `devolver_crudo`, `lanzar_en_error_backend`.',
+            '  - `_post(ctx, accion, params, opts)`: wrapper de',
+            '    `_helpers.js` que devuelve `r.json` pelado y',
+            '    opcionalmente lanza en error de backend.',
+            '  - `ctx.dueno_actual()`, `ctx.refrescar_solicitante()`.',
+            '  - Cache invalidado en `asegurar_login` y `cerrar_sesion`.',
+            '- **Pendientes del plugin:**',
+            '  - **Verificación final:** correr las 65 pruebas',
+            '    completas después del refactor.',
+            '  - **Refactor de la ventana en pestañas por rol.** Idea',
+            '    anotada al cierre de v1.5plugin.7a.',
+            '',
+            '---',
+            '',
+            '### Historial (congelado desde v1.5plugin.6z)',
+            '',
+            'Lo que sigue es histórico. La fuente de verdad sobre',
+            'dónde quedamos es el bloque de estado de arriba. El',
+            'detalle completo de la Fase 2c está en el',
+            '`plan_actual.md` §1.11 del proyecto piloto.',
+            '',
+            '**Última actualización de este prompt:** v1.5plugin.6z.',
+            'Cierre de la línea grafo + plugin + scripts (v6w-v6z).',
         ],
     ],
 
@@ -170,42 +226,6 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     exit(1);
 }
 
-$archivos_bump_php_js = [];
-foreach ($archivos_a_escribir as $ruta_abs => $info) {
-    $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
-    $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
-    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
-}
-
-$bumps_atversion = 0;
-$bumps_detalle = [];
-$info_bumps = [];
-
-if ($bumpear) {
-    foreach (array_unique($archivos_bump_php_js) as $archivo_rel) {
-        $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
-        if (!file_exists($ruta_abs)) continue;
-        if (isset($archivos_a_escribir[$ruta_abs])) {
-            list($contenido, $eol) = $archivos_a_escribir[$ruta_abs];
-        } else {
-            $contenido_original = file_get_contents($ruta_abs);
-            $eol = detectar_eol($contenido_original);
-            $contenido = normalizar_a_unix($contenido_original);
-        }
-        $patron = '/(\*\s+@version\s+)(\S+)/';
-        $viejo = '';
-        $nuevo = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo) {
-            $viejo = $m[2];
-            return $m[1] . $version_nueva;
-        }, $contenido, 1, $count);
-        if ($count === 0) { $info_bumps[] = "$archivo_rel (sin @version)"; continue; }
-        if ($viejo === $version_nueva) { continue; }
-        $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
-        $bumps_atversion++;
-        $bumps_detalle[] = "$archivo_rel  @version $viejo -> $version_nueva";
-    }
-}
-
 $archivos_escritos = 0;
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     list($contenido_unix, $eol) = $info;
@@ -218,16 +238,9 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
-if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
-    echo "\n--- Bumps ---\n";
-    foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
-    foreach ($info_bumps as $i) echo "[INFO] $i\n";
-}
-
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
-if ($bumpear) echo "Bumps @version:    $bumps_atversion\n";
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";
