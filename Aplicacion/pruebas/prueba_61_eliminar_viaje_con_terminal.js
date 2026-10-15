@@ -2,7 +2,7 @@
  * Prueba: eliminar un viaje con terminal autorizado lo
  * quita del compartido del terminal.
  *
- * @version 1.5plugin.6g
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_DUENO, CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -30,8 +30,7 @@ export const prueba = {
             ctx.assert(antes,
                 "Después de autorizar: el terminal NO ve el viaje en su listado.");
 
-            const r_elim = await ctx.pedir_post("index.php", {
-                accion: "viajes/eliminar",
+            const r_elim = await ctx.post_accion("viajes/eliminar", {
                 nombre_dueno: nombre_dueno,
                 nombre_viaje: nombre_viaje
             });

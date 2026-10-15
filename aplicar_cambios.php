@@ -1,246 +1,251 @@
 <?php
 /**
- * Aplicador — Fase 2c.2b: migracion de pruebas 53, 54, 55 a
- * ctx.post_accion.
+ * Aplicador — Fase 2c.3 (cierre): migracion de pruebas 57, 58,
+ * 60, 61, 63, 64, 65 a ctx.post_accion.
  *
- * Misma tecnica que 2c.2a. Casos especiales:
- *   - prueba_54: los POST a autenticar/verificar van con
- *     sin_solicitante: true (no hay sesion). Los de grafo y
- *     administrador van con solicitante admin.
- *   - prueba_55: usa ctx.subir_archivo (que NO pasa por
- *     post_accion, no se toca). Los 3 pedir_post con
- *     solicitante admin si se migran.
+ * Ultima tanda de la Fase 2c. En todas, el logueado al momento
+ * del POST es el usuario apropiado para `nombre_solicitante`
+ * (terminal cuando opera el terminal, dueno cuando opera el
+ * dueno, admin cuando opera el admin). No hace falta
+ * sin_solicitante: true.
+ *
+ * Casos con cambio de sesion (57): los `ctx.nombre_usuario_actual()`
+ * previos al cambio de login NO se tocan.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7g';
+$version_nueva = '1.5plugin.7j';
 
 $htmls_a_bumpear = [];
 
 $cambios = [
 
     // ============================================================
-    // PRUEBA 53
+    // PRUEBA 57
     // ============================================================
-
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_53_dj_pasajero_eliminar.js',
-        'descripcion' => 'P53: pasajeros/eliminar_declaracion con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_57_enlace_dueno_apunta_al_compartido.js',
+        'descripcion' => 'P57: grafo/nodo con post_accion',
         'buscar' => [
-            '        const rElim = await ctx.pedir_post("index.php", {',
-            '            accion: "pasajeros/eliminar_declaracion",',
+            '        const r_nodo = await ctx.pedir_post("index.php", {',
+            '            accion: "grafo/nodo",',
             '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            dni',
+            '            id: "us_" + nombre_term',
             '        });',
         ],
         'reemplazar' => [
-            '        const rElim = await ctx.post_accion("pasajeros/eliminar_declaracion", {',
-            '            nombre_dueno,',
-            '            dni',
+            '        const r_nodo = await ctx.post_accion("grafo/nodo", {',
+            '            id: "us_" + nombre_term',
             '        });',
         ],
     ],
 
     // ============================================================
-    // PRUEBA 54
+    // PRUEBA 58
     // ============================================================
 
-    // 54.1: _contar_huerfanos_credenciales
+    // 58.1: usuarios/mi_perfil
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
-        'descripcion' => 'P54: _contar_huerfanos_credenciales con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
+        'descripcion' => 'P58: usuarios/mi_perfil con post_accion',
         'buscar' => [
-            'async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen_credenciales",',
-            '        nombre_solicitante',
+            '        const r_perfil = await ctx.pedir_post("index.php", {',
+            '            accion: "usuarios/mi_perfil",',
+            '            nombre_solicitante: nombre_term',
+            '        });',
+        ],
+        'reemplazar' => [
+            '        const r_perfil = await ctx.post_accion("usuarios/mi_perfil", {});',
+        ],
+    ],
+
+    // 58.2: ventas/listar (dueno)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
+        'descripcion' => 'P58: ventas/listar dueno con post_accion',
+        'buscar' => [
+            '        const r_dueno = await ctx.pedir_post("index.php", {',
+            '            accion: "ventas/listar",',
+            '            tipo: "dueno",',
+            '            nombre: nombre_dueno',
+            '        });',
+        ],
+        'reemplazar' => [
+            '        const r_dueno = await ctx.post_accion("ventas/listar", {',
+            '            tipo: "dueno",',
+            '            nombre: nombre_dueno',
+            '        });',
+        ],
+    ],
+
+    // 58.3: ventas/listar (terminal)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_58_venta_terminal_arbol_dual.js',
+        'descripcion' => 'P58: ventas/listar terminal con post_accion',
+        'buscar' => [
+            '        const r_term = await ctx.pedir_post("index.php", {',
+            '            accion: "ventas/listar",',
+            '            tipo: "terminal",',
+            '            nombre: nombre_term',
+            '        });',
+        ],
+        'reemplazar' => [
+            '        const r_term = await ctx.post_accion("ventas/listar", {',
+            '            tipo: "terminal",',
+            '            nombre: nombre_term',
+            '        });',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 60
+    // ============================================================
+
+    // 60.1: helper _en_ambos (2 POSTs)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_60_cancelar_venta_arbol_dual.js',
+        'descripcion' => 'P60: _en_ambos con post_accion',
+        'buscar' => [
+            '    const r_d = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/listar", tipo: "dueno", nombre: nombre_dueno',
+            '    });',
+            '    const r_t = await ctx.pedir_post("index.php", {',
+            '        accion: "ventas/listar", tipo: "terminal", nombre: nombre_term',
             '    });',
         ],
         'reemplazar' => [
-            'async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("grafo/resumen_credenciales", {});',
+            '    const r_d = await ctx.post_accion("ventas/listar", { tipo: "dueno", nombre: nombre_dueno });',
+            '    const r_t = await ctx.post_accion("ventas/listar", { tipo: "terminal", nombre: nombre_term });',
         ],
     ],
 
-    // 54.2: administrador/agregar_usuario
+    // 60.2: usuarios/mi_perfil
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
-        'descripcion' => 'P54: administrador/agregar_usuario con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_60_cancelar_venta_arbol_dual.js',
+        'descripcion' => 'P60: usuarios/mi_perfil con post_accion',
         'buscar' => [
-            '            const r_crear = await ctx.pedir_post("index.php", {',
-            '                accion: "administrador/agregar_usuario",',
-            '                nombre_solicitante: nombre_admin,',
+            '        const r_perfil = await ctx.pedir_post("index.php", {',
+            '            accion: "usuarios/mi_perfil",',
+            '            nombre_solicitante: nombre_term',
+            '        });',
         ],
         'reemplazar' => [
-            '            const r_crear = await ctx.post_accion("administrador/agregar_usuario", {',
+            '        const r_perfil = await ctx.post_accion("usuarios/mi_perfil", {});',
         ],
     ],
 
-    // 54.3: primer autenticar/verificar (intentos fallidos)
+    // ============================================================
+    // PRUEBA 61
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
-        'descripcion' => 'P54: intentos fallidos con post_accion sin_solicitante',
+        'archivo' => 'Aplicacion/pruebas/prueba_61_eliminar_viaje_con_terminal.js',
+        'descripcion' => 'P61: viajes/eliminar con post_accion',
         'buscar' => [
+            '            const r_elim = await ctx.pedir_post("index.php", {',
+            '                accion: "viajes/eliminar",',
+            '                nombre_dueno: nombre_dueno,',
+            '                nombre_viaje: nombre_viaje',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const r_elim = await ctx.post_accion("viajes/eliminar", {',
+            '                nombre_dueno: nombre_dueno,',
+            '                nombre_viaje: nombre_viaje',
+            '            });',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 63
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_63_desautorizar_terminal_compartido.js',
+        'descripcion' => 'P63: viajes/listar_por_dueno con post_accion',
+        'buscar' => [
+            '            const r_dueno = await ctx.pedir_post("index.php", {',
+            '                accion: "viajes/listar_por_dueno",',
+            '                nombre_dueno: nombre_dueno',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const r_dueno = await ctx.post_accion("viajes/listar_por_dueno", {',
+            '                nombre_dueno: nombre_dueno',
+            '            });',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 64
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_64_agregar_micro_empresa_compartido.js',
+        'descripcion' => 'P64: viajes/agregar_micro con post_accion',
+        'buscar' => [
+            '            const r_micro = await ctx.pedir_post("index.php", {',
+            '                accion: "viajes/agregar_micro",',
+            '                nombre_dueno: nombre_dueno,',
+            '                nombre_viaje: nombre_viaje,',
+            '                nombre_empresa: empresa.nombre_empresa,',
+            '                nombre_vehiculo: empresa.nombre_vehiculo,',
+            '                monto: "100"',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const r_micro = await ctx.post_accion("viajes/agregar_micro", {',
+            '                nombre_dueno: nombre_dueno,',
+            '                nombre_viaje: nombre_viaje,',
+            '                nombre_empresa: empresa.nombre_empresa,',
+            '                nombre_vehiculo: empresa.nombre_vehiculo,',
+            '                monto: "100"',
+            '            });',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 65
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_65_cambiar_asiento_desde_clientes.js',
+        'descripcion' => 'P65: ventas/obtener con post_accion',
+        'buscar' => [
+            '            const r_nombre = await ctx.nombre_usuario_actual();',
+            '            const nombre_term = r_nombre && r_nombre.nombre_usuario;',
+            '',
+            '            // Pausa inicial para dejar que el backend se estabilice.',
+            '            await ctx.pausa(2000);',
+            '',
+            '            let asientos = [];',
+            '            let ultimo_json = null;',
+            '            const MAX_INTENTOS = 5;',
+            '            for (let intento = 0; intento < MAX_INTENTOS; intento++) {',
             '                const r = await ctx.pedir_post("index.php", {',
-            '                    accion: "autenticar/verificar",',
-            '                    usuario: nombre_prueba,',
-            '                    contrasena: "mala_" + i + "_" + sufijo',
+            '                    accion: "ventas/obtener",',
+            '                    id_venta,',
+            '                    nombre_solicitante: nombre_term',
             '                });',
         ],
         'reemplazar' => [
-            '                const r = await ctx.post_accion("autenticar/verificar", {',
-            '                    usuario: nombre_prueba,',
-            '                    contrasena: "mala_" + i + "_" + sufijo',
-            '                }, { sin_solicitante: true });',
-        ],
-    ],
-
-    // 54.4: autenticar/verificar (bloqueado)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
-        'descripcion' => 'P54: intento bloqueado con post_accion sin_solicitante',
-        'buscar' => [
-            '            const r_bloqueado = await ctx.pedir_post("index.php", {',
-            '                accion: "autenticar/verificar",',
-            '                usuario: nombre_prueba,',
-            '                contrasena: contrasena_correcta',
-            '            });',
-        ],
-        'reemplazar' => [
-            '            const r_bloqueado = await ctx.post_accion("autenticar/verificar", {',
-            '                usuario: nombre_prueba,',
-            '                contrasena: contrasena_correcta',
-            '            }, { sin_solicitante: true });',
-        ],
-    ],
-
-    // 54.5: autenticar/verificar (login exitoso)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
-        'descripcion' => 'P54: login exitoso con post_accion sin_solicitante',
-        'buscar' => [
-            '            const r_ok = await ctx.pedir_post("index.php", {',
-            '                accion: "autenticar/verificar",',
-            '                usuario: nombre_prueba,',
-            '                contrasena: contrasena_correcta',
-            '            });',
-        ],
-        'reemplazar' => [
-            '            const r_ok = await ctx.post_accion("autenticar/verificar", {',
-            '                usuario: nombre_prueba,',
-            '                contrasena: contrasena_correcta',
-            '            }, { sin_solicitante: true });',
-        ],
-    ],
-
-    // 54.6: administrador/eliminar_usuario (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
-        'descripcion' => 'P54: administrador/eliminar_usuario con post_accion',
-        'buscar' => [
-            '                await ctx.pedir_post("index.php", {',
-            '                    accion: "administrador/eliminar_usuario",',
-            '                    nombre_solicitante: nombre_admin,',
-            '                    nombre_usuario: nombre_prueba',
-            '                });',
-        ],
-        'reemplazar' => [
-            '                await ctx.post_accion("administrador/eliminar_usuario", {',
-            '                    nombre_usuario: nombre_prueba',
-            '                });',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 55
-    // ============================================================
-
-    // 55.1: _contar_huerfanos
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: _contar_huerfanos con post_accion',
-        'buscar' => [
-            'async function _contar_huerfanos(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _contar_huerfanos(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("grafo/resumen", {});',
-        ],
-    ],
-
-    // 55.2: empresas/agregar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: empresas/agregar con post_accion',
-        'buscar' => [
-            '        const r_emp = await ctx.pedir_post("index.php", {',
-            '            accion: "empresas/agregar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const r_emp = await ctx.post_accion("empresas/agregar", {',
-        ],
-    ],
-
-    // 55.3: vehiculos/agregar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: vehiculos/agregar con post_accion',
-        'buscar' => [
-            '            const r_veh = await ctx.pedir_post("index.php", {',
-            '                accion: "vehiculos/agregar",',
-            '                nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '            const r_veh = await ctx.post_accion("vehiculos/agregar", {',
-        ],
-    ],
-
-    // 55.4: primer vehiculos/listar (foto A)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: primer vehiculos/listar con post_accion',
-        'buscar' => [
-            '            const r_listar_a = await ctx.pedir_post("index.php", {',
-            '                accion: "vehiculos/listar",',
-            '                nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '            const r_listar_a = await ctx.post_accion("vehiculos/listar", {',
-        ],
-    ],
-
-    // 55.5: segundo vehiculos/listar (foto B)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
-        'descripcion' => 'P55: segundo vehiculos/listar con post_accion',
-        'buscar' => [
-            '            const r_listar = await ctx.pedir_post("index.php", {',
-            '                accion: "vehiculos/listar",',
-            '                nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '            const r_listar = await ctx.post_accion("vehiculos/listar", {',
+            '            // Pausa inicial para dejar que el backend se estabilice.',
+            '            await ctx.pausa(2000);',
+            '',
+            '            let asientos = [];',
+            '            let ultimo_json = null;',
+            '            const MAX_INTENTOS = 5;',
+            '            for (let intento = 0; intento < MAX_INTENTOS; intento++) {',
+            '                const r = await ctx.post_accion("ventas/obtener", { id_venta });',
         ],
     ],
 
@@ -283,8 +288,6 @@ foreach ($cambios as $cambio) {
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
 
-$total_reemplazos = 0;
-foreach ($reemplazos_por_archivo as $l) $total_reemplazos += count($l);
 echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar, "
     . count($creaciones) . " a crear, " . count($eliminaciones) . " a eliminar.\n\n";
 

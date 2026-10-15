@@ -2,7 +2,7 @@
  * Prueba: desautorizar una terminal en un viaje la saca
  * de su compartido.
  *
- * @version 1.5plugin.6g
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_DUENO, CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -37,8 +37,7 @@ export const prueba = {
                 "Después de desautorizar: el terminal TODAVÍA ve el viaje. "
                 + "El fix v77q de eliminar_terminal_autorizada no está funcionando.");
 
-            const r_dueno = await ctx.pedir_post("index.php", {
-                accion: "viajes/listar_por_dueno",
+            const r_dueno = await ctx.post_accion("viajes/listar_por_dueno", {
                 nombre_dueno: nombre_dueno
             });
             const viajes_dueno = (r_dueno && r_dueno.json && r_dueno.json.viajes) || [];

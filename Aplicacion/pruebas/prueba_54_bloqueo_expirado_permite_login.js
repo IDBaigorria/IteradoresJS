@@ -3,7 +3,7 @@
  *
  * Verifica el rate limiting de autenticación con el tiempo
  * de bloqueo conmutable (ConfiguracionApli::
- * bloqueo_autenticacion_segundos() = 2s en modo pruebas).
+ * bloqueo_autenticacion_segundos() = 10s en modo pruebas).
  *
  * Flujo:
  *   1. Crear un usuario de prueba con contraseña conocida.
@@ -18,7 +18,7 @@
  * app. La verificación de que la hoja se destruye queda
  * pendiente (requiere endpoint de credenciales).
  *
- * @version 1.5plugin.7g
+ * @version 1.5plugin.7i
  * @since 1.5plugin.5u
  */
 
@@ -37,7 +37,7 @@ async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {
 export const prueba = {
     id: "bloqueo_expirado_permite_login",
     nombre: "Autenticación: bloqueo expira y permite login",
-    descripcion: "Verifica que tras N intentos fallidos el usuario queda bloqueado, y que tras el tiempo de bloqueo (2s en modo pruebas) puede loguearse de nuevo.",
+    descripcion: "Verifica que tras N intentos fallidos el usuario queda bloqueado, y que tras el tiempo de bloqueo (10s en modo pruebas) puede loguearse de nuevo.",
     async ejecutar(ctx) {
         await ctx.asegurar_login(CODIGO_ADMIN);
         await cerrar_modales_si_abiertos(ctx);
@@ -84,7 +84,7 @@ export const prueba = {
                 const r = await ctx.post_accion("autenticar/verificar", {
                     usuario: nombre_prueba,
                     contrasena: "mala_" + i + "_" + sufijo
-                }, { sin_solicitante: true });
+                }, { sin_solicitante: true, sin_dueno: true });
                 ctx.assert(r && r.exito && r.json && r.json.exito === false,
                     "El intento fallido " + (i + 1) + " no devolvió error.");
             }
@@ -97,18 +97,18 @@ export const prueba = {
             const r_bloqueado = await ctx.post_accion("autenticar/verificar", {
                 usuario: nombre_prueba,
                 contrasena: contrasena_correcta
-            }, { sin_solicitante: true });
+            }, { sin_solicitante: true, sin_dueno: true });
             ctx.assert(r_bloqueado && r_bloqueado.exito && r_bloqueado.json && r_bloqueado.json.exito === false,
                 "El usuario bloqueado pudo loguearse: el rate limiting no funciona.");
 
-            // 4. Esperar a que expire el bloqueo (2s + margen).
-            await ctx.pausa(3000);
+            // 4. Esperar a que expire el bloqueo (10s + margen).
+            await ctx.pausa(11000);
 
             // 5. Ahora sí, el login correcto debe pasar.
             const r_ok = await ctx.post_accion("autenticar/verificar", {
                 usuario: nombre_prueba,
                 contrasena: contrasena_correcta
-            }, { sin_solicitante: true });
+            }, { sin_solicitante: true, sin_dueno: true });
             ctx.assert(r_ok && r_ok.exito && r_ok.json && r_ok.json.exito === true,
                 "El login falló tras esperar el bloqueo: "
                 + (r_ok && r_ok.json && r_ok.json.error ? r_ok.json.error : "(sin detalle)"));

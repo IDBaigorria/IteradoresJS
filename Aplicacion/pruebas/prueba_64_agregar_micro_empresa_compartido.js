@@ -3,7 +3,7 @@
  * propaga la empresa del micro al `empresas` del
  * compartido del terminal.
  *
- * @version 1.5plugin.6h
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_DUENO, CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -48,8 +48,7 @@ export const prueba = {
             }
 
             // 4. Agregar micro con la empresa elegida.
-            const r_micro = await ctx.pedir_post("index.php", {
-                accion: "viajes/agregar_micro",
+            const r_micro = await ctx.post_accion("viajes/agregar_micro", {
                 nombre_dueno: nombre_dueno,
                 nombre_viaje: nombre_viaje,
                 nombre_empresa: empresa.nombre_empresa,

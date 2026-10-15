@@ -16,7 +16,7 @@
  * después login admin (porque `grafo/nodo` exige nivel
  * admin/soporte) para consultar el grafo.
  *
- * @version 1.5plugin.5y
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -45,9 +45,7 @@ export const prueba = {
         const nombre_admin = r_nombre_admin.nombre_usuario;
 
         // 3. Consultar el nodo del terminal.
-        const r_nodo = await ctx.pedir_post("index.php", {
-            accion: "grafo/nodo",
-            nombre_solicitante: nombre_admin,
+        const r_nodo = await ctx.post_accion("grafo/nodo", {
             id: "us_" + nombre_term
         });
         if (!r_nodo || !r_nodo.exito) {

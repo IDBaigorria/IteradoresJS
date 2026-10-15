@@ -17,7 +17,7 @@
  * Si la venta aparece en los dos listados, está en los dos
  * árboles.
  *
- * @version 1.5plugin.6a
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -70,10 +70,7 @@ export const prueba = {
         }
         const nombre_term = r_nombre_term.nombre_usuario;
 
-        const r_perfil = await ctx.pedir_post("index.php", {
-            accion: "usuarios/mi_perfil",
-            nombre_solicitante: nombre_term
-        });
+        const r_perfil = await ctx.post_accion("usuarios/mi_perfil", {});
         if (!r_perfil || !r_perfil.json || !r_perfil.json.exito || !r_perfil.json.perfil) {
             throw new Error("No se pudo leer el perfil del terminal: "
                 + JSON.stringify(r_perfil && r_perfil.json ? r_perfil.json : r_perfil));
@@ -85,8 +82,7 @@ export const prueba = {
         // 3. Verificar que la venta esté en el árbol del DUEÑO.
         // `ventas/listar` con tipo=dueno recorre privado/ventas
         // (hmi/hd/p) desde la raíz `usuarios`.
-        const r_dueno = await ctx.pedir_post("index.php", {
-            accion: "ventas/listar",
+        const r_dueno = await ctx.post_accion("ventas/listar", {
             tipo: "dueno",
             nombre: nombre_dueno
         });
@@ -105,8 +101,7 @@ export const prueba = {
         // del terminal. `ventas/listar` con tipo=terminal navega
         // por `_contexto_terminal`, que después del repuntado es
         // el compartido, y recorre su árbol con hmi_<term>/hd_<term>/p_<term>.
-        const r_term = await ctx.pedir_post("index.php", {
-            accion: "ventas/listar",
+        const r_term = await ctx.post_accion("ventas/listar", {
             tipo: "terminal",
             nombre: nombre_term
         });

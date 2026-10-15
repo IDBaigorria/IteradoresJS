@@ -9,7 +9,7 @@
  * `on_exito` re-abre el modal del detalle con el asiento
  * nuevo (antes quedaba con el viejo).
  *
- * @version 1.5plugin.6l
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -204,9 +204,6 @@ export const prueba = {
             //     El POST cambiar_asiento puede tardar en verse
             //     reflejado por otros fetches del page (on_exito,
             //     polling del croquis). Se reintenta con backoff.
-            const r_nombre = await ctx.nombre_usuario_actual();
-            const nombre_term = r_nombre && r_nombre.nombre_usuario;
-
             // Pausa inicial para dejar que el backend se estabilice.
             await ctx.pausa(2000);
 
@@ -214,11 +211,7 @@ export const prueba = {
             let ultimo_json = null;
             const MAX_INTENTOS = 5;
             for (let intento = 0; intento < MAX_INTENTOS; intento++) {
-                const r = await ctx.pedir_post("index.php", {
-                    accion: "ventas/obtener",
-                    id_venta,
-                    nombre_solicitante: nombre_term
-                });
+                const r = await ctx.post_accion("ventas/obtener", { id_venta });
                 if (r && r.json && r.json.exito) {
                     ultimo_json = r.json;
                     asientos = r.json.venta.asientos || [];

@@ -4,7 +4,7 @@
  *
  * Simétrica de la prueba 58 (`venta_terminal_arbol_dual`).
  *
- * @version 1.5plugin.6g
+ * @version 1.5plugin.7j
  */
 
 import { CODIGO_TERMINAL1 } from "../ConfiguracionApli.js";
@@ -26,12 +26,8 @@ import {
 } from "./_helpers.js";
 
 async function _en_ambos(ctx, id_venta, nombre_dueno, nombre_term) {
-    const r_d = await ctx.pedir_post("index.php", {
-        accion: "ventas/listar", tipo: "dueno", nombre: nombre_dueno
-    });
-    const r_t = await ctx.pedir_post("index.php", {
-        accion: "ventas/listar", tipo: "terminal", nombre: nombre_term
-    });
+    const r_d = await ctx.post_accion("ventas/listar", { tipo: "dueno", nombre: nombre_dueno });
+    const r_t = await ctx.post_accion("ventas/listar", { tipo: "terminal", nombre: nombre_term });
     const v_d = (r_d && r_d.json && r_d.json.ventas) || [];
     const v_t = (r_t && r_t.json && r_t.json.ventas) || [];
     return {
@@ -68,10 +64,7 @@ export const prueba = {
         }
         const nombre_term = r_nombre_term.nombre_usuario;
 
-        const r_perfil = await ctx.pedir_post("index.php", {
-            accion: "usuarios/mi_perfil",
-            nombre_solicitante: nombre_term
-        });
+        const r_perfil = await ctx.post_accion("usuarios/mi_perfil", {});
         if (!r_perfil || !r_perfil.json || !r_perfil.json.exito) {
             throw new Error("No se pudo leer el perfil del terminal");
         }
