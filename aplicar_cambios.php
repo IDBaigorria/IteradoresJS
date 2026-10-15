@@ -1,144 +1,82 @@
 <?php
 /**
- * Aplicador — Ajuste de layout de la ventana del plugin.
+ * Aplicador — Pestanas apiladas en dos filas.
  *
- * 1. Ancho: min-width 600px -> 720px.
- * 2. Botones globales (Limpiar, Copiar) en paralelo horizontal.
- *
- * Los IDs de los elementos de estado y salida (limpieza_estado,
- * copiar_estado, limpieza_log, copiar_pre, copiar_textarea) no
- * cambian, asi que ventana.js sigue funcionando igual.
+ * El contenedor #tabs pasa de scroll horizontal a flex-wrap.
+ * Las pestanas se rediseñan como botones tipo pill (fondo,
+ * borde, activo resaltado) para que queden bien al apilarse.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7t';
+$version_nueva = '1.5plugin.7u';
 $htmls_a_bumpear = [];
 
 $cambios = [
 
-    // 1. Ancho de la ventana.
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ventana.html',
-        'descripcion' => 'ventana.html: ancho 720px',
+        'descripcion' => 'ventana.html: tabs con flex-wrap en pill',
         'buscar' => [
-            '    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 600px; }',
-        ],
-        'reemplazar' => [
-            '    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 720px; }',
-        ],
-    ],
-
-    // 2. CSS: reemplazar .limpieza-header por .acciones-globales.
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.html',
-        'descripcion' => 'ventana.html: CSS unificado de acciones globales',
-        'buscar' => [
-            '    /* Limpieza de datos de prueba */',
-            '    .limpieza-header {',
+            '    /* Pestanas */',
+            '    #tabs {',
             '      display: flex;',
-            '      justify-content: space-between;',
-            '      align-items: center;',
-            '      padding: 8px 10px;',
-            '      margin-bottom: 8px;',
-            '      background: #f8f9fa;',
-            '      border: 1px solid #e0e0e0;',
-            '      border-radius: 6px;',
-            '    }',
-            '    .limpieza-header button {',
-            '      font-size: 12px;',
-            '      padding: 4px 12px;',
-            '    }',
-        ],
-        'reemplazar' => [
-            '    /* Acciones globales (limpiar y copiar), en paralelo */',
-            '    .acciones-globales {',
-            '      display: flex;',
-            '      gap: 20px;',
-            '      align-items: center;',
-            '      padding: 8px 10px;',
+            '      overflow-x: auto;',
+            '      border-bottom: 1px solid #ddd;',
             '      margin-bottom: 12px;',
-            '      background: #f8f9fa;',
-            '      border: 1px solid #e0e0e0;',
-            '      border-radius: 6px;',
+            '      gap: 2px;',
             '    }',
-            '    .accion-item {',
-            '      display: flex;',
-            '      align-items: center;',
-            '      gap: 8px;',
-            '    }',
-            '    .accion-item button {',
+            '    #tabs button {',
+            '      background: none;',
+            '      border: none;',
+            '      border-bottom: 2px solid transparent;',
+            '      padding: 6px 10px;',
             '      font-size: 12px;',
-            '      padding: 4px 12px;',
+            '      color: #555;',
+            '      cursor: pointer;',
+            '      white-space: nowrap;',
+            '      font-family: inherit;',
+            '    }',
+            '    #tabs button.active {',
+            '      color: #1a73e8;',
+            '      font-weight: 700;',
+            '      border-bottom-color: #1a73e8;',
+            '    }',
+            '    #tabs button:hover:not(.active) {',
+            '      background: #f1f1f1;',
             '    }',
         ],
-    ],
-
-    // 3. CSS: eliminar .copiar-header.
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.html',
-        'descripcion' => 'ventana.html: quitar CSS de .copiar-header',
-        'buscar' => [
-            '    /* Copiar tabla de pasajeros */',
-            '    .copiar-header {',
+        'reemplazar' => [
+            '    /* Pestanas (se apilan en varias filas si no entran) */',
+            '    #tabs {',
             '      display: flex;',
-            '      justify-content: space-between;',
-            '      align-items: center;',
-            '      padding: 8px 10px;',
+            '      flex-wrap: wrap;',
+            '      gap: 4px;',
             '      margin-bottom: 12px;',
-            '      background: #f8f9fa;',
-            '      border: 1px solid #e0e0e0;',
-            '      border-radius: 6px;',
             '    }',
-            '    .copiar-header button {',
+            '    #tabs button {',
+            '      background: #f1f1f1;',
+            '      border: 1px solid #ddd;',
+            '      border-radius: 4px;',
+            '      padding: 5px 10px;',
             '      font-size: 12px;',
-            '      padding: 4px 12px;',
+            '      color: #555;',
+            '      cursor: pointer;',
+            '      white-space: nowrap;',
+            '      font-family: inherit;',
             '    }',
-            '    #copiar_estado {',
-        ],
-        'reemplazar' => [
-            '    #copiar_estado {',
-        ],
-    ],
-
-    // 4. HTML: unificar los dos bloques en uno.
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.html',
-        'descripcion' => 'ventana.html: botones globales en paralelo',
-        'buscar' => [
-            '  <div class="limpieza-header">',
-            '    <button id="btn_limpiar_datos_prueba">Limpiar datos de prueba</button>',
-            '    <span id="limpieza_estado"></span>',
-            '  </div>',
-            '  <pre id="limpieza_log" style="display:none"></pre>',
-            '',
-            '  <div class="copiar-header">',
-            '    <button id="btn_copiar_pasajeros">Copiar tabla de pasajeros</button>',
-            '    <span id="copiar_estado"></span>',
-            '  </div>',
-            '  <pre id="copiar_pre" style="display:none"></pre>',
-            '  <textarea id="copiar_textarea" style="display:none" readonly></textarea>',
-        ],
-        'reemplazar' => [
-            '  <div class="acciones-globales">',
-            '    <div class="accion-item">',
-            '      <button id="btn_limpiar_datos_prueba">Limpiar datos de prueba</button>',
-            '      <span id="limpieza_estado"></span>',
-            '    </div>',
-            '    <div class="accion-item">',
-            '      <button id="btn_copiar_pasajeros">Copiar tabla de pasajeros</button>',
-            '      <span id="copiar_estado"></span>',
-            '    </div>',
-            '  </div>',
-            '  <pre id="limpieza_log" style="display:none"></pre>',
-            '  <pre id="copiar_pre" style="display:none"></pre>',
-            '  <textarea id="copiar_textarea" style="display:none" readonly></textarea>',
+            '    #tabs button.active {',
+            '      background: #1a73e8;',
+            '      color: #fff;',
+            '      font-weight: 700;',
+            '      border-color: #1a73e8;',
+            '    }',
+            '    #tabs button:hover:not(.active) {',
+            '      background: #e0e0e0;',
+            '    }',
         ],
     ],
 
