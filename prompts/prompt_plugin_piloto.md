@@ -315,14 +315,27 @@ disponibles:
 
 **Utilidades del plugin (no del ctx):**
 - `Aplicacion/LimpiezaPrueba.js`: módulo con
-  `limpiar_datos_de_prueba(ctx, al_progreso)`. Itera
-  dueños, llama los 6 endpoints por dueño + el global
-  de usuarios. Chequea modo pruebas + admin antes de
-  empezar. Devuelve `{exito, duenos, res_ini, res_fin,
-  totales}`.
+  `limpiar_datos_de_prueba(ctx, al_progreso, opciones)`.
+  Limpia los datos de prueba del piloto. Acepta
+  `opciones.categorias` (array de strings) para
+  limpiar solo un subconjunto: `ventas`,
+  `cancelaciones`, `viajes`, `pasajeros`, `empresas`,
+  `terminales`, `usuarios`, `huerfanos`. Sin
+  categorías, limpia todo (comportamiento original).
+  Chequea modo pruebas + admin antes de empezar.
+  Devuelve `{exito, categorias, duenos, res_ini,
+  res_fin, totales}`.
+- `Aplicacion/CopiarPasajeros.js`: módulo con
+  `copiar_pasajeros_del_micro(ctx)`. Lee
+  `viaje_seleccionado` y `micro_seleccionado` del
+  page, pide `viajes/estado_asientos`, arma una tabla
+  TSV (Excel-friendly) con columnas (nombre,
+  apellido, DNI, documento, género, franja etaria).
+  Género por heurística (terminación en `a`/`o`).
+  Franja etaria desde `fecha_nacimiento` contra hoy.
 - `globalThis.limpiar_prueba()` — handler para la
-  consola del SW. En MV3 no se puede hacer import()
-  dinámico; exponerlo es la vía para debug.
+  consola del SW.
+- `globalThis.copiar_pasajeros()` — idem para copiar.
 - `ctx.subir_archivo(accion, campos, archivo_info)` → sube un
   archivo por multipart al piloto. `archivo_info` es
   `{nombre, tipo, contenido_base64, nombre_campo}`. El fetch lo
@@ -1068,6 +1081,40 @@ por tema.
     de progreso donde el emisor no necesita acuse,
     tragarse el rechazo: `.catch(() => {})`.
 
+60. **La UI de la ventana crece con la cantidad de
+    pruebas.** Una lista plana se vuelve inservible
+    cuando hay 60+ pruebas. La solución es pestañas
+    temáticas que sigan la estructura de la app, y
+    dentro de cada pestaña, tarjetas agrupadas por rol
+    (admin, dueño, terminal, soporte, multi-rol) en
+    una grilla de 2 columnas. Criterio del grupo:
+    el rol con el que la prueba hace login primero.
+    Si la prueba cambia de sesión entre roles, va a
+    "Multi-rol".
+
+61. **Los botones contextuales van dentro del contexto.**
+    "Ejecutar todos los roles" y "Limpiar pruebas"
+    tienen sentido dentro de la pestaña activa, no
+    arriba. Los botones globales (limpiar todo,
+    copiar tabla) sí van arriba porque son
+    transversales. Menos ruido visual, cada botón
+    donde se usa.
+
+62. **La limpieza por categorías reusa el mismo endpoint.**
+    `LimpiezaPrueba.js` recibe `{categorias}` y limpia
+    solo ese subconjunto. El orden importa: ventas
+    antes que cancelaciones (que se crean al limpiar
+    las ventas), viajes antes que empresas (los
+    micros referencian empresas), pasajeros y
+    terminales antes que usuarios.
+
+63. **Persistencia en `localStorage` es un paliativo.**
+    La pestaña activa del plugin se guarda en
+    `localStorage['plugin_tab_activa']`. Está anotado
+    en el código como `ANOTADO`: hay que migrarlo a
+    la persistencia del framework (IndexedDB del
+    contexto de la extensión).
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -1105,24 +1152,46 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.7o.
-Cierre del botón de limpieza + fix del listener.
+**Última actualización de este prompt:** v1.5plugin.7y.
+Cierre del arco de la interfaz del plugin.
 
-**Estado al cierre de v1.5plugin.7o:**
+**Estado al cierre de v1.5plugin.7y:**
 
 - **Fase 2c cerrada.** Las ~50 pruebas y los 3 helpers
   auxiliares usan `_post` (de `_helpers.js`), que delega
   en `ctx.post_accion` (del SW). Ninguna prueba usa
   `ctx.pedir_post` directo.
-- **Verificación final:** las **65 pruebas corren en
-  verde** después del refactor.
-- **Botón "Limpiar datos de prueba" agregado** (v7m).
-  Módulo `Aplicacion/LimpiezaPrueba.js` + handler en
-  `servicio.js` + `globalThis.limpiar_prueba`. La UI
-  del popup tiene el botón + un `<pre>` para el log.
-  Confirm previo, progreso incremental y resumen final.
-- **v7n**: fix del listener del botón (un
-  `DOMContentLoaded` anidado nunca disparaba).
+- **Verificación final:** las **65 pruebas corrieron
+  en verde** después del refactor. Con la prueba 66
+  nueva, son **66 pruebas**.
+
+- **UI reorganizada en pestañas temáticas** (v7s-7v).
+  10 pestañas que siguen la estructura de la app:
+  Base, Administrador, Puntos de venta,
+  Empresas/Micros, Viajes, Ventas, Rendiciones,
+  Liquidaciones, Pasajeros, Grafo. Cada pestaña tiene
+  grupos por rol (Admin, Dueño, Terminal, Soporte,
+  Multi-rol) en una grilla de 2 columnas. Pestaña
+  activa en `localStorage`.
+
+- **Botones por pestaña** (v7w): "Ejecutar todos los
+  roles" (corre todas las pruebas de la pestaña) y
+  "Limpiar pruebas" (limpia solo lo relevante:
+  Viajes limpia viajes, Ventas limpia
+  ventas+cancelaciones, etc.).
+
+- **Botones globales** (v7x): "Limpiar todas las
+  pruebas" y "Copiar tabla de pasajeros", en paralelo
+  arriba.
+
+- **Copiar tabla de pasajeros** (v7p): lee el micro
+  del page, pide `viajes/estado_asientos`, arma una
+  tabla TSV lista para Excel con franja etaria y
+  género inferido.
+
+- **Prueba 66** (v7r): verifica que al hacer login
+  como terminal se limpia la venta_actual colgada
+  (fix v1.5piloto.80h en el piloto).
 
 **Cambios del refactor (Fase 2c):**
 
@@ -1138,17 +1207,23 @@ Cierre del botón de limpieza + fix del listener.
 
 **Pendientes del plugin:**
 
+- **Batería de pruebas exhaustivas.** Falta correr la
+  suite completa (66 pruebas) después de todos los
+  cambios de UI. Es el último paso para cerrar
+  formalmente el plan. Se hace más adelante.
+- **Persistencia de la pestaña activa:** migrar de
+  `localStorage` a la persistencia del framework.
+  Anotado en el código como `ANOTADO`.
 - **Pruebas 37 y 38 sin `try/finally`:** si el flujo
   falla a mitad, la empresa/vehículo de setup queda
   colgada. Los limpiadores ahora la agarran, pero la
   prueba debería limpiar por su cuenta.
-- **Refactor de la ventana en pestañas por rol.** Idea
-  anotada al cierre de v1.5plugin.7a.
 - **Centralizar prefijos de prueba.** Hoy cada
-  limpiador tiene su lista hardcodeada. Cuando una
-  prueba nueva usa un prefijo distinto, el limpiador
-  no lo reconoce. Idea: una constante compartida o
-  que las pruebas registren su prefijo.
+  limpiador tiene su lista hardcodeada. Idea: una
+  constante compartida o que las pruebas registren
+  su prefijo.
+- **Secciones vacías** (Rendiciones, Liquidaciones):
+  quedan a la espera de pruebas nuevas.
 
 ---
 
