@@ -5,7 +5,7 @@
  * se destruye (no quedan huérfanos) y que el pasajero queda
  * sin declaracion_jurada.
  *
- * @version 1.5plugin.5s
+ * @version 1.5plugin.7g
  */
 
 import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
@@ -53,9 +53,7 @@ export const prueba = {
         const H1 = await contar_huerfanos(ctx, nombre_admin);
 
         // 2. Eliminar la DJ.
-        const rElim = await ctx.pedir_post("index.php", {
-            accion: "pasajeros/eliminar_declaracion",
-            nombre_solicitante: nombre_admin,
+        const rElim = await ctx.post_accion("pasajeros/eliminar_declaracion", {
             nombre_dueno,
             dni
         });

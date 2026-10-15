@@ -14,7 +14,7 @@
  *   6. Verificar que el vehículo tiene la foto B.
  *   7. Limpieza: eliminar la empresa (arrastra el vehículo).
  *
- * @version 1.5plugin.6z
+ * @version 1.5plugin.7g
  * @since 1.5plugin.5u
  */
 
@@ -24,10 +24,7 @@ import { PNG_TRANSPARENTE_B64, PNG_ALTERNATIVO_B64 } from "./_pasajeros_helpers.
 import { ir_a_micros_y_elegir_dueno, eliminar_empresa_por_post } from "./_empresas_helpers.js";
 
 async function _contar_huerfanos(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo consultar grafo/resumen: "
             + (r && r.json && r.json.error ? r.json.error : "(sin detalle)"));
@@ -55,9 +52,7 @@ export const prueba = {
         const nombre_empresa = "fotoauto" + sufijo;
         const nombre_vehiculo = "FOTO" + sufijo;
 
-        const r_emp = await ctx.pedir_post("index.php", {
-            accion: "empresas/agregar",
-            nombre_solicitante: nombre_admin,
+        const r_emp = await ctx.post_accion("empresas/agregar", {
             nombre_dueno,
             nombre_empresa,
             nombre_real: "Empresa Foto Test"
@@ -67,9 +62,7 @@ export const prueba = {
             + (r_emp && r_emp.json && r_emp.json.error ? r_emp.json.error : "(sin detalle)"));
 
         try {
-            const r_veh = await ctx.pedir_post("index.php", {
-                accion: "vehiculos/agregar",
-                nombre_solicitante: nombre_admin,
+            const r_veh = await ctx.post_accion("vehiculos/agregar", {
                 nombre_dueno,
                 nombre_empresa,
                 nombre_vehiculo,
@@ -93,9 +86,7 @@ export const prueba = {
             // con nombre derivado del vehículo + timestamp, no
             // con el nombre original del archivo. Para verificar
             // que la B reemplazó a la A, comparamos las rutas.
-            const r_listar_a = await ctx.pedir_post("index.php", {
-                accion: "vehiculos/listar",
-                nombre_solicitante: nombre_admin,
+            const r_listar_a = await ctx.post_accion("vehiculos/listar", {
                 nombre_dueno,
                 nombre_empresa
             });
@@ -124,9 +115,7 @@ export const prueba = {
                 + "H1=" + H1 + ", H2=" + H2 + ", dif=" + (H2 - H1));
 
             // 3. Verificar que el vehículo tiene la foto B.
-            const r_listar = await ctx.pedir_post("index.php", {
-                accion: "vehiculos/listar",
-                nombre_solicitante: nombre_admin,
+            const r_listar = await ctx.post_accion("vehiculos/listar", {
                 nombre_dueno,
                 nombre_empresa
             });

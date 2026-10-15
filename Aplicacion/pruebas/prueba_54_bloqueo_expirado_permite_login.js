@@ -18,7 +18,7 @@
  * app. La verificación de que la hoja se destruye queda
  * pendiente (requiere endpoint de credenciales).
  *
- * @version 1.5plugin.5v
+ * @version 1.5plugin.7g
  * @since 1.5plugin.5u
  */
 
@@ -26,10 +26,7 @@ import { CODIGO_ADMIN } from "../ConfiguracionApli.js";
 import { cerrar_modales_si_abiertos } from "./_helpers.js";
 
 async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {
-    const r = await ctx.pedir_post("index.php", {
-        accion: "grafo/resumen_credenciales",
-        nombre_solicitante
-    });
+    const r = await ctx.post_accion("grafo/resumen_credenciales", {});
     if (!r || !r.exito || !r.json || !r.json.exito) {
         throw new Error("No se pudo consultar grafo/resumen_credenciales: "
             + (r && r.json && r.json.error ? r.json.error : "(sin detalle)"));
@@ -67,9 +64,7 @@ export const prueba = {
 
         try {
             // 1. Crear usuario de prueba.
-            const r_crear = await ctx.pedir_post("index.php", {
-                accion: "administrador/agregar_usuario",
-                nombre_solicitante: nombre_admin,
+            const r_crear = await ctx.post_accion("administrador/agregar_usuario", {
                 nombre_usuario: nombre_prueba,
                 contrasena: contrasena_correcta,
                 nivel: "dueno",
@@ -86,11 +81,10 @@ export const prueba = {
             // 2. Cinco intentos fallidos consecutivos.
             const intentos_maximos = 5;
             for (let i = 0; i < intentos_maximos; i++) {
-                const r = await ctx.pedir_post("index.php", {
-                    accion: "autenticar/verificar",
+                const r = await ctx.post_accion("autenticar/verificar", {
                     usuario: nombre_prueba,
                     contrasena: "mala_" + i + "_" + sufijo
-                });
+                }, { sin_solicitante: true });
                 ctx.assert(r && r.exito && r.json && r.json.exito === false,
                     "El intento fallido " + (i + 1) + " no devolvió error.");
             }
@@ -100,11 +94,10 @@ export const prueba = {
                 "Los 5 intentos fallidos dejaron huérfanos. H0=" + H0 + ", H2=" + H2);
 
             // 3. Con el bloqueo activo, el login correcto debe fallar.
-            const r_bloqueado = await ctx.pedir_post("index.php", {
-                accion: "autenticar/verificar",
+            const r_bloqueado = await ctx.post_accion("autenticar/verificar", {
                 usuario: nombre_prueba,
                 contrasena: contrasena_correcta
-            });
+            }, { sin_solicitante: true });
             ctx.assert(r_bloqueado && r_bloqueado.exito && r_bloqueado.json && r_bloqueado.json.exito === false,
                 "El usuario bloqueado pudo loguearse: el rate limiting no funciona.");
 
@@ -112,11 +105,10 @@ export const prueba = {
             await ctx.pausa(3000);
 
             // 5. Ahora sí, el login correcto debe pasar.
-            const r_ok = await ctx.pedir_post("index.php", {
-                accion: "autenticar/verificar",
+            const r_ok = await ctx.post_accion("autenticar/verificar", {
                 usuario: nombre_prueba,
                 contrasena: contrasena_correcta
-            });
+            }, { sin_solicitante: true });
             ctx.assert(r_ok && r_ok.exito && r_ok.json && r_ok.json.exito === true,
                 "El login falló tras esperar el bloqueo: "
                 + (r_ok && r_ok.json && r_ok.json.error ? r_ok.json.error : "(sin detalle)"));
@@ -131,9 +123,7 @@ export const prueba = {
         } finally {
             // 6. Limpieza.
             try {
-                await ctx.pedir_post("index.php", {
-                    accion: "administrador/eliminar_usuario",
-                    nombre_solicitante: nombre_admin,
+                await ctx.post_accion("administrador/eliminar_usuario", {
                     nombre_usuario: nombre_prueba
                 });
             } catch (e) {

@@ -1,758 +1,209 @@
 <?php
 /**
- * Aplicador — Fase 2c.2a-2: migracion de pruebas 34, 35, 36,
- * 42, 43 a ctx.post_accion.
+ * Aplicador — Fase 2c.2b: migracion de pruebas 53, 54, 55 a
+ * ctx.post_accion.
  *
- * Misma tecnica que 2c.2a-1: helpers internos y POSTs directos
- * pasan por ctx.post_accion(accion, params), que inyecta el
- * nombre_solicitante del logueado.
- *
- * Casos especiales:
- *   - prueba_34 y 35: la venta se hace "como" un terminal
- *     (nombre_terminal en params), pero el solicitante sigue
- *     siendo el admin logueado. post_accion lo maneja bien.
- *   - prueba_36: setup condicional (crea empresa/vehiculo si
- *     faltan). El finally limpia todo.
- *   - prueba_42 y 43: _body_viaje se refactoriza para no
- *     incluir `accion` ni `nombre_solicitante`; las llamadas
- *     pasan de pedir_post("index.php", body) a
- *     post_accion("viajes/guardar", body).
+ * Misma tecnica que 2c.2a. Casos especiales:
+ *   - prueba_54: los POST a autenticar/verificar van con
+ *     sin_solicitante: true (no hay sesion). Los de grafo y
+ *     administrador van con solicitante admin.
+ *   - prueba_55: usa ctx.subir_archivo (que NO pasa por
+ *     post_accion, no se toca). Los 3 pedir_post con
+ *     solicitante admin si se migran.
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7f';
+$version_nueva = '1.5plugin.7g';
 
 $htmls_a_bumpear = [];
 
 $cambios = [
 
     // ============================================================
-    // PRUEBA 34
+    // PRUEBA 53
     // ============================================================
 
-    // 34.1: _resumen_grafo
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: _resumen_grafo con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_53_dj_pasajero_eliminar.js',
+        'descripcion' => 'P53: pasajeros/eliminar_declaracion con post_accion',
         'buscar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("grafo/resumen", {});',
-        ],
-    ],
-
-    // 34.2: _primer_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: _primer_dueno con post_accion',
-        'buscar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
-        ],
-    ],
-
-    // 34.3: _primera_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: _primera_terminal con post_accion',
-        'buscar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "dueno/listar_terminales",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("dueno/listar_terminales", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 34.4: _empresas_del_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: _empresas_del_dueno con post_accion',
-        'buscar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "empresas/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("empresas/listar", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 34.5: _vehiculos_de_empresa
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: _vehiculos_de_empresa con post_accion',
-        'buscar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.post_accion("vehiculos/listar", {',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-
-    // 34.6: _primer_asiento_libre
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: _primer_asiento_libre con post_accion',
-        'buscar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/estado_asientos",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.post_accion("viajes/estado_asientos", {',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-    ],
-
-    // 34.7: reiniciar_seleccion_completa (inicio del try)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: reiniciar_seleccion_completa (inicio) con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/reiniciar_seleccion_completa",',
+            '        const rElim = await ctx.pedir_post("index.php", {',
+            '            accion: "pasajeros/eliminar_declaracion",',
             '            nombre_solicitante: nombre_admin,',
-            '            nombre_terminal',
+            '            nombre_dueno,',
+            '            dni',
             '        });',
-            '',
-            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
         ],
         'reemplazar' => [
-            '        await ctx.post_accion("viajes/reiniciar_seleccion_completa", {',
-            '            nombre_terminal',
+            '        const rElim = await ctx.post_accion("pasajeros/eliminar_declaracion", {',
+            '            nombre_dueno,',
+            '            dni',
             '        });',
-            '',
-            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
-        ],
-    ],
-
-    // 34.8: viajes/guardar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: viajes/guardar con post_accion',
-        'buscar' => [
-            '        const rc = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/guardar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rc = await ctx.post_accion("viajes/guardar", {',
-        ],
-    ],
-
-    // 34.9: viajes/agregar_micro
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: viajes/agregar_micro con post_accion',
-        'buscar' => [
-            '                const r_ag = await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/agregar_micro",',
-            '                    nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                const r_ag = await ctx.post_accion("viajes/agregar_micro", {',
-        ],
-    ],
-
-    // 34.10: viajes/agregar_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: viajes/agregar_terminal con post_accion',
-        'buscar' => [
-            '        const rT = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/agregar_terminal",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rT = await ctx.post_accion("viajes/agregar_terminal", {',
-        ],
-    ],
-
-    // 34.11: viajes/seleccionar_asiento
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: viajes/seleccionar_asiento con post_accion',
-        'buscar' => [
-            '        const rs = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/seleccionar_asiento",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rs = await ctx.post_accion("viajes/seleccionar_asiento", {',
-        ],
-    ],
-
-    // 34.12: ventas/confirmar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: ventas/confirmar con post_accion',
-        'buscar' => [
-            '        const rv = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/confirmar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rv = await ctx.post_accion("ventas/confirmar", {',
-        ],
-    ],
-
-    // 34.13: ventas/cancelar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: ventas/cancelar con post_accion',
-        'buscar' => [
-            '        const rcan = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/cancelar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rcan = await ctx.post_accion("ventas/cancelar", {',
-        ],
-    ],
-
-    // 34.14: reiniciar_seleccion_completa (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: reiniciar_seleccion_completa (finally) con post_accion',
-        'buscar' => [
-            '            try {',
-            '                await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/reiniciar_seleccion_completa",',
-            '                    nombre_solicitante: nombre_admin,',
-            '                    nombre_terminal',
-            '                });',
-            '            } catch (e) { /* best-effort */ }',
-        ],
-        'reemplazar' => [
-            '            try {',
-            '                await ctx.post_accion("viajes/reiniciar_seleccion_completa", {',
-            '                    nombre_terminal',
-            '                });',
-            '            } catch (e) { /* best-effort */ }',
-        ],
-    ],
-
-    // 34.15: viajes/eliminar (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_34_cancelar_venta_limpia_nodos.js',
-        'descripcion' => 'P34: viajes/eliminar (finally) con post_accion',
-        'buscar' => [
-            '                try {',
-            '                    await ctx.pedir_post("index.php", {',
-            '                        accion: "viajes/eliminar",',
-            '                        nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                try {',
-            '                    await ctx.post_accion("viajes/eliminar", {',
         ],
     ],
 
     // ============================================================
-    // PRUEBA 35
+    // PRUEBA 54
     // ============================================================
 
-    // 35.1: _resumen_grafo
+    // 54.1: _contar_huerfanos_credenciales
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: _resumen_grafo con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'P54: _contar_huerfanos_credenciales con post_accion',
         'buscar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
+            'async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {',
             '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
+            '        accion: "grafo/resumen_credenciales",',
             '        nombre_solicitante',
             '    });',
         ],
         'reemplazar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("grafo/resumen", {});',
+            'async function _contar_huerfanos_credenciales(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen_credenciales", {});',
         ],
     ],
 
-    // 35.2: _primer_dueno
+    // 54.2: administrador/agregar_usuario
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: _primer_dueno con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'P54: administrador/agregar_usuario con post_accion',
         'buscar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
-        ],
-    ],
-
-    // 35.3: _primera_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: _primera_terminal con post_accion',
-        'buscar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "dueno/listar_terminales",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("dueno/listar_terminales", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 35.4: _empresas_del_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: _empresas_del_dueno con post_accion',
-        'buscar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "empresas/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("empresas/listar", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 35.5: _vehiculos_de_empresa
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: _vehiculos_de_empresa con post_accion',
-        'buscar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.post_accion("vehiculos/listar", {',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-
-    // 35.6: _primer_asiento_libre
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: _primer_asiento_libre con post_accion',
-        'buscar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/estado_asientos",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.post_accion("viajes/estado_asientos", {',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-    ],
-
-    // 35.7: reiniciar_seleccion_completa (inicio)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: reiniciar_seleccion_completa (inicio) con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/reiniciar_seleccion_completa",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_terminal',
-            '        });',
-            '',
-            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
-        ],
-        'reemplazar' => [
-            '        await ctx.post_accion("viajes/reiniciar_seleccion_completa", {',
-            '            nombre_terminal',
-            '        });',
-            '',
-            '        const H0 = (await _resumen_grafo(ctx, nombre_admin)).huerfanos;',
-        ],
-    ],
-
-    // 35.8: viajes/guardar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: viajes/guardar con post_accion',
-        'buscar' => [
-            '        const rc = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/guardar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rc = await ctx.post_accion("viajes/guardar", {',
-        ],
-    ],
-
-    // 35.9: viajes/agregar_micro
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: viajes/agregar_micro con post_accion',
-        'buscar' => [
-            '                const r_ag = await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/agregar_micro",',
-            '                    nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                const r_ag = await ctx.post_accion("viajes/agregar_micro", {',
-        ],
-    ],
-
-    // 35.10: viajes/agregar_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: viajes/agregar_terminal con post_accion',
-        'buscar' => [
-            '        const rT = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/agregar_terminal",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rT = await ctx.post_accion("viajes/agregar_terminal", {',
-        ],
-    ],
-
-    // 35.11: viajes/seleccionar_asiento
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: viajes/seleccionar_asiento con post_accion',
-        'buscar' => [
-            '        const rs = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/seleccionar_asiento",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rs = await ctx.post_accion("viajes/seleccionar_asiento", {',
-        ],
-    ],
-
-    // 35.12: viajes/deseleccionar_asiento
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: viajes/deseleccionar_asiento con post_accion',
-        'buscar' => [
-            '        const rd = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/deseleccionar_asiento",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rd = await ctx.post_accion("viajes/deseleccionar_asiento", {',
-        ],
-    ],
-
-    // 35.13: reiniciar_seleccion_completa (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: reiniciar_seleccion_completa (finally) con post_accion',
-        'buscar' => [
-            '            try {',
-            '                await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/reiniciar_seleccion_completa",',
-            '                    nombre_solicitante: nombre_admin,',
-            '                    nombre_terminal',
-            '                });',
-            '            } catch (e) { /* best-effort */ }',
-        ],
-        'reemplazar' => [
-            '            try {',
-            '                await ctx.post_accion("viajes/reiniciar_seleccion_completa", {',
-            '                    nombre_terminal',
-            '                });',
-            '            } catch (e) { /* best-effort */ }',
-        ],
-    ],
-
-    // 35.14: viajes/eliminar (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_35_deseleccionar_asiento_limpia_nodos.js',
-        'descripcion' => 'P35: viajes/eliminar (finally) con post_accion',
-        'buscar' => [
-            '                try {',
-            '                    await ctx.pedir_post("index.php", {',
-            '                        accion: "viajes/eliminar",',
-            '                        nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                try {',
-            '                    await ctx.post_accion("viajes/eliminar", {',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 36
-    // ============================================================
-
-    // 36.1: _resumen_grafo
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: _resumen_grafo con post_accion',
-        'buscar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("grafo/resumen", {});',
-        ],
-    ],
-
-    // 36.2: _primer_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: _primer_dueno con post_accion',
-        'buscar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
-        ],
-    ],
-
-    // 36.3: _primera_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: _primera_terminal con post_accion',
-        'buscar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "dueno/listar_terminales",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("dueno/listar_terminales", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 36.4: _empresas_del_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: _empresas_del_dueno con post_accion',
-        'buscar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "empresas/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("empresas/listar", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 36.5: _vehiculos_de_empresa
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: _vehiculos_de_empresa con post_accion',
-        'buscar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.post_accion("vehiculos/listar", {',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-
-    // 36.6: _primer_asiento_libre
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: _primer_asiento_libre con post_accion',
-        'buscar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/estado_asientos",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.post_accion("viajes/estado_asientos", {',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-    ],
-
-    // 36.7: reiniciar_seleccion_completa (inicio)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: reiniciar_seleccion_completa (inicio) con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/reiniciar_seleccion_completa",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_terminal',
-            '        });',
-            '',
-            '        // Requisito: al menos 2 vehículos con asientos.',
-        ],
-        'reemplazar' => [
-            '        await ctx.post_accion("viajes/reiniciar_seleccion_completa", {',
-            '            nombre_terminal',
-            '        });',
-            '',
-            '        // Requisito: al menos 2 vehículos con asientos.',
-        ],
-    ],
-
-    // 36.8: empresas/agregar (setup condicional)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: empresas/agregar (setup) con post_accion',
-        'buscar' => [
-            '            const r_emp = await ctx.pedir_post("index.php", {',
-            '                accion: "empresas/agregar",',
+            '            const r_crear = await ctx.pedir_post("index.php", {',
+            '                accion: "administrador/agregar_usuario",',
             '                nombre_solicitante: nombre_admin,',
         ],
         'reemplazar' => [
-            '            const r_emp = await ctx.post_accion("empresas/agregar", {',
+            '            const r_crear = await ctx.post_accion("administrador/agregar_usuario", {',
         ],
     ],
 
-    // 36.9: vehiculos/agregar (setup condicional)
+    // 54.3: primer autenticar/verificar (intentos fallidos)
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: vehiculos/agregar (setup) con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'P54: intentos fallidos con post_accion sin_solicitante',
+        'buscar' => [
+            '                const r = await ctx.pedir_post("index.php", {',
+            '                    accion: "autenticar/verificar",',
+            '                    usuario: nombre_prueba,',
+            '                    contrasena: "mala_" + i + "_" + sufijo',
+            '                });',
+        ],
+        'reemplazar' => [
+            '                const r = await ctx.post_accion("autenticar/verificar", {',
+            '                    usuario: nombre_prueba,',
+            '                    contrasena: "mala_" + i + "_" + sufijo',
+            '                }, { sin_solicitante: true });',
+        ],
+    ],
+
+    // 54.4: autenticar/verificar (bloqueado)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'P54: intento bloqueado con post_accion sin_solicitante',
+        'buscar' => [
+            '            const r_bloqueado = await ctx.pedir_post("index.php", {',
+            '                accion: "autenticar/verificar",',
+            '                usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const r_bloqueado = await ctx.post_accion("autenticar/verificar", {',
+            '                usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta',
+            '            }, { sin_solicitante: true });',
+        ],
+    ],
+
+    // 54.5: autenticar/verificar (login exitoso)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'P54: login exitoso con post_accion sin_solicitante',
+        'buscar' => [
+            '            const r_ok = await ctx.pedir_post("index.php", {',
+            '                accion: "autenticar/verificar",',
+            '                usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const r_ok = await ctx.post_accion("autenticar/verificar", {',
+            '                usuario: nombre_prueba,',
+            '                contrasena: contrasena_correcta',
+            '            }, { sin_solicitante: true });',
+        ],
+    ],
+
+    // 54.6: administrador/eliminar_usuario (finally)
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_54_bloqueo_expirado_permite_login.js',
+        'descripcion' => 'P54: administrador/eliminar_usuario con post_accion',
+        'buscar' => [
+            '                await ctx.pedir_post("index.php", {',
+            '                    accion: "administrador/eliminar_usuario",',
+            '                    nombre_solicitante: nombre_admin,',
+            '                    nombre_usuario: nombre_prueba',
+            '                });',
+        ],
+        'reemplazar' => [
+            '                await ctx.post_accion("administrador/eliminar_usuario", {',
+            '                    nombre_usuario: nombre_prueba',
+            '                });',
+        ],
+    ],
+
+    // ============================================================
+    // PRUEBA 55
+    // ============================================================
+
+    // 55.1: _contar_huerfanos
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: _contar_huerfanos con post_accion',
+        'buscar' => [
+            'async function _contar_huerfanos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.pedir_post("index.php", {',
+            '        accion: "grafo/resumen",',
+            '        nombre_solicitante',
+            '    });',
+        ],
+        'reemplazar' => [
+            'async function _contar_huerfanos(ctx, nombre_solicitante) {',
+            '    const r = await ctx.post_accion("grafo/resumen", {});',
+        ],
+    ],
+
+    // 55.2: empresas/agregar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: empresas/agregar con post_accion',
+        'buscar' => [
+            '        const r_emp = await ctx.pedir_post("index.php", {',
+            '            accion: "empresas/agregar",',
+            '            nombre_solicitante: nombre_admin,',
+        ],
+        'reemplazar' => [
+            '        const r_emp = await ctx.post_accion("empresas/agregar", {',
+        ],
+    ],
+
+    // 55.3: vehiculos/agregar
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: vehiculos/agregar con post_accion',
         'buscar' => [
             '            const r_veh = await ctx.pedir_post("index.php", {',
             '                accion: "vehiculos/agregar",',
@@ -763,579 +214,33 @@ $cambios = [
         ],
     ],
 
-    // 36.10: vehiculos/actualizar_configuracion (setup)
+    // 55.4: primer vehiculos/listar (foto A)
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: vehiculos/actualizar_configuracion (setup) con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: primer vehiculos/listar con post_accion',
         'buscar' => [
-            '            const r_cf = await ctx.pedir_post("index.php", {',
-            '                accion: "vehiculos/actualizar_configuracion",',
+            '            const r_listar_a = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/listar",',
             '                nombre_solicitante: nombre_admin,',
         ],
         'reemplazar' => [
-            '            const r_cf = await ctx.post_accion("vehiculos/actualizar_configuracion", {',
+            '            const r_listar_a = await ctx.post_accion("vehiculos/listar", {',
         ],
     ],
 
-    // 36.11: viajes/guardar
+    // 55.5: segundo vehiculos/listar (foto B)
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: viajes/guardar con post_accion',
+        'archivo' => 'Aplicacion/pruebas/prueba_55_subir_foto_reemplazo_limpia_nodos.js',
+        'descripcion' => 'P55: segundo vehiculos/listar con post_accion',
         'buscar' => [
-            '        const rc = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/guardar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rc = await ctx.post_accion("viajes/guardar", {',
-        ],
-    ],
-
-    // 36.12: viajes/agregar_micro
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: viajes/agregar_micro con post_accion',
-        'buscar' => [
-            '            const r_ag = await ctx.pedir_post("index.php", {',
-            '                accion: "viajes/agregar_micro",',
+            '            const r_listar = await ctx.pedir_post("index.php", {',
+            '                accion: "vehiculos/listar",',
             '                nombre_solicitante: nombre_admin,',
         ],
         'reemplazar' => [
-            '            const r_ag = await ctx.post_accion("viajes/agregar_micro", {',
-        ],
-    ],
-
-    // 36.13: viajes/agregar_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: viajes/agregar_terminal con post_accion',
-        'buscar' => [
-            '        const rT = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/agregar_terminal",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rT = await ctx.post_accion("viajes/agregar_terminal", {',
-        ],
-    ],
-
-    // 36.14: viajes/seleccionar_asiento (primer micro)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: seleccionar_asiento (1) con post_accion',
-        'buscar' => [
-            '        const rs1 = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/seleccionar_asiento",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rs1 = await ctx.post_accion("viajes/seleccionar_asiento", {',
-        ],
-    ],
-
-    // 36.15: viajes/seleccionar_asiento (segundo micro)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: seleccionar_asiento (2) con post_accion',
-        'buscar' => [
-            '        const rs2 = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/seleccionar_asiento",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rs2 = await ctx.post_accion("viajes/seleccionar_asiento", {',
-        ],
-    ],
-
-    // 36.16: reiniciar_seleccion_completa (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: reiniciar_seleccion_completa (finally) con post_accion',
-        'buscar' => [
-            '            try {',
-            '                await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/reiniciar_seleccion_completa",',
-            '                    nombre_solicitante: nombre_admin,',
-            '                    nombre_terminal',
-            '                });',
-            '            } catch (e) { /* best-effort */ }',
-        ],
-        'reemplazar' => [
-            '            try {',
-            '                await ctx.post_accion("viajes/reiniciar_seleccion_completa", {',
-            '                    nombre_terminal',
-            '                });',
-            '            } catch (e) { /* best-effort */ }',
-        ],
-    ],
-
-    // 36.17: viajes/eliminar (finally)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: viajes/eliminar (finally) con post_accion',
-        'buscar' => [
-            '                try {',
-            '                    await ctx.pedir_post("index.php", {',
-            '                        accion: "viajes/eliminar",',
-            '                        nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                try {',
-            '                    await ctx.post_accion("viajes/eliminar", {',
-        ],
-    ],
-
-    // 36.18: vehiculos/eliminar (finally, setup)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: vehiculos/eliminar (finally) con post_accion',
-        'buscar' => [
-            '                try {',
-            '                    await ctx.pedir_post("index.php", {',
-            '                        accion: "vehiculos/eliminar",',
-            '                        nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                try {',
-            '                    await ctx.post_accion("vehiculos/eliminar", {',
-        ],
-    ],
-
-    // 36.19: empresas/eliminar (finally, setup)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_36_cambiar_micro_a_mitad_limpia_nodos.js',
-        'descripcion' => 'P36: empresas/eliminar (finally) con post_accion',
-        'buscar' => [
-            '                try {',
-            '                    await ctx.pedir_post("index.php", {',
-            '                        accion: "empresas/eliminar",',
-            '                        nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                try {',
-            '                    await ctx.post_accion("empresas/eliminar", {',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 42
-    // ============================================================
-
-    // 42.1: _resumen_grafo
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-        'descripcion' => 'P42: _resumen_grafo con post_accion',
-        'buscar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "grafo/resumen",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _resumen_grafo(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("grafo/resumen", {});',
-        ],
-    ],
-
-    // 42.2: _primer_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-        'descripcion' => 'P42: _primer_dueno con post_accion',
-        'buscar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
-        ],
-    ],
-
-    // 42.3: refactor _body_viaje
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-        'descripcion' => 'P42: refactor _body_viaje',
-        'buscar' => [
-            'function _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas) {',
-            '    return {',
-            '        accion: "viajes/guardar",',
-            '        nombre_solicitante: nombre_admin,',
-            '        nombre_dueno,',
-        ],
-        'reemplazar' => [
-            'function _body_viaje(nombre_dueno, nombre_viaje, paradas) {',
-            '    return {',
-            '        nombre_dueno,',
-        ],
-    ],
-
-    // 42.4: crear viaje
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-        'descripcion' => 'P42: crear viaje con post_accion',
-        'buscar' => [
-            '        const rc = await ctx.pedir_post("index.php",',
-            '            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_con_hora));',
-        ],
-        'reemplazar' => [
-            '        const rc = await ctx.post_accion("viajes/guardar",',
-            '            _body_viaje(nombre_dueno, nombre_viaje, paradas_con_hora));',
-        ],
-    ],
-
-    // 42.5: editar viaje
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-        'descripcion' => 'P42: editar viaje con post_accion',
-        'buscar' => [
-            '        const re = await ctx.pedir_post("index.php",',
-            '            _body_viaje(nombre_admin, nombre_dueno, nombre_viaje, paradas_sin_hora));',
-        ],
-        'reemplazar' => [
-            '        const re = await ctx.post_accion("viajes/guardar",',
-            '            _body_viaje(nombre_dueno, nombre_viaje, paradas_sin_hora));',
-        ],
-    ],
-
-    // 42.6: viajes/eliminar (limpieza)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_42_editar_paradas_sin_hora_limpia_nodos.js',
-        'descripcion' => 'P42: viajes/eliminar con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/eliminar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        await ctx.post_accion("viajes/eliminar", {',
-        ],
-    ],
-
-    // ============================================================
-    // PRUEBA 43
-    // ============================================================
-
-    // 43.1: _primer_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: _primer_dueno con post_accion',
-        'buscar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "administrador/listar_duenos",',
-            '        nombre_solicitante',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_dueno(ctx, nombre_solicitante) {',
-            '    const r = await ctx.post_accion("administrador/listar_duenos", {});',
-        ],
-    ],
-
-    // 43.2: _primera_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: _primera_terminal con post_accion',
-        'buscar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "dueno/listar_terminales",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primera_terminal(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("dueno/listar_terminales", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 43.3: _empresas_del_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: _empresas_del_dueno con post_accion',
-        'buscar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "empresas/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _empresas_del_dueno(ctx, nombre_solicitante, nombre_dueno) {',
-            '    const r = await ctx.post_accion("empresas/listar", {',
-            '        nombre_dueno',
-            '    });',
-        ],
-    ],
-
-    // 43.4: _vehiculos_de_empresa
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: _vehiculos_de_empresa con post_accion',
-        'buscar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "vehiculos/listar",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _vehiculos_de_empresa(ctx, nombre_solicitante, nombre_dueno, nombre_empresa) {',
-            '    const r = await ctx.post_accion("vehiculos/listar", {',
-            '        nombre_dueno,',
-            '        nombre_empresa',
-            '    });',
-        ],
-    ],
-
-    // 43.5: _primer_asiento_libre
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: _primer_asiento_libre con post_accion',
-        'buscar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.pedir_post("index.php", {',
-            '        accion: "viajes/estado_asientos",',
-            '        nombre_solicitante,',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-        'reemplazar' => [
-            'async function _primer_asiento_libre(ctx, nombre_solicitante, nombre_dueno, nombre_viaje, nombre_micro) {',
-            '    const r = await ctx.post_accion("viajes/estado_asientos", {',
-            '        nombre_dueno,',
-            '        nombre_viaje,',
-            '        nombre_micro',
-            '    });',
-        ],
-    ],
-
-    // 43.6: refactor _body_viaje
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: refactor _body_viaje',
-        'buscar' => [
-            'function _body_viaje(nombre_admin, nombre_dueno, nombre_viaje) {',
-            '    return {',
-            '        accion: "viajes/guardar",',
-            '        nombre_solicitante: nombre_admin,',
-            '        nombre_dueno,',
-        ],
-        'reemplazar' => [
-            'function _body_viaje(nombre_dueno, nombre_viaje) {',
-            '    return {',
-            '        nombre_dueno,',
-        ],
-    ],
-
-    // 43.7: crear viaje A
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: crear viaje A con post_accion',
-        'buscar' => [
-            '        const rA = await ctx.pedir_post("index.php",',
-            '            _body_viaje(nombre_admin, nombre_dueno, viaje_a));',
-        ],
-        'reemplazar' => [
-            '        const rA = await ctx.post_accion("viajes/guardar",',
-            '            _body_viaje(nombre_dueno, viaje_a));',
-        ],
-    ],
-
-    // 43.8: crear viaje B
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: crear viaje B con post_accion',
-        'buscar' => [
-            '        const rB = await ctx.pedir_post("index.php",',
-            '            _body_viaje(nombre_admin, nombre_dueno, viaje_b));',
-        ],
-        'reemplazar' => [
-            '        const rB = await ctx.post_accion("viajes/guardar",',
-            '            _body_viaje(nombre_dueno, viaje_b));',
-        ],
-    ],
-
-    // 43.9: viajes/agregar_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/agregar_terminal con post_accion',
-        'buscar' => [
-            '        const rT = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/agregar_terminal",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rT = await ctx.post_accion("viajes/agregar_terminal", {',
-        ],
-    ],
-
-    // 43.10: viajes/agregar_micro
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/agregar_micro con post_accion',
-        'buscar' => [
-            '                const r_ag = await ctx.pedir_post("index.php", {',
-            '                    accion: "viajes/agregar_micro",',
-            '                    nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '                const r_ag = await ctx.post_accion("viajes/agregar_micro", {',
-        ],
-    ],
-
-    // 43.11: viajes/seleccionar_asiento
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/seleccionar_asiento con post_accion',
-        'buscar' => [
-            '        const rs = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/seleccionar_asiento",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rs = await ctx.post_accion("viajes/seleccionar_asiento", {',
-        ],
-    ],
-
-    // 43.12: ventas/confirmar
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: ventas/confirmar con post_accion',
-        'buscar' => [
-            '        const rv = await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/confirmar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rv = await ctx.post_accion("ventas/confirmar", {',
-        ],
-    ],
-
-    // 43.13: viajes/listar_por_dueno
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/listar_por_dueno con post_accion',
-        'buscar' => [
-            '        const rl = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/listar_por_dueno",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rl = await ctx.post_accion("viajes/listar_por_dueno", {',
-        ],
-    ],
-
-    // 43.14: viajes/listar_por_terminal
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/listar_por_terminal con post_accion',
-        'buscar' => [
-            '        const rt = await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/listar_por_terminal",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        const rt = await ctx.post_accion("viajes/listar_por_terminal", {',
-        ],
-    ],
-
-    // 43.15: ventas/cancelar (limpieza)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: ventas/cancelar (limpieza) con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "ventas/cancelar",',
-            '            nombre_solicitante: nombre_admin,',
-        ],
-        'reemplazar' => [
-            '        await ctx.post_accion("ventas/cancelar", {',
-        ],
-    ],
-
-    // 43.16: viajes/eliminar A (limpieza)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/eliminar A (limpieza) con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/eliminar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            nombre_viaje: viaje_a',
-            '        });',
-        ],
-        'reemplazar' => [
-            '        await ctx.post_accion("viajes/eliminar", {',
-            '            nombre_dueno,',
-            '            nombre_viaje: viaje_a',
-            '        });',
-        ],
-    ],
-
-    // 43.17: viajes/eliminar B (limpieza)
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/pruebas/prueba_43_listar_viajes_indice_comportamiento.js',
-        'descripcion' => 'P43: viajes/eliminar B (limpieza) con post_accion',
-        'buscar' => [
-            '        await ctx.pedir_post("index.php", {',
-            '            accion: "viajes/eliminar",',
-            '            nombre_solicitante: nombre_admin,',
-            '            nombre_dueno,',
-            '            nombre_viaje: viaje_b',
-            '        });',
-        ],
-        'reemplazar' => [
-            '        await ctx.post_accion("viajes/eliminar", {',
-            '            nombre_dueno,',
-            '            nombre_viaje: viaje_b',
-            '        });',
+            '            const r_listar = await ctx.post_accion("vehiculos/listar", {',
         ],
     ],
 
