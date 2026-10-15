@@ -13,7 +13,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.7w
+ * @version 1.5plugin.7x
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -220,6 +220,51 @@ document.addEventListener("DOMContentLoaded", () => {
             if (btn_el) btn_el.disabled = false;
         }
     }
+
+    async function limpiar_todas(est_el, btn_el) {
+        if (limpieza_en_curso) {
+            if (est_el) est_el.textContent = "Ya hay una limpieza en curso";
+            return;
+        }
+
+        const ok = confirm(
+            "Limpiar TODAS las pruebas?\n\n"
+            + "Esta accion borra ventas, cancelaciones, viajes, "
+            + "pasajeros, empresas, vehiculos y terminales de "
+            + "prueba de todos los duenos.\n\n"
+            + "No toca datos reales."
+        );
+        if (!ok) return;
+
+        limpieza_en_curso = true;
+        if (btn_el) btn_el.disabled = true;
+        _log_empezar();
+        if (est_el) est_el.textContent = "Limpiando...";
+
+        try {
+            const resp = await enviar({ tipo: "limpiar_datos_prueba" });
+            if (!resp || !resp.exito) {
+                _log_agregar("");
+                _log_agregar("ERROR: " + (resp && resp.error ? resp.error : "desconocido"));
+                if (est_el) est_el.textContent = "Error";
+                return;
+            }
+            _mostrar_resumen(resp, est_el);
+        } catch (e) {
+            _log_agregar("");
+            _log_agregar("ERROR: " + e.message);
+            if (est_el) est_el.textContent = "Error";
+        } finally {
+            limpieza_en_curso = false;
+            if (btn_el) btn_el.disabled = false;
+        }
+    }
+
+    (function _conectar_boton_limpiar_todas() {
+        const btn = document.getElementById("btn_limpiar_todas");
+        const est = document.getElementById("limpiar_todas_estado");
+        if (btn) btn.addEventListener("click", () => limpiar_todas(est, btn));
+    })();
 
     chrome.runtime.onMessage.addListener((msg) => {
         if (msg && msg.tipo === "limpieza_progreso") {
