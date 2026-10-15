@@ -34,10 +34,50 @@
       font-size: 11px;
     }
     li.corriendo .resultado { background: #fff3cd; color: #7a4f00; }
+
+    /* Limpieza de datos de prueba */
+    .limpieza-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+    .limpieza-header button {
+      font-size: 12px;
+      padding: 4px 12px;
+    }
+    #limpieza_estado {
+      font-size: 11px;
+      color: #666;
+    }
+    #limpieza_log {
+      font-family: Consolas, Monaco, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 0 0 12px 0;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
   <h1>Iteradores Pruebas</h1>
+
+  <div class="limpieza-header">
+    <button id="btn_limpiar_datos_prueba">Limpiar datos de prueba</button>
+    <span id="limpieza_estado"></span>
+  </div>
+  <pre id="limpieza_log" style="display:none"></pre>
+
   <div class="estado" id="mensaje_estado">Cargando...</div>
   <div id="contenedor_secciones"></div>
   <script src="ventana.js"></script>

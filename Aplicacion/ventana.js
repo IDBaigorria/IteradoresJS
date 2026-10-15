@@ -7,7 +7,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.4n
+ * @version 1.5plugin.7m
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,6 +33,115 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         throw ultimo_error || new Error("No se pudo contactar al service worker");
     }
+
+    // ============================================================
+    // Limpieza de datos de prueba
+    // ============================================================
+
+    function _log_agregar(texto) {
+        const log = document.getElementById("limpieza_log");
+        if (!log) return;
+        log.textContent += texto + "\n";
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function _procesar_progreso(evento) {
+        if (!evento) return;
+        if (evento.tipo === "dueno") {
+            _log_agregar("");
+            _log_agregar("=== Dueno: " + evento.nombre + " ===");
+        } else if (evento.tipo === "ok") {
+            let linea = "  [ok] " + evento.etiqueta + ": "
+                + evento.borrados + " borrados";
+            if (evento.extra && evento.extra > 0) {
+                linea += " (+" + evento.extra + " vehiculos)";
+            }
+            if (evento.salteados && evento.salteados > 0) {
+                linea += ", " + evento.salteados + " salteados";
+            }
+            _log_agregar(linea);
+        } else if (evento.tipo === "warning") {
+            _log_agregar("  [warn] " + evento.etiqueta + ": " + evento.error);
+        }
+    }
+
+    function _mostrar_resumen(resp) {
+        const ini = resp.res_ini || {};
+        const fin = resp.res_fin || {};
+        const t = resp.totales || {};
+        const d_total = (fin.total || 0) - (ini.total || 0);
+        const d_huer = (fin.huerfanos || 0) - (ini.huerfanos || 0);
+
+        _log_agregar("");
+        _log_agregar("=== RESUMEN ===");
+        _log_agregar("Nodos:     " + (ini.total || 0) + " -> "
+            + (fin.total || 0) + " (" + d_total + ")");
+        _log_agregar("Huerfanos: " + (ini.huerfanos || 0) + " -> "
+            + (fin.huerfanos || 0) + " (" + d_huer + ")");
+        _log_agregar("");
+        _log_agregar("Borrados por categoria:");
+        _log_agregar("  ventas:        " + (t.ventas || 0));
+        _log_agregar("  cancelaciones: " + (t.cancelaciones || 0));
+        _log_agregar("  viajes:        " + (t.viajes || 0));
+        _log_agregar("  pasajeros:     " + (t.pasajeros || 0));
+        _log_agregar("  empresas:      " + (t.empresas || 0));
+        _log_agregar("  vehiculos:     " + (t.vehiculos || 0));
+        _log_agregar("  terminales:    " + (t.terminales || 0));
+        _log_agregar("  usuarios:      " + (t.usuarios || 0));
+        if (t.salteados > 0) {
+            _log_agregar("  salteados:     " + t.salteados);
+        }
+    }
+
+    async function limpiar_datos_de_prueba() {
+        const ok = confirm(
+            "Limpiar todos los datos de prueba?\n\n"
+            + "Esta accion borra ventas, cancelaciones, viajes, "
+            + "pasajeros, empresas, vehiculos y terminales de "
+            + "prueba.\n\n"
+            + "No toca datos reales."
+        );
+        if (!ok) return;
+
+        const btn = document.getElementById("btn_limpiar_datos_prueba");
+        const log = document.getElementById("limpieza_log");
+        const estado_l = document.getElementById("limpieza_estado");
+
+        btn.disabled = true;
+        log.style.display = "block";
+        log.textContent = "";
+        estado_l.textContent = "Limpiando...";
+
+        try {
+            const resp = await enviar({ tipo: "limpiar_datos_prueba" });
+            if (!resp || !resp.exito) {
+                _log_agregar("");
+                _log_agregar("ERROR: " + (resp && resp.error ? resp.error : "desconocido"));
+                estado_l.textContent = "Error";
+                return;
+            }
+            _mostrar_resumen(resp);
+            estado_l.textContent = "Listo";
+        } catch (e) {
+            _log_agregar("");
+            _log_agregar("ERROR: " + e.message);
+            estado_l.textContent = "Error";
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // Listener de progreso (broadcast desde el SW).
+    chrome.runtime.onMessage.addListener((msg) => {
+        if (msg && msg.tipo === "limpieza_progreso") {
+            _procesar_progreso(msg.evento);
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const btn = document.getElementById("btn_limpiar_datos_prueba");
+        if (btn) btn.addEventListener("click", limpiar_datos_de_prueba);
+    });
 
     function aplicar_resultado(el, resp) {
         if (!resp || !resp.exito) {

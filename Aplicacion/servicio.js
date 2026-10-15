@@ -18,12 +18,13 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.7c
+ * @version 1.5plugin.7m
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
 import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
+import { limpiar_datos_de_prueba } from "./LimpiezaPrueba.js";
 
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 
@@ -765,6 +766,35 @@ async function _correr_prueba(id_prueba) {
     return { exito: true, resultado, detalle, duracion_ms };
 }
 
+/**
+ * Ejecuta la limpieza de datos de prueba en la pestana
+ * activa del piloto. Manda eventos de progreso a la
+ * ventana por broadcast (chrome.runtime.sendMessage).
+ * Si no hay ventana escuchando, el sendMessage falla y
+ * se traga el error (es best-effort).
+ */
+async function _ejecutar_limpieza() {
+    const pestana = await _obtener_pestana_piloto();
+    if (!pestana) {
+        return { exito: false, error: "No hay una pestana del piloto abierta" };
+    }
+    const ctx = _crear_ctx(pestana.id);
+
+    function al_progreso(evento) {
+        try {
+            chrome.runtime.sendMessage(
+                { tipo: "limpieza_progreso", evento: evento }
+            ).catch(function () { /* nadie escuchando */ });
+        } catch (e) { /* ignorar */ }
+    }
+
+    try {
+        return await limpiar_datos_de_prueba(ctx, al_progreso);
+    } catch (e) {
+        return { exito: false, error: e.message };
+    }
+}
+
 chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
     if (!mensaje || !mensaje.tipo) return false;
 
@@ -807,6 +837,10 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                     sendResponse({ exito: true, corridas });
                     break;
 
+                case "limpiar_datos_prueba":
+                    sendResponse(await _ejecutar_limpieza());
+                    break;
+
                 case "refrescar_asientos_pagina": {
                     const pestana = await _obtener_pestana_piloto();
                     if (!pestana) { sendResponse({ exito: false, error: "no hay pestaña del piloto" }); break; }
@@ -833,3 +867,15 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
 
     return true; // mantener canal abierto para respuesta async
 });
+
+// ============================================================
+// Handler global para debug desde la consola del SW.
+// ============================================================
+//
+// `await globalThis.limpiar_prueba()` ejecuta la misma
+// rutina que el boton del popup. En MV3 no se puede hacer
+// import() dinamico desde la consola del SW, por eso
+// exponerlo en globalThis es la via.
+globalThis.limpiar_prueba = async () => {
+    return await _ejecutar_limpieza();
+};
