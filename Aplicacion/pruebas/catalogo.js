@@ -12,7 +12,7 @@
  * con `{id, nombre, pruebas: [...]}`. La ventana la detecta
  * automaticamente.
  *
- * @version 1.5plugin.6i
+ * @version 1.5plugin.7r
  */
 
 import { prueba as arranque } from "./prueba_01_arranque.js";
@@ -80,6 +80,7 @@ import { prueba as autorizar_terminal_aparece_en_compartido } from "./prueba_62_
 import { prueba as desautorizar_terminal_desaparece_del_compartido } from "./prueba_63_desautorizar_terminal_compartido.js";
 import { prueba as agregar_micro_actualiza_empresas_compartido } from "./prueba_64_agregar_micro_empresa_compartido.js";
 import { prueba as cambiar_asiento_desde_clientes } from "./prueba_65_cambiar_asiento_desde_clientes.js";
+import { prueba as reiniciar_seleccion_en_login } from "./prueba_66_reiniciar_seleccion_en_login.js";
 
 export const SECCIONES = [
     {
@@ -88,7 +89,8 @@ export const SECCIONES = [
         pruebas: [
             arranque,
             login,
-            cerrar_sesion_cierra_modales
+            cerrar_sesion_cierra_modales,
+            reiniciar_seleccion_en_login
         ]
     },
     {
