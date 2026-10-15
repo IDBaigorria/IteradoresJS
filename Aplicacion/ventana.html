@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Iteradores Pruebas</title>
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 600px; }
+    body { font-family: sans-serif; margin: 0; padding: 12px; min-width: 720px; }
     h1 { font-size: 14px; margin: 0 0 8px 0; }
 
     /* Pestanas */
@@ -65,18 +65,23 @@
     }
     li.corriendo .resultado { background: #fff3cd; color: #7a4f00; }
 
-    /* Limpieza de datos de prueba */
-    .limpieza-header {
+    /* Acciones globales (limpiar y copiar), en paralelo */
+    .acciones-globales {
       display: flex;
-      justify-content: space-between;
+      gap: 20px;
       align-items: center;
       padding: 8px 10px;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
       background: #f8f9fa;
       border: 1px solid #e0e0e0;
       border-radius: 6px;
     }
-    .limpieza-header button {
+    .accion-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .accion-item button {
       font-size: 12px;
       padding: 4px 12px;
     }
@@ -98,21 +103,6 @@
       white-space: pre-wrap;
     }
 
-    /* Copiar tabla de pasajeros */
-    .copiar-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 10px;
-      margin-bottom: 12px;
-      background: #f8f9fa;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-    }
-    .copiar-header button {
-      font-size: 12px;
-      padding: 4px 12px;
-    }
     #copiar_estado {
       font-size: 11px;
       color: #666;
@@ -142,16 +132,17 @@
 <body>
   <h1>Iteradores Pruebas</h1>
 
-  <div class="limpieza-header">
-    <button id="btn_limpiar_datos_prueba">Limpiar datos de prueba</button>
-    <span id="limpieza_estado"></span>
+  <div class="acciones-globales">
+    <div class="accion-item">
+      <button id="btn_limpiar_datos_prueba">Limpiar datos de prueba</button>
+      <span id="limpieza_estado"></span>
+    </div>
+    <div class="accion-item">
+      <button id="btn_copiar_pasajeros">Copiar tabla de pasajeros</button>
+      <span id="copiar_estado"></span>
+    </div>
   </div>
   <pre id="limpieza_log" style="display:none"></pre>
-
-  <div class="copiar-header">
-    <button id="btn_copiar_pasajeros">Copiar tabla de pasajeros</button>
-    <span id="copiar_estado"></span>
-  </div>
   <pre id="copiar_pre" style="display:none"></pre>
   <textarea id="copiar_textarea" style="display:none" readonly></textarea>
 
