@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.7p
+ * @version 1.5plugin.7w
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -774,7 +774,7 @@ async function _correr_prueba(id_prueba) {
  * Si no hay ventana escuchando, el sendMessage falla y
  * se traga el error (es best-effort).
  */
-async function _ejecutar_limpieza() {
+async function _ejecutar_limpieza(categorias) {
     const pestana = await _obtener_pestana_piloto();
     if (!pestana) {
         return { exito: false, error: "No hay una pestana del piloto abierta" };
@@ -790,7 +790,7 @@ async function _ejecutar_limpieza() {
     }
 
     try {
-        return await limpiar_datos_de_prueba(ctx, al_progreso);
+        return await limpiar_datos_de_prueba(ctx, al_progreso, { categorias });
     } catch (e) {
         return { exito: false, error: e.message };
     }
@@ -819,10 +819,15 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                         secciones: SECCIONES.map((s) => ({
                             id: s.id,
                             nombre: s.nombre,
-                            pruebas: s.pruebas.map((p) => ({
-                                id: p.id,
-                                nombre: p.nombre,
-                                descripcion: p.descripcion || ""
+                            limpieza: s.limpieza || [],
+                            grupos: (s.grupos || []).map((g) => ({
+                                id: g.id,
+                                nombre: g.nombre,
+                                pruebas: g.pruebas.map((p) => ({
+                                    id: p.id,
+                                    nombre: p.nombre,
+                                    descripcion: p.descripcion || ""
+                                }))
                             }))
                         }))
                     });
@@ -840,6 +845,10 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
 
                 case "limpiar_datos_prueba":
                     sendResponse(await _ejecutar_limpieza());
+                    break;
+
+                case "limpiar_prueba_categoria":
+                    sendResponse(await _ejecutar_limpieza(mensaje.categorias || []));
                     break;
 
                 case "copiar_tabla_pasajeros": {
