@@ -7,7 +7,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.7m
+ * @version 1.5plugin.7n
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -138,10 +138,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    document.addEventListener("DOMContentLoaded", () => {
+    // Conectar el boton directamente: estamos dentro del
+    // handler de DOMContentLoaded original, asi que el DOM
+    // ya esta listo. Un addEventListener("DOMContentLoaded")
+    // anidado nunca dispararia.
+    (function _conectar_boton_limpieza() {
         const btn = document.getElementById("btn_limpiar_datos_prueba");
         if (btn) btn.addEventListener("click", limpiar_datos_de_prueba);
-    });
+    })();
 
     function aplicar_resultado(el, resp) {
         if (!resp || !resp.exito) {
