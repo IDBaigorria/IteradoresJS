@@ -97,7 +97,7 @@
     li:first-child { border-top: none; }
     .prueba-nombre { font-weight: 600; font-size: 12px; }
     .prueba-desc { font-size: 11px; color: #666; margin: 2px 0 4px 0; }
-    .acciones { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+    .acciones { display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
     .resultado { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #f1f1f1; color: #555; }
     .resultado-ok { background: #e6f4ea; color: #137333; }
     .resultado-fallo { background: #fce8e6; color: #c5221f; }
@@ -114,6 +114,46 @@
       font-size: 11px;
     }
     li.corriendo .resultado { background: #fff3cd; color: #7a4f00; }
+
+    /* Indicador de estado persistente (ultima corrida) */
+    .indicador-estado {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      background: #f1f1f1;
+      color: #555;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .indicador-estado:hover { filter: brightness(0.95); }
+    .indicador-sin { color: #aaa; }
+    .indicador-ok { background: #e6f4ea; color: #137333; }
+    .indicador-fallo { background: #fce8e6; color: #c5221f; }
+    .indicador-error { background: #fef7e0; color: #b06000; }
+    .indicador-corriendo { background: #fff3cd; color: #7a4f00; }
+
+    /* Historial desplegable */
+    .historial-prueba {
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: #fafafa;
+      border-left: 3px solid #ddd;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    .hist-item {
+      padding: 2px 0;
+      font-family: Consolas, Monaco, monospace;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hist-ok .hist-res { color: #137333; font-weight: 700; }
+    .hist-fallo .hist-res { color: #c5221f; font-weight: 700; }
+    .hist-error .hist-res { color: #b06000; font-weight: 700; }
+    .historial-vacio { color: #888; font-style: italic; }
 
     /* Acciones globales (copiar) */
     .acciones-globales {

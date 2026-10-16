@@ -6,14 +6,22 @@
  *   - "Ejecutar todos los roles": corre todas las pruebas
  *     de la pestana, en todos los grupos.
  *   - "Limpiar pruebas": limpia los datos de prueba que
- *     corresponden a la pestana (por ejemplo, Viajes limpia
- *     viajes; Ventas limpia ventas y cancelaciones).
+ *     corresponden a la pestana.
  *
  * La pestana activa se persiste en localStorage.
  *
+ * Cada fila de prueba muestra un INDICADOR DE ESTADO con la
+ * ultima corrida (persistida en el grafo del plugin):
+ * resultado + fecha. Click en el indicador despliega el
+ * historial de las ultimas 5 corridas.
+ *
+ * El popup NO carga el framework. Pide el estado al SW por
+ * mensajeria (`estado_pruebas`) y escucha broadcasts en vivo
+ * (`corrida_iniciada`, `corrida_terminada`).
+ *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.7z
+ * @version 1.5plugin.8c
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -25,6 +33,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let secciones_cargadas = [];
     let limpieza_en_curso = false;
+
+    // Estado persistente por prueba (viene del SW).
+    // { id_prueba: { ultima, historial: [...], corriendo } }
+    let estado_pruebas = {};
 
     function mostrar_estado(texto) {
         estado.textContent = texto;
@@ -44,6 +56,103 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         throw ultimo_error || new Error("No se pudo contactar al service worker");
+    }
+
+    function _escapar_html(s) {
+        return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function _formatear_fecha(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mi = String(d.getMinutes()).padStart(2, "0");
+        return dd + "/" + mm + " " + hh + ":" + mi;
+    }
+
+    // ============================================================
+    // Indicadores de estado por prueba
+    // ============================================================
+
+    function _renderizar_indicador(id_prueba) {
+        const li = document.querySelector('li[data-id-prueba="' + id_prueba + '"]');
+        if (!li) return;
+        const el = li.querySelector(".indicador-estado");
+        if (!el) return;
+
+        const est = estado_pruebas[id_prueba];
+        el.classList.remove("indicador-ok", "indicador-fallo",
+            "indicador-error", "indicador-corriendo", "indicador-sin");
+
+        if (!est || (!est.ultima && !est.corriendo)) {
+            el.textContent = "\u2014";
+            el.classList.add("indicador-sin");
+            return;
+        }
+
+        if (est.corriendo) {
+            el.textContent = "Corriendo...";
+            el.classList.add("indicador-corriendo");
+            return;
+        }
+
+        const u = est.ultima;
+        const fecha = _formatear_fecha(u.fecha_hora);
+        if (u.resultado === "ok") {
+            el.textContent = "[OK " + fecha + "]";
+            el.classList.add("indicador-ok");
+        } else if (u.resultado === "fallo") {
+            el.textContent = "[Fallo " + fecha + "]";
+            el.classList.add("indicador-fallo");
+        } else {
+            el.textContent = "[Error " + fecha + "]";
+            el.classList.add("indicador-error");
+        }
+    }
+
+    function _renderizar_indicadores_todos() {
+        document.querySelectorAll("li[data-id-prueba]").forEach((li) => {
+            _renderizar_indicador(li.dataset.idPrueba);
+        });
+    }
+
+    function _toggle_historial(id_prueba, li) {
+        const div = li.querySelector(".historial-prueba");
+        if (!div) return;
+
+        if (div.style.display === "block") {
+            div.style.display = "none";
+            return;
+        }
+
+        const est = estado_pruebas[id_prueba];
+        if (!est || !est.historial || est.historial.length === 0) {
+            div.innerHTML = '<div class="historial-vacio">(sin corridas registradas)</div>';
+        } else {
+            div.innerHTML = est.historial.map((c) => {
+                const fecha = _formatear_fecha(c.fecha_hora);
+                let cls = "hist-item";
+                if (c.resultado === "ok") cls += " hist-ok";
+                else if (c.resultado === "fallo") cls += " hist-fallo";
+                else cls += " hist-error";
+                let det = c.detalle ? " \u00b7 " + _escapar_html(c.detalle) : "";
+                return '<div class="' + cls + '">' +
+                    '<span class="hist-res">' + _escapar_html(c.resultado) + '</span>' +
+                    " \u00b7 " + fecha +
+                    " \u00b7 " + _escapar_html(c.duracion_ms) + " ms" +
+                    det +
+                    "</div>";
+            }).join("");
+        }
+        div.style.display = "block";
     }
 
     // ============================================================
@@ -266,59 +375,65 @@ document.addEventListener("DOMContentLoaded", () => {
         if (btn) btn.addEventListener("click", () => limpiar_todas(est, btn));
     })();
 
+    // ============================================================
+    // Mensajes entrantes del SW
+    // ============================================================
+
     chrome.runtime.onMessage.addListener((msg) => {
-        if (msg && msg.tipo === "limpieza_progreso") {
+        if (!msg) return;
+        if (msg.tipo === "limpieza_progreso") {
             _procesar_progreso(msg.evento);
+            return;
         }
-        if (msg && msg.tipo === "estado_en_vivo_cambio") {
-            _aplicar_cambio_estado(msg.estado);
+        if (msg.tipo === "corrida_iniciada") {
+            _aplicar_corrida_iniciada(msg.id_prueba);
+            return;
+        }
+        if (msg.tipo === "corrida_terminada") {
+            _aplicar_corrida_terminada(msg);
+            return;
         }
     });
 
-    // ============================================================
-    // Estado en vivo de la corrida
-    // ============================================================
-    //
-    // El SW escribe el estado en chrome.storage.session y
-    // nos notifica por mensaje. Al abrir el popup, pedimos
-    // el estado para saber si hay algo corriendo.
-    function _aplicar_cambio_estado(estado) {
-        // Limpiar cualquier marca previa.
-        document.querySelectorAll("li.corriendo").forEach((li) => {
-            li.classList.remove("corriendo");
-            const el = li.querySelector(".resultado");
-            if (el && el.textContent === "Corriendo...") {
-                el.textContent = "\u2014";
-                el.className = "resultado";
-            }
-        });
-
-        if (!estado || !estado.corriendo || !estado.id_prueba) return;
-
-        // Buscar la li de la prueba en curso.
-        const lis = document.querySelectorAll("li[data-id-prueba]");
-        for (const li of lis) {
-            if (li.dataset.idPrueba === estado.id_prueba) {
-                li.classList.add("corriendo");
-                const el = li.querySelector(".resultado");
-                if (el) {
-                    el.textContent = "Corriendo...";
-                    el.className = "resultado";
-                }
-                break;
-            }
+    function _aplicar_corrida_iniciada(id_prueba) {
+        if (!id_prueba) return;
+        if (!estado_pruebas[id_prueba]) {
+            estado_pruebas[id_prueba] = { ultima: null, historial: [], corriendo: true };
+        } else {
+            estado_pruebas[id_prueba].corriendo = true;
         }
+        _renderizar_indicador(id_prueba);
+    }
+
+    function _aplicar_corrida_terminada(payload) {
+        const id_prueba = payload && payload.id_prueba;
+        if (!id_prueba) return;
+        const nueva = {
+            resultado: payload.resultado || "",
+            fecha_hora: payload.fecha_hora || "",
+            duracion_ms: payload.duracion_ms != null ? String(payload.duracion_ms) : "",
+            detalle: payload.detalle || "",
+        };
+        if (!estado_pruebas[id_prueba]) {
+            estado_pruebas[id_prueba] = { ultima: nueva, historial: [nueva], corriendo: false };
+        } else {
+            estado_pruebas[id_prueba].ultima = nueva;
+            estado_pruebas[id_prueba].historial = [nueva].concat(estado_pruebas[id_prueba].historial).slice(0, 5);
+            estado_pruebas[id_prueba].corriendo = false;
+        }
+        _renderizar_indicador(id_prueba);
     }
 
     async function _cargar_estado_inicial() {
         let resp;
         try {
-            resp = await enviar({ tipo: "estado_en_vivo" });
+            resp = await enviar({ tipo: "estado_pruebas" });
         } catch (e) {
             return;
         }
-        if (resp && resp.exito) {
-            _aplicar_cambio_estado(resp.estado);
+        if (resp && resp.exito && resp.por_prueba) {
+            estado_pruebas = resp.por_prueba;
+            _renderizar_indicadores_todos();
         }
     }
 
@@ -390,6 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         aplicar_resultado(el, resp);
+        _renderizar_indicador(id_prueba);
     }
 
     async function correr_grupo(card, resumen_el) {
@@ -405,7 +521,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         lis.forEach((li) => {
             const el = li.querySelector(".resultado");
-            el.textContent = "—";
+            el.textContent = "\u2014";
             el.className = "resultado";
             li.classList.remove("corriendo");
         });
@@ -436,6 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             aplicar_resultado(el, resp);
             li.classList.remove("corriendo");
+            _renderizar_indicador(id_prueba);
 
             if (resp && resp.exito && resp.resultado === "ok") ok++;
             else fallo++;
@@ -455,7 +572,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (btn_el) btn_el.disabled = true;
 
-        // Contar total de pruebas para progreso general.
         let total_global = 0;
         let ok_global = 0;
         let fallo_global = 0;
@@ -475,7 +591,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             lis.forEach((li) => {
                 const el = li.querySelector(".resultado");
-                el.textContent = "—";
+                el.textContent = "\u2014";
                 el.className = "resultado";
                 li.classList.remove("corriendo");
             });
@@ -503,6 +619,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 aplicar_resultado(el, resp);
                 li.classList.remove("corriendo");
+                _renderizar_indicador(id_prueba);
 
                 if (resp && resp.exito && resp.resultado === "ok") ok_global++;
                 else fallo_global++;
@@ -533,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
         header.innerHTML =
             '<div><span class="grupo-nombre">' + grupo.nombre + '</span>' +
             '<span class="grupo-resumen"></span></div>' +
-            '<button class="btn-correr-todas">▶ Correr todas</button>';
+            '<button class="btn-correr-todas">\u25b6 Correr todas</button>';
         card.appendChild(header);
 
         const ul = document.createElement("ul");
@@ -544,10 +661,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 '<div class="prueba-nombre">' + p.nombre + '</div>' +
                 '<div class="prueba-desc">' + (p.descripcion || "") + '</div>' +
                 '<div class="acciones">' +
-                '  <button class="btn-correr-prueba">▶</button>' +
-                '  <span class="resultado">—</span>' +
-                '</div>';
+                '  <button class="btn-correr-prueba">\u25b6</button>' +
+                '  <span class="resultado">\u2014</span>' +
+                '  <span class="indicador-estado indicador-sin">\u2014</span>' +
+                '</div>' +
+                '<div class="historial-prueba" style="display:none"></div>';
             li.querySelector(".btn-correr-prueba").addEventListener("click", () => correr(p.id, li));
+            li.querySelector(".indicador-estado").addEventListener("click", () => _toggle_historial(p.id, li));
             ul.appendChild(li);
         });
         card.appendChild(ul);
@@ -576,12 +696,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const btn_ejecutar = document.createElement("button");
         btn_ejecutar.type = "button";
-        btn_ejecutar.textContent = "▶ Ejecutar todos los roles";
+        btn_ejecutar.textContent = "\u25b6 Ejecutar todos los roles";
         barra.appendChild(btn_ejecutar);
 
         const btn_limpiar = document.createElement("button");
         btn_limpiar.type = "button";
-        btn_limpiar.textContent = "🧹 Limpiar pruebas";
+        btn_limpiar.textContent = "\ud83e\uddf9 Limpiar pruebas";
         barra.appendChild(btn_limpiar);
 
         const est_el = document.createElement("span");

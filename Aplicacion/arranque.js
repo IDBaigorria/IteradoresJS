@@ -2,61 +2,57 @@
  * Arranque del framework Iteradores en el service worker.
  *
  * Responsabilidades:
- * - Forzar salida en modo consola (el SW no tiene document).
- * - Fijar modo desarrollo (habilita `permite_pruebas`).
- * - Configurar `Conf` con valores propios del plugin.
- * - Cargar el Controlador dinamicamente despues de configurar
- *   Conf, para que la persistencia tome el nombre correcto
- *   de la BD IndexedDB.
+ * - Configurar Conf y Entorno ANTES de que el Controlador
+ *   se inicialice. Eso lo hace `arranque_config.js` (efecto
+ *   de lado), que se importa PRIMERO.
+ * - Exponer `obtener_controlador()`, que espera activamente
+ *   a que el Controlador termine de inicializar y fuerza el
+ *   método de persistencia a IndexedDB una sola vez.
  *
- * @version 1.5plugin.5t
+ * IMPORTANTE: los imports son ESTÁTICOS. Chrome MV3 no
+ * permite `import()` dinámico en el ServiceWorkerGlobalScope
+ * (spec: "import() is disallowed on ServiceWorkerGlobalScope
+ * by the HTML specification", w3c/ServiceWorker#1356).
+ * El prompt §3.2 lo documenta.
+ *
+ * @version 1.5plugin.8d
+ * @since 1.5plugin.5t
  */
 
-import { Conf, Entorno } from "../Configuracion/index.js";
-import { configurar_conf } from "./ConfiguracionApli.js";
+// Efecto de lado: configura Conf y Entorno ANTES de que
+// se evalúe el módulo del Controlador. El ORDEN de los
+// imports importa: ES evalúa depth-first en orden de
+// aparición. NO mover esta línea.
+import "./arranque_config.js";
+import { Controlador } from "../Controlador/index.js";
 
-// Salida consola: los caminos HTML del framework tocan document,
-// que no existe en el service worker.
-Entorno.establecer_salida(Entorno.SALIDA_CONSOLA);
-Entorno.establecer_modo(Entorno.MODO_DESARROLLO);
-
-// Config propia del plugin.
-configurar_conf(Conf);
-
-let _controlador = null;
+let _metodo_forzado = false;
 
 /**
- * Devuelve el Controlador ya inicializado. La primera llamada
- * dispara el import dinamico del modulo `Controlador`, que
- * a su vez llama a `Controlador.inicializar()` al final de su
- * evaluacion.
- *
- * Espera activamente a que `clase_actual` quede seteada como
- * senal de que la inicializacion termino. Despues fuerza el
- * metodo de persistencia a `IndexedDB` (el framework por
- * defecto usa `EIndexedDB`).
+ * Devuelve el Controlador ya inicializado. Espera activamente
+ * a que `clase_actual` quede seteada como señal de que la
+ * inicialización terminó. Después fuerza el método de
+ * persistencia a `IndexedDB` una sola vez.
  *
  * @returns {Promise<typeof Controlador>}
  */
 export async function obtener_controlador() {
-    if (_controlador && _controlador.clase_actual) return _controlador;
-
-    const mod = await import("../Controlador/index.js");
-    _controlador = mod.Controlador;
-
     const inicio = Date.now();
-    while (!_controlador.clase_actual) {
+    while (!Controlador.clase_actual) {
         if (Date.now() - inicio > 5000) {
-            throw new Error("El Controlador no termino de inicializar en 5s");
+            throw new Error("El Controlador no terminó de inicializar en 5s");
         }
         await new Promise((r) => setTimeout(r, 20));
     }
 
-    try {
-        _controlador.establecer_metodo("IndexedDB");
-    } catch (e) {
-        console.warn("No se pudo forzar IndexedDB:", e);
+    if (!_metodo_forzado) {
+        try {
+            Controlador.establecer_metodo("IndexedDB");
+        } catch (e) {
+            console.warn("No se pudo forzar IndexedDB:", e);
+        }
+        _metodo_forzado = true;
     }
 
-    return _controlador;
+    return Controlador;
 }
