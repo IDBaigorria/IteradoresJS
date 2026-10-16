@@ -27,7 +27,7 @@
  * contra destrucción accidental del contenedor mientras la
  * prueba corre.
  *
- * @version 1.5plugin.8b
+ * @version 1.5plugin.8e
  * @since 1.5plugin.5t
  */
 
@@ -122,10 +122,10 @@ function _migrar_estructura_si_hace_falta() {
 function _destruir_contenedor_corridas_viejo(raiz, corridas) {
     const hijos = corridas.adyacentes();
     if (hijos) {
-        for (const [nombre, nodo] of Object.entries(hijos)) {
+        for (const [nombre, nodo] of hijos) {
             const campos = nodo.adyacentes();
             if (campos) {
-                for (const [nombre_campo, nodo_campo] of Object.entries(campos)) {
+                for (const [nombre_campo, nodo_campo] of campos) {
                     nodo.eliminar_adyacente(nombre_campo);
                     Nodo.eliminar(nodo_campo);
                 }
@@ -252,7 +252,7 @@ function _podar_si_excede(cont, max = CORRIDAS_POR_PRUEBA_MAX) {
         // Destruir los campos de datos del sobrante.
         const campos = sobrante.adyacentes();
         if (campos) {
-            for (const [nombre, nodo_campo] of Object.entries(campos)) {
+            for (const [nombre, nodo_campo] of campos) {
                 if (nombre === "hd" || nombre === "p") continue;
                 sobrante.eliminar_adyacente(nombre);
                 Nodo.eliminar(nodo_campo);
@@ -329,7 +329,7 @@ export async function limpiar_autoenlaces_colgados() {
     let limpiados = 0;
     const ady = pruebas.adyacentes();
     if (ady) {
-        for (const [nombre, cont] of Object.entries(ady)) {
+        for (const [nombre, cont] of ady) {
             if (cont.adyacente("corriendo")) {
                 cont.eliminar_adyacente("corriendo");
                 limpiados++;
@@ -373,7 +373,7 @@ export async function obtener_estado_por_prueba(limite = CORRIDAS_POR_PRUEBA_MAX
     const ady = pruebas.adyacentes();
     if (!ady) return resultado;
 
-    for (const [id_prueba, cont] of Object.entries(ady)) {
+    for (const [id_prueba, cont] of ady) {
         const corridas = _recorrer_corridas(cont, limite);
         const historial = corridas.map((nodo) => ({
             resultado: _dato_adyacente(nodo, "resultado"),

@@ -1,13 +1,13 @@
 <?php
 /**
- * Aplicador — Tanda 5: fix del import dinámico en arranque.js.
+ * Aplicador — Tanda 6: fix iteración de Map en GrafoPlugin.js.
  *
  * Uso (raíz de iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.8d';
+$version_nueva = '1.5plugin.8e';
 
 // El plugin no usa ?v= en HTML.
 $htmls_a_bumpear = [];
@@ -19,12 +19,12 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'VERSION_APP a 1.5plugin.8d',
+        'descripcion' => 'VERSION_APP a 1.5plugin.8e',
         'buscar' => [
-            'export const VERSION_APP = "1.5plugin.8c";',
+            'export const VERSION_APP = "1.5plugin.8d";',
         ],
         'reemplazar' => [
-            'export const VERSION_APP = "1.5plugin.8d";',
+            'export const VERSION_APP = "1.5plugin.8e";',
         ],
     ],
 
@@ -34,122 +34,118 @@ $cambios = [
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'VERSION_PLUGIN a 1.5plugin.8d',
+        'descripcion' => 'VERSION_PLUGIN a 1.5plugin.8e',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.8c";',
-        ],
-        'reemplazar' => [
             'export const VERSION_PLUGIN = "1.5plugin.8d";',
         ],
-    ],
-
-    // ============================================================
-    // C) Nuevo: arranque_config.js (efecto de lado)
-    // ============================================================
-    [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/arranque_config.js',
-        'descripcion' => 'Nuevo arranque_config.js (configuración temprana)',
-        'contenido' => [
-            '/**',
-            ' * Configuración temprana de Conf y Entorno.',
-            ' *',
-            ' * Este módulo existe por una razón de orden de evaluación:',
-            ' * los `import` estáticos de un módulo ES se evalúan ANTES',
-            ' * que el cuerpo del módulo. Si `arranque.js` importara',
-            ' * `Controlador` directamente junto con la configuración,',
-            ' * `configurar_conf(Conf)` no se ejecutaría antes de que el',
-            ' * Controlador se inicialice (su auto-init corre al final',
-            ' * del módulo), y leería la config por defecto.',
-            ' *',
-            ' * Solución: un módulo separado que hace la configuración',
-            ' * como efecto de lado. `arranque.js` lo importa ANTES que',
-            ' * a Controlador. El orden de los `import` determina el',
-            ' * orden de evaluación (depth-first, orden de aparición).',
-            ' *',
-            ' * @version 1.5plugin.8d',
-            ' * @since 1.5plugin.8d',
-            ' */',
-            '',
-            'import { Conf, Entorno } from "../Configuracion/index.js";',
-            'import { configurar_conf } from "./ConfiguracionApli.js";',
-            '',
-            '// Salida consola: los caminos HTML del framework tocan',
-            '// document, que no existe en el service worker.',
-            'Entorno.establecer_salida(Entorno.SALIDA_CONSOLA);',
-            'Entorno.establecer_modo(Entorno.MODO_DESARROLLO);',
-            '',
-            '// Config propia del plugin.',
-            'configurar_conf(Conf);',
+        'reemplazar' => [
+            'export const VERSION_PLUGIN = "1.5plugin.8e";',
         ],
     ],
 
     // ============================================================
-    // D) Reescribir arranque.js con imports estáticos
+    // C) Fix 1: _destruir_contenedor_corridas_viejo (2 iteraciones)
     // ============================================================
     [
-        'tipo' => 'crear',
-        'archivo' => 'Aplicacion/arranque.js',
-        'descripcion' => 'arranque.js con imports estáticos (sin import dinámico)',
-        'contenido' => [
-            '/**',
-            ' * Arranque del framework Iteradores en el service worker.',
-            ' *',
-            ' * Responsabilidades:',
-            ' * - Configurar Conf y Entorno ANTES de que el Controlador',
-            ' *   se inicialice. Eso lo hace `arranque_config.js` (efecto',
-            ' *   de lado), que se importa PRIMERO.',
-            ' * - Exponer `obtener_controlador()`, que espera activamente',
-            ' *   a que el Controlador termine de inicializar y fuerza el',
-            ' *   método de persistencia a IndexedDB una sola vez.',
-            ' *',
-            ' * IMPORTANTE: los imports son ESTÁTICOS. Chrome MV3 no',
-            ' * permite `import()` dinámico en el ServiceWorkerGlobalScope',
-            ' * (spec: "import() is disallowed on ServiceWorkerGlobalScope',
-            ' * by the HTML specification", w3c/ServiceWorker#1356).',
-            ' * El prompt §3.2 lo documenta.',
-            ' *',
-            ' * @version 1.5plugin.8d',
-            ' * @since 1.5plugin.5t',
-            ' */',
-            '',
-            '// Efecto de lado: configura Conf y Entorno ANTES de que',
-            '// se evalúe el módulo del Controlador. El ORDEN de los',
-            '// imports importa: ES evalúa depth-first en orden de',
-            '// aparición. NO mover esta línea.',
-            'import "./arranque_config.js";',
-            'import { Controlador } from "../Controlador/index.js";',
-            '',
-            'let _metodo_forzado = false;',
-            '',
-            '/**',
-            ' * Devuelve el Controlador ya inicializado. Espera activamente',
-            ' * a que `clase_actual` quede seteada como señal de que la',
-            ' * inicialización terminó. Después fuerza el método de',
-            ' * persistencia a `IndexedDB` una sola vez.',
-            ' *',
-            ' * @returns {Promise<typeof Controlador>}',
-            ' */',
-            'export async function obtener_controlador() {',
-            '    const inicio = Date.now();',
-            '    while (!Controlador.clase_actual) {',
-            '        if (Date.now() - inicio > 5000) {',
-            '            throw new Error("El Controlador no terminó de inicializar en 5s");',
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/GrafoPlugin.js',
+        'descripcion' => 'Fix iteración de Map en _destruir_contenedor_corridas_viejo',
+        'buscar' => [
+            '    const hijos = corridas.adyacentes();',
+            '    if (hijos) {',
+            '        for (const [nombre, nodo] of Object.entries(hijos)) {',
+            '            const campos = nodo.adyacentes();',
+            '            if (campos) {',
+            '                for (const [nombre_campo, nodo_campo] of Object.entries(campos)) {',
+            '                    nodo.eliminar_adyacente(nombre_campo);',
+            '                    Nodo.eliminar(nodo_campo);',
+            '                }',
+            '            }',
+            '            corridas.eliminar_adyacente(nombre);',
+            '            Nodo.eliminar(nodo);',
             '        }',
-            '        await new Promise((r) => setTimeout(r, 20));',
             '    }',
-            '',
-            '    if (!_metodo_forzado) {',
-            '        try {',
-            '            Controlador.establecer_metodo("IndexedDB");',
-            '        } catch (e) {',
-            '            console.warn("No se pudo forzar IndexedDB:", e);',
+        ],
+        'reemplazar' => [
+            '    const hijos = corridas.adyacentes();',
+            '    if (hijos) {',
+            '        for (const [nombre, nodo] of hijos) {',
+            '            const campos = nodo.adyacentes();',
+            '            if (campos) {',
+            '                for (const [nombre_campo, nodo_campo] of campos) {',
+            '                    nodo.eliminar_adyacente(nombre_campo);',
+            '                    Nodo.eliminar(nodo_campo);',
+            '                }',
+            '            }',
+            '            corridas.eliminar_adyacente(nombre);',
+            '            Nodo.eliminar(nodo);',
             '        }',
-            '        _metodo_forzado = true;',
             '    }',
-            '',
-            '    return Controlador;',
-            '}',
+        ],
+    ],
+
+    // ============================================================
+    // D) Fix 2: limpiar_autoenlaces_colgados
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/GrafoPlugin.js',
+        'descripcion' => 'Fix iteración de Map en limpiar_autoenlaces_colgados',
+        'buscar' => [
+            '    const ady = pruebas.adyacentes();',
+            '    if (ady) {',
+            '        for (const [nombre, cont] of Object.entries(ady)) {',
+            '            if (cont.adyacente("corriendo")) {',
+            '                cont.eliminar_adyacente("corriendo");',
+            '                limpiados++;',
+            '            }',
+            '        }',
+            '    }',
+        ],
+        'reemplazar' => [
+            '    const ady = pruebas.adyacentes();',
+            '    if (ady) {',
+            '        for (const [nombre, cont] of ady) {',
+            '            if (cont.adyacente("corriendo")) {',
+            '                cont.eliminar_adyacente("corriendo");',
+            '                limpiados++;',
+            '            }',
+            '        }',
+            '    }',
+        ],
+    ],
+
+    // ============================================================
+    // E) Fix 3: obtener_estado_por_prueba
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/GrafoPlugin.js',
+        'descripcion' => 'Fix iteración de Map en obtener_estado_por_prueba',
+        'buscar' => [
+            '    for (const [id_prueba, cont] of Object.entries(ady)) {',
+        ],
+        'reemplazar' => [
+            '    for (const [id_prueba, cont] of ady) {',
+        ],
+    ],
+
+    // ============================================================
+    // F) Fix 4: _podar_si_excede
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/GrafoPlugin.js',
+        'descripcion' => 'Fix iteración de Map en _podar_si_excede',
+        'buscar' => [
+            '        const campos = sobrante.adyacentes();',
+            '        if (campos) {',
+            '            for (const [nombre, nodo_campo] of Object.entries(campos)) {',
+        ],
+        'reemplazar' => [
+            '        const campos = sobrante.adyacentes();',
+            '        if (campos) {',
+            '            for (const [nombre, nodo_campo] of campos) {',
         ],
     ],
 ];
