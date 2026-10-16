@@ -16,13 +16,13 @@
  * Mensajes que atiende:
  * - `listar_pruebas`  -> devuelve el catalogo.
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
- * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
+ * - `estado_pruebas`  -> devuelve el estado consolidado por prueba.
  *
- * @version 1.5plugin.7z
+ * @version 1.5plugin.8b
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
-import { registrar_corrida, listar_ultimas_corridas } from "./GrafoPlugin.js";
+import { registrar_corrida, marcar_en_vivo, limpiar_en_vivo, limpiar_autoenlaces_colgados, obtener_estado_por_prueba } from "./GrafoPlugin.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 import { limpiar_datos_de_prueba } from "./LimpiezaPrueba.js";
 import { copiar_pasajeros_del_micro } from "./CopiarPasajeros.js";
@@ -43,46 +43,25 @@ let _cache_nombre_solicitante = null;
 let _cache_dueno_actual = null;
 
 // ============================================================
-// Estado en vivo de la corrida
+// Notificaciones a la ventana
 // ============================================================
 //
-// Vive en chrome.storage.session: sobrevive al cierre del
-// popup (mientras el navegador este abierto), pero muere al
-// cerrar Chrome. El SW lo escribe cuando arranca una prueba
-// y lo limpia cuando termina. El popup lo lee al abrirse y
-// escucha las notificaciones para actualizar en vivo.
-const ESTADO_EN_VIVO_KEY = "plugin_estado_en_vivo";
-
-async function _guardar_estado_en_vivo(estado) {
-    try {
-        await chrome.storage.session.set({ [ESTADO_EN_VIVO_KEY]: estado });
-    } catch (e) {
-        console.warn("No se pudo guardar el estado en vivo:", e);
-    }
-}
-
-async function _leer_estado_en_vivo() {
-    try {
-        const r = await chrome.storage.session.get([ESTADO_EN_VIVO_KEY]);
-        return r[ESTADO_EN_VIVO_KEY] || null;
-    } catch (e) {
-        console.warn("No se pudo leer el estado en vivo:", e);
-        return null;
-    }
-}
-
-async function _limpiar_estado_en_vivo() {
-    try {
-        await chrome.storage.session.remove([ESTADO_EN_VIVO_KEY]);
-    } catch (e) {
-        console.warn("No se pudo limpiar el estado en vivo:", e);
-    }
-}
-
-function _notificar_estado_en_vivo(estado) {
+// El estado "en vivo" (qué prueba corre ahora) vive en el
+// grafo, como autoenlace `corriendo` en el contenedor de
+// cada prueba. Acá solo mandamos notificaciones para que
+// el popup actualice en vivo sin tener que releer todo.
+function _notificar_corrida_iniciada(id_prueba) {
     try {
         chrome.runtime.sendMessage(
-            { tipo: "estado_en_vivo_cambio", estado }
+            { tipo: "corrida_iniciada", id_prueba }
+        ).catch(function () { /* nadie escuchando */ });
+    } catch (e) { /* ignorar */ }
+}
+
+function _notificar_corrida_terminada(payload) {
+    try {
+        chrome.runtime.sendMessage(
+            Object.assign({ tipo: "corrida_terminada" }, payload)
         ).catch(function () { /* nadie escuchando */ });
     } catch (e) { /* ignorar */ }
 }
@@ -92,17 +71,13 @@ function _es_url_piloto(url) {
     return URLS_PILOTO.some((prefijo) => url.startsWith(prefijo));
 }
 
-// Al arrancar el SW, limpiar cualquier estado en vivo
-// colgado de una corrida anterior. Si el SW se reinicio
-// por inactividad a mitad de una prueba, el estado queda
-// con corriendo: true sin que nadie lo haya terminado.
-// Solo limpiamos; el usuario vera el popup sin marcas.
+// Al arrancar el SW, limpiar cualquier autoenlace `corriendo`
+// que haya quedado colgado de una corrida anterior. Si el SW
+// se reinicio por inactividad a mitad de una prueba, el nodo
+// queda marcado sin que nadie lo haya terminado.
 (async () => {
     try {
-        const estado = await _leer_estado_en_vivo();
-        if (estado && estado.corriendo) {
-            await _limpiar_estado_en_vivo();
-        }
+        await limpiar_autoenlaces_colgados();
     } catch (e) { /* ignorar */ }
 })();
 
@@ -802,9 +777,13 @@ async function _correr_prueba(id_prueba) {
     let resultado = "ok";
     let detalle = "";
 
-    // Estado en vivo: marcar "corriendo".
-    await _guardar_estado_en_vivo({ corriendo: true, id_prueba, inicio });
-    _notificar_estado_en_vivo({ corriendo: true, id_prueba, inicio });
+    // Marcar la prueba como corriendo en el grafo.
+    try {
+        await marcar_en_vivo(id_prueba);
+    } catch (e) {
+        console.warn("No se pudo marcar la prueba como en vivo:", e);
+    }
+    _notificar_corrida_iniciada(id_prueba);
 
     try {
         await prueba.ejecutar(ctx);
@@ -814,11 +793,12 @@ async function _correr_prueba(id_prueba) {
     }
 
     const duracion_ms = Date.now() - inicio;
+    const fecha_hora = new Date().toISOString();
 
     try {
         await registrar_corrida({
             id_prueba,
-            fecha_hora: new Date().toISOString(),
+            fecha_hora,
             resultado,
             duracion_ms,
             detalle
@@ -827,9 +807,13 @@ async function _correr_prueba(id_prueba) {
         console.error("No se pudo persistir la corrida:", e);
     }
 
-    // Estado en vivo: marcar "terminada".
-    await _limpiar_estado_en_vivo();
-    _notificar_estado_en_vivo({ corriendo: false, id_prueba, duracion_ms, resultado });
+    // Quitar la marca de "corriendo" del grafo.
+    try {
+        await limpiar_en_vivo(id_prueba);
+    } catch (e) {
+        console.warn("No se pudo limpiar la marca en vivo:", e);
+    }
+    _notificar_corrida_terminada({ id_prueba, resultado, fecha_hora, duracion_ms, detalle });
 
     return { exito: true, resultado, detalle, duracion_ms };
 }
@@ -904,17 +888,11 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                     sendResponse(await _correr_prueba(mensaje.id_prueba));
                     break;
 
-                case "estado_en_vivo": {
-                    const estado_ev = await _leer_estado_en_vivo();
-                    sendResponse({ exito: true, estado: estado_ev });
+                case "estado_pruebas": {
+                    const por_prueba = await obtener_estado_por_prueba();
+                    sendResponse({ exito: true, por_prueba });
                     break;
                 }
-
-
-                case "listar_corridas":
-                    const corridas = await listar_ultimas_corridas(mensaje.limite || 20);
-                    sendResponse({ exito: true, corridas });
-                    break;
 
                 case "limpiar_datos_prueba":
                     sendResponse(await _ejecutar_limpieza());
