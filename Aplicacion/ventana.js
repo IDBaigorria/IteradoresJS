@@ -13,7 +13,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.7x
+ * @version 1.5plugin.7z
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -270,7 +270,57 @@ document.addEventListener("DOMContentLoaded", () => {
         if (msg && msg.tipo === "limpieza_progreso") {
             _procesar_progreso(msg.evento);
         }
+        if (msg && msg.tipo === "estado_en_vivo_cambio") {
+            _aplicar_cambio_estado(msg.estado);
+        }
     });
+
+    // ============================================================
+    // Estado en vivo de la corrida
+    // ============================================================
+    //
+    // El SW escribe el estado en chrome.storage.session y
+    // nos notifica por mensaje. Al abrir el popup, pedimos
+    // el estado para saber si hay algo corriendo.
+    function _aplicar_cambio_estado(estado) {
+        // Limpiar cualquier marca previa.
+        document.querySelectorAll("li.corriendo").forEach((li) => {
+            li.classList.remove("corriendo");
+            const el = li.querySelector(".resultado");
+            if (el && el.textContent === "Corriendo...") {
+                el.textContent = "\u2014";
+                el.className = "resultado";
+            }
+        });
+
+        if (!estado || !estado.corriendo || !estado.id_prueba) return;
+
+        // Buscar la li de la prueba en curso.
+        const lis = document.querySelectorAll("li[data-id-prueba]");
+        for (const li of lis) {
+            if (li.dataset.idPrueba === estado.id_prueba) {
+                li.classList.add("corriendo");
+                const el = li.querySelector(".resultado");
+                if (el) {
+                    el.textContent = "Corriendo...";
+                    el.className = "resultado";
+                }
+                break;
+            }
+        }
+    }
+
+    async function _cargar_estado_inicial() {
+        let resp;
+        try {
+            resp = await enviar({ tipo: "estado_en_vivo" });
+        } catch (e) {
+            return;
+        }
+        if (resp && resp.exito) {
+            _aplicar_cambio_estado(resp.estado);
+        }
+    }
 
     // ============================================================
     // Sistema de pestanas
@@ -616,5 +666,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (inicial) activar_tab(inicial);
     }
 
-    renderizar();
+    async function _arrancar() {
+        await renderizar();
+        await _cargar_estado_inicial();
+    }
+
+    _arrancar();
 });

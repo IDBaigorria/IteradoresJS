@@ -1,252 +1,320 @@
 <?php
 /**
- * Aplicador — prompt_plugin_piloto.md: cierre del arco del plugin.
+ * Aplicador — Estado en vivo de la corrida en chrome.storage.session.
  *
- * Solo documentacion. No bumpea @version.
+ * Contexto: si el popup se cierra durante una corrida, al
+ * reabrirlo no sabe que el SW sigue ejecutando. Este fix
+ * persiste el estado "corriendo" en chrome.storage.session,
+ * que sobrevive al cierre del popup. Al reabrir, el popup lee
+ * el estado y pinta la prueba en curso.
+ *
+ * Arquitectura:
+ *   - SW escribe {corriendo: true, id_prueba, inicio} al
+ *     arrancar cada prueba, y lo limpia al terminar.
+ *   - SW notifica al popup por sendMessage (best-effort).
+ *   - Popup lee el estado al abrirse (pide al SW) y escucha
+ *     las notificaciones para actualizar en vivo.
+ *   - Al arrancar el SW, limpia cualquier estado colgado de
+ *     una corrida anterior (SW reiniciado por inactividad).
  *
  * Uso (raiz del proyecto plugin): php aplicar_cambios.php
+ *
+ * PRERREQUISITO: el manifest.json debe tener el permiso
+ * "storage" (chrome.storage.session). Ver el bloque al final.
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '';
+$version_nueva = '1.5plugin.7z';
 $htmls_a_bumpear = [];
 
 $cambios = [
 
-    // 1. §5: agregar módulos del plugin.
+    // ============================================================
+    // 1. servicio.js: constantes y helpers de estado en vivo
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: §5 agregar modulos del plugin',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio: helpers de estado en vivo',
         'buscar' => [
-            '**Utilidades del plugin (no del ctx):**',
-            '- `Aplicacion/LimpiezaPrueba.js`: módulo con',
-            '  `limpiar_datos_de_prueba(ctx, al_progreso)`. Itera',
-            '  dueños, llama los 6 endpoints por dueño + el global',
-            '  de usuarios. Chequea modo pruebas + admin antes de',
-            '  empezar. Devuelve `{exito, duenos, res_ini, res_fin,',
-            '  totales}`.',
-            '- `globalThis.limpiar_prueba()` — handler para la',
-            '  consola del SW. En MV3 no se puede hacer import()',
-            '  dinámico; exponerlo es la vía para debug.',
+            'let _cache_nombre_solicitante = null;',
+            'let _cache_dueno_actual = null;',
         ],
         'reemplazar' => [
-            '**Utilidades del plugin (no del ctx):**',
-            '- `Aplicacion/LimpiezaPrueba.js`: módulo con',
-            '  `limpiar_datos_de_prueba(ctx, al_progreso, opciones)`.',
-            '  Limpia los datos de prueba del piloto. Acepta',
-            '  `opciones.categorias` (array de strings) para',
-            '  limpiar solo un subconjunto: `ventas`,',
-            '  `cancelaciones`, `viajes`, `pasajeros`, `empresas`,',
-            '  `terminales`, `usuarios`, `huerfanos`. Sin',
-            '  categorías, limpia todo (comportamiento original).',
-            '  Chequea modo pruebas + admin antes de empezar.',
-            '  Devuelve `{exito, categorias, duenos, res_ini,',
-            '  res_fin, totales}`.',
-            '- `Aplicacion/CopiarPasajeros.js`: módulo con',
-            '  `copiar_pasajeros_del_micro(ctx)`. Lee',
-            '  `viaje_seleccionado` y `micro_seleccionado` del',
-            '  page, pide `viajes/estado_asientos`, arma una tabla',
-            '  TSV (Excel-friendly) con columnas (nombre,',
-            '  apellido, DNI, documento, género, franja etaria).',
-            '  Género por heurística (terminación en `a`/`o`).',
-            '  Franja etaria desde `fecha_nacimiento` contra hoy.',
-            '- `globalThis.limpiar_prueba()` — handler para la',
-            '  consola del SW.',
-            '- `globalThis.copiar_pasajeros()` — idem para copiar.',
+            'let _cache_nombre_solicitante = null;',
+            'let _cache_dueno_actual = null;',
+            '',
+            '// ============================================================',
+            '// Estado en vivo de la corrida',
+            '// ============================================================',
+            '//',
+            '// Vive en chrome.storage.session: sobrevive al cierre del',
+            '// popup (mientras el navegador este abierto), pero muere al',
+            '// cerrar Chrome. El SW lo escribe cuando arranca una prueba',
+            '// y lo limpia cuando termina. El popup lo lee al abrirse y',
+            '// escucha las notificaciones para actualizar en vivo.',
+            'const ESTADO_EN_VIVO_KEY = "plugin_estado_en_vivo";',
+            '',
+            'async function _guardar_estado_en_vivo(estado) {',
+            '    try {',
+            '        await chrome.storage.session.set({ [ESTADO_EN_VIVO_KEY]: estado });',
+            '    } catch (e) {',
+            '        console.warn("No se pudo guardar el estado en vivo:", e);',
+            '    }',
+            '}',
+            '',
+            'async function _leer_estado_en_vivo() {',
+            '    try {',
+            '        const r = await chrome.storage.session.get([ESTADO_EN_VIVO_KEY]);',
+            '        return r[ESTADO_EN_VIVO_KEY] || null;',
+            '    } catch (e) {',
+            '        console.warn("No se pudo leer el estado en vivo:", e);',
+            '        return null;',
+            '    }',
+            '}',
+            '',
+            'async function _limpiar_estado_en_vivo() {',
+            '    try {',
+            '        await chrome.storage.session.remove([ESTADO_EN_VIVO_KEY]);',
+            '    } catch (e) {',
+            '        console.warn("No se pudo limpiar el estado en vivo:", e);',
+            '    }',
+            '}',
+            '',
+            'function _notificar_estado_en_vivo(estado) {',
+            '    try {',
+            '        chrome.runtime.sendMessage(',
+            '            { tipo: "estado_en_vivo_cambio", estado }',
+            '        ).catch(function () { /* nadie escuchando */ });',
+            '    } catch (e) { /* ignorar */ }',
+            '}',
         ],
     ],
 
-    // 2. §8: lecciones nuevas.
+    // ============================================================
+    // 2. servicio.js: limpiar estado huerfano al arrancar el SW
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: lecciones 60-63',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio: limpiar estado huerfano al arrancar',
         'buscar' => [
-            '59. **`chrome.runtime.sendMessage` desde el SW devuelve',
-            '    una promesa.** Si nadie escucha (por ejemplo, el',
-            '    popup está cerrado), la promesa se rechaza con',
-            '    "Could not establish connection". Para broadcast',
-            '    de progreso donde el emisor no necesita acuse,',
-            '    tragarse el rechazo: `.catch(() => {})`.',
-            '',
-            '---',
-            '',
-            '## 10. REGLAS DE TRABAJO',
+            'async function _obtener_pestana_piloto() {',
         ],
         'reemplazar' => [
-            '59. **`chrome.runtime.sendMessage` desde el SW devuelve',
-            '    una promesa.** Si nadie escucha (por ejemplo, el',
-            '    popup está cerrado), la promesa se rechaza con',
-            '    "Could not establish connection". Para broadcast',
-            '    de progreso donde el emisor no necesita acuse,',
-            '    tragarse el rechazo: `.catch(() => {})`.',
+            '// Al arrancar el SW, limpiar cualquier estado en vivo',
+            '// colgado de una corrida anterior. Si el SW se reinicio',
+            '// por inactividad a mitad de una prueba, el estado queda',
+            '// con corriendo: true sin que nadie lo haya terminado.',
+            '// Solo limpiamos; el usuario vera el popup sin marcas.',
+            '(async () => {',
+            '    try {',
+            '        const estado = await _leer_estado_en_vivo();',
+            '        if (estado && estado.corriendo) {',
+            '            await _limpiar_estado_en_vivo();',
+            '        }',
+            '    } catch (e) { /* ignorar */ }',
+            '})();',
             '',
-            '60. **La UI de la ventana crece con la cantidad de',
-            '    pruebas.** Una lista plana se vuelve inservible',
-            '    cuando hay 60+ pruebas. La solución es pestañas',
-            '    temáticas que sigan la estructura de la app, y',
-            '    dentro de cada pestaña, tarjetas agrupadas por rol',
-            '    (admin, dueño, terminal, soporte, multi-rol) en',
-            '    una grilla de 2 columnas. Criterio del grupo:',
-            '    el rol con el que la prueba hace login primero.',
-            '    Si la prueba cambia de sesión entre roles, va a',
-            '    "Multi-rol".',
-            '',
-            '61. **Los botones contextuales van dentro del contexto.**',
-            '    "Ejecutar todos los roles" y "Limpiar pruebas"',
-            '    tienen sentido dentro de la pestaña activa, no',
-            '    arriba. Los botones globales (limpiar todo,',
-            '    copiar tabla) sí van arriba porque son',
-            '    transversales. Menos ruido visual, cada botón',
-            '    donde se usa.',
-            '',
-            '62. **La limpieza por categorías reusa el mismo endpoint.**',
-            '    `LimpiezaPrueba.js` recibe `{categorias}` y limpia',
-            '    solo ese subconjunto. El orden importa: ventas',
-            '    antes que cancelaciones (que se crean al limpiar',
-            '    las ventas), viajes antes que empresas (los',
-            '    micros referencian empresas), pasajeros y',
-            '    terminales antes que usuarios.',
-            '',
-            '63. **Persistencia en `localStorage` es un paliativo.**',
-            '    La pestaña activa del plugin se guarda en',
-            '    `localStorage[\'plugin_tab_activa\']`. Está anotado',
-            '    en el código como `ANOTADO`: hay que migrarlo a',
-            '    la persistencia del framework (IndexedDB del',
-            '    contexto de la extensión).',
-            '',
-            '---',
-            '',
-            '## 10. REGLAS DE TRABAJO',
+            'async function _obtener_pestana_piloto() {',
         ],
     ],
 
-    // 3. §9: estado al cierre de v1.5plugin.7x.
+    // ============================================================
+    // 3. servicio.js: marcar/limpiar estado en _correr_prueba
+    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => 'plugin: §9 estado al cierre',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio: estado en vivo en _correr_prueba',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.7o.',
-            'Cierre del botón de limpieza + fix del listener.',
+            '    const ctx = _crear_ctx(pestana.id);',
+            '    const inicio = Date.now();',
+            '    let resultado = "ok";',
+            '    let detalle = "";',
             '',
-            '**Estado al cierre de v1.5plugin.7o:**',
+            '    try {',
+            '        await prueba.ejecutar(ctx);',
+            '    } catch (e) {',
+            '        resultado = "fallo";',
+            '        detalle = e && e.message ? e.message : String(e);',
+            '    }',
             '',
-            '- **Fase 2c cerrada.** Las ~50 pruebas y los 3 helpers',
-            '  auxiliares usan `_post` (de `_helpers.js`), que delega',
-            '  en `ctx.post_accion` (del SW). Ninguna prueba usa',
-            '  `ctx.pedir_post` directo.',
-            '- **Verificación final:** las **65 pruebas corren en',
-            '  verde** después del refactor.',
-            '- **Botón "Limpiar datos de prueba" agregado** (v7m).',
-            '  Módulo `Aplicacion/LimpiezaPrueba.js` + handler en',
-            '  `servicio.js` + `globalThis.limpiar_prueba`. La UI',
-            '  del popup tiene el botón + un `<pre>` para el log.',
-            '  Confirm previo, progreso incremental y resumen final.',
-            '- **v7n**: fix del listener del botón (un',
-            '  `DOMContentLoaded` anidado nunca disparaba).',
+            '    const duracion_ms = Date.now() - inicio;',
             '',
-            '**Cambios del refactor (Fase 2c):**',
+            '    try {',
+            '        await registrar_corrida({',
+            '            id_prueba,',
+            '            fecha_hora: new Date().toISOString(),',
+            '            resultado,',
+            '            duracion_ms,',
+            '            detalle',
+            '        });',
+            '    } catch (e) {',
+            '        console.error("No se pudo persistir la corrida:", e);',
+            '    }',
             '',
-            '- `ctx.post_accion(accion, params, opts)`: inyecta',
-            '  `nombre_solicitante` (con cache) y `nombre_dueno`',
-            '  (si no viene en params). Soporta `sin_solicitante`,',
-            '  `sin_dueno`, `devolver_crudo`, `lanzar_en_error_backend`.',
-            '- `_post(ctx, accion, params, opts)`: wrapper de',
-            '  `_helpers.js` que devuelve `r.json` pelado y',
-            '  opcionalmente lanza en error de backend.',
-            '- `ctx.dueno_actual()`, `ctx.refrescar_solicitante()`.',
-            '- Cache invalidado en `asegurar_login` y `cerrar_sesion`.',
-            '',
-            '**Pendientes del plugin:**',
-            '',
-            '- **Pruebas 37 y 38 sin `try/finally`:** si el flujo',
-            '  falla a mitad, la empresa/vehículo de setup queda',
-            '  colgada. Los limpiadores ahora la agarran, pero la',
-            '  prueba debería limpiar por su cuenta.',
-            '- **Refactor de la ventana en pestañas por rol.** Idea',
-            '  anotada al cierre de v1.5plugin.7a.',
-            '- **Centralizar prefijos de prueba.** Hoy cada',
-            '  limpiador tiene su lista hardcodeada. Cuando una',
-            '  prueba nueva usa un prefijo distinto, el limpiador',
-            '  no lo reconoce. Idea: una constante compartida o',
-            '  que las pruebas registren su prefijo.',
+            '    return { exito: true, resultado, detalle, duracion_ms };',
+            '}',
         ],
         'reemplazar' => [
-            '**Última actualización de este prompt:** v1.5plugin.7y.',
-            'Cierre del arco de la interfaz del plugin.',
+            '    const ctx = _crear_ctx(pestana.id);',
+            '    const inicio = Date.now();',
+            '    let resultado = "ok";',
+            '    let detalle = "";',
             '',
-            '**Estado al cierre de v1.5plugin.7y:**',
+            '    // Estado en vivo: marcar "corriendo".',
+            '    await _guardar_estado_en_vivo({ corriendo: true, id_prueba, inicio });',
+            '    _notificar_estado_en_vivo({ corriendo: true, id_prueba, inicio });',
             '',
-            '- **Fase 2c cerrada.** Las ~50 pruebas y los 3 helpers',
-            '  auxiliares usan `_post` (de `_helpers.js`), que delega',
-            '  en `ctx.post_accion` (del SW). Ninguna prueba usa',
-            '  `ctx.pedir_post` directo.',
-            '- **Verificación final:** las **65 pruebas corrieron',
-            '  en verde** después del refactor. Con la prueba 66',
-            '  nueva, son **66 pruebas**.',
+            '    try {',
+            '        await prueba.ejecutar(ctx);',
+            '    } catch (e) {',
+            '        resultado = "fallo";',
+            '        detalle = e && e.message ? e.message : String(e);',
+            '    }',
             '',
-            '- **UI reorganizada en pestañas temáticas** (v7s-7v).',
-            '  10 pestañas que siguen la estructura de la app:',
-            '  Base, Administrador, Puntos de venta,',
-            '  Empresas/Micros, Viajes, Ventas, Rendiciones,',
-            '  Liquidaciones, Pasajeros, Grafo. Cada pestaña tiene',
-            '  grupos por rol (Admin, Dueño, Terminal, Soporte,',
-            '  Multi-rol) en una grilla de 2 columnas. Pestaña',
-            '  activa en `localStorage`.',
+            '    const duracion_ms = Date.now() - inicio;',
             '',
-            '- **Botones por pestaña** (v7w): "Ejecutar todos los',
-            '  roles" (corre todas las pruebas de la pestaña) y',
-            '  "Limpiar pruebas" (limpia solo lo relevante:',
-            '  Viajes limpia viajes, Ventas limpia',
-            '  ventas+cancelaciones, etc.).',
+            '    try {',
+            '        await registrar_corrida({',
+            '            id_prueba,',
+            '            fecha_hora: new Date().toISOString(),',
+            '            resultado,',
+            '            duracion_ms,',
+            '            detalle',
+            '        });',
+            '    } catch (e) {',
+            '        console.error("No se pudo persistir la corrida:", e);',
+            '    }',
             '',
-            '- **Botones globales** (v7x): "Limpiar todas las',
-            '  pruebas" y "Copiar tabla de pasajeros", en paralelo',
-            '  arriba.',
+            '    // Estado en vivo: marcar "terminada".',
+            '    await _limpiar_estado_en_vivo();',
+            '    _notificar_estado_en_vivo({ corriendo: false, id_prueba, duracion_ms, resultado });',
             '',
-            '- **Copiar tabla de pasajeros** (v7p): lee el micro',
-            '  del page, pide `viajes/estado_asientos`, arma una',
-            '  tabla TSV lista para Excel con franja etaria y',
-            '  género inferido.',
+            '    return { exito: true, resultado, detalle, duracion_ms };',
+            '}',
+        ],
+    ],
+
+    // ============================================================
+    // 4. servicio.js: case "estado_en_vivo" en el listener
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/servicio.js',
+        'descripcion' => 'servicio: case estado_en_vivo',
+        'buscar' => [
+            '                case "correr_prueba":',
+            '                    sendResponse(await _correr_prueba(mensaje.id_prueba));',
+            '                    break;',
+        ],
+        'reemplazar' => [
+            '                case "correr_prueba":',
+            '                    sendResponse(await _correr_prueba(mensaje.id_prueba));',
+            '                    break;',
             '',
-            '- **Prueba 66** (v7r): verifica que al hacer login',
-            '  como terminal se limpia la venta_actual colgada',
-            '  (fix v1.5piloto.80h en el piloto).',
+            '                case "estado_en_vivo": {',
+            '                    const estado_ev = await _leer_estado_en_vivo();',
+            '                    sendResponse({ exito: true, estado: estado_ev });',
+            '                    break;',
+            '                }',
+        ],
+    ],
+
+    // ============================================================
+    // 5. ventana.js: aplicar cambio de estado
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana: funcion _aplicar_cambio_estado',
+        'buscar' => [
+            '    chrome.runtime.onMessage.addListener((msg) => {',
+            '        if (msg && msg.tipo === "limpieza_progreso") {',
+            '            _procesar_progreso(msg.evento);',
+            '        }',
+            '    });',
+        ],
+        'reemplazar' => [
+            '    chrome.runtime.onMessage.addListener((msg) => {',
+            '        if (msg && msg.tipo === "limpieza_progreso") {',
+            '            _procesar_progreso(msg.evento);',
+            '        }',
+            '        if (msg && msg.tipo === "estado_en_vivo_cambio") {',
+            '            _aplicar_cambio_estado(msg.estado);',
+            '        }',
+            '    });',
             '',
-            '**Cambios del refactor (Fase 2c):**',
+            '    // ============================================================',
+            '    // Estado en vivo de la corrida',
+            '    // ============================================================',
+            '    //',
+            '    // El SW escribe el estado en chrome.storage.session y',
+            '    // nos notifica por mensaje. Al abrir el popup, pedimos',
+            '    // el estado para saber si hay algo corriendo.',
+            '    function _aplicar_cambio_estado(estado) {',
+            '        // Limpiar cualquier marca previa.',
+            '        document.querySelectorAll("li.corriendo").forEach((li) => {',
+            '            li.classList.remove("corriendo");',
+            '            const el = li.querySelector(".resultado");',
+            '            if (el && el.textContent === "Corriendo...") {',
+            '                el.textContent = "\\u2014";',
+            '                el.className = "resultado";',
+            '            }',
+            '        });',
             '',
-            '- `ctx.post_accion(accion, params, opts)`: inyecta',
-            '  `nombre_solicitante` (con cache) y `nombre_dueno`',
-            '  (si no viene en params). Soporta `sin_solicitante`,',
-            '  `sin_dueno`, `devolver_crudo`, `lanzar_en_error_backend`.',
-            '- `_post(ctx, accion, params, opts)`: wrapper de',
-            '  `_helpers.js` que devuelve `r.json` pelado y',
-            '  opcionalmente lanza en error de backend.',
-            '- `ctx.dueno_actual()`, `ctx.refrescar_solicitante()`.',
-            '- Cache invalidado en `asegurar_login` y `cerrar_sesion`.',
+            '        if (!estado || !estado.corriendo || !estado.id_prueba) return;',
             '',
-            '**Pendientes del plugin:**',
+            '        // Buscar la li de la prueba en curso.',
+            '        const lis = document.querySelectorAll("li[data-id-prueba]");',
+            '        for (const li of lis) {',
+            '            if (li.dataset.idPrueba === estado.id_prueba) {',
+            '                li.classList.add("corriendo");',
+            '                const el = li.querySelector(".resultado");',
+            '                if (el) {',
+            '                    el.textContent = "Corriendo...";',
+            '                    el.className = "resultado";',
+            '                }',
+            '                break;',
+            '            }',
+            '        }',
+            '    }',
             '',
-            '- **Batería de pruebas exhaustivas.** Falta correr la',
-            '  suite completa (66 pruebas) después de todos los',
-            '  cambios de UI. Es el último paso para cerrar',
-            '  formalmente el plan. Se hace más adelante.',
-            '- **Persistencia de la pestaña activa:** migrar de',
-            '  `localStorage` a la persistencia del framework.',
-            '  Anotado en el código como `ANOTADO`.',
-            '- **Pruebas 37 y 38 sin `try/finally`:** si el flujo',
-            '  falla a mitad, la empresa/vehículo de setup queda',
-            '  colgada. Los limpiadores ahora la agarran, pero la',
-            '  prueba debería limpiar por su cuenta.',
-            '- **Centralizar prefijos de prueba.** Hoy cada',
-            '  limpiador tiene su lista hardcodeada. Idea: una',
-            '  constante compartida o que las pruebas registren',
-            '  su prefijo.',
-            '- **Secciones vacías** (Rendiciones, Liquidaciones):',
-            '  quedan a la espera de pruebas nuevas.',
+            '    async function _cargar_estado_inicial() {',
+            '        let resp;',
+            '        try {',
+            '            resp = await enviar({ tipo: "estado_en_vivo" });',
+            '        } catch (e) {',
+            '            return;',
+            '        }',
+            '        if (resp && resp.exito) {',
+            '            _aplicar_cambio_estado(resp.estado);',
+            '        }',
+            '    }',
+        ],
+    ],
+
+    // ============================================================
+    // 6. ventana.js: arrancar con carga de estado inicial
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana: arrancar con estado inicial',
+        'buscar' => [
+            '    renderizar();',
+            '});',
+        ],
+        'reemplazar' => [
+            '    async function _arrancar() {',
+            '        await renderizar();',
+            '        await _cargar_estado_inicial();',
+            '    }',
+            '',
+            '    _arrancar();',
+            '});',
         ],
     ],
 
@@ -325,6 +393,46 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     exit(1);
 }
 
+$archivos_bump_php_js = [];
+foreach ($archivos_a_escribir as $ruta_abs => $info) {
+    $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
+    $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
+    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
+}
+foreach ($creaciones as $cr) {
+    $ext = strtolower(pathinfo($cr['archivo'], PATHINFO_EXTENSION));
+    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $cr['archivo'];
+}
+
+$bumps_atversion = 0;
+$bumps_detalle = [];
+$info_bumps = [];
+
+if ($bumpear) {
+    foreach (array_unique($archivos_bump_php_js) as $archivo_rel) {
+        $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
+        if (!file_exists($ruta_abs)) continue;
+        if (isset($archivos_a_escribir[$ruta_abs])) {
+            list($contenido, $eol) = $archivos_a_escribir[$ruta_abs];
+        } else {
+            $contenido_original = file_get_contents($ruta_abs);
+            $eol = detectar_eol($contenido_original);
+            $contenido = normalizar_a_unix($contenido_original);
+        }
+        $patron = '/(\*\s+@version\s+)(\S+)/';
+        $viejo = '';
+        $nuevo = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo) {
+            $viejo = $m[2];
+            return $m[1] . $version_nueva;
+        }, $contenido, 1, $count);
+        if ($count === 0) { $info_bumps[] = "$archivo_rel (sin @version)"; continue; }
+        if ($viejo === $version_nueva) { continue; }
+        $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
+        $bumps_atversion++;
+        $bumps_detalle[] = "$archivo_rel  @version $viejo -> $version_nueva";
+    }
+}
+
 $archivos_escritos = 0;
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     list($contenido_unix, $eol) = $info;
@@ -337,9 +445,16 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
+if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
+    echo "\n--- Bumps ---\n";
+    foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
+    foreach ($info_bumps as $i) echo "[INFO] $i\n";
+}
+
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
+if ($bumpear) echo "Bumps @version:    $bumps_atversion\n";
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";

@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `listar_corridas` -> devuelve las ultimas corridas del grafo.
  *
- * @version 1.5plugin.7w
+ * @version 1.5plugin.7z
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -42,10 +42,69 @@ const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 let _cache_nombre_solicitante = null;
 let _cache_dueno_actual = null;
 
+// ============================================================
+// Estado en vivo de la corrida
+// ============================================================
+//
+// Vive en chrome.storage.session: sobrevive al cierre del
+// popup (mientras el navegador este abierto), pero muere al
+// cerrar Chrome. El SW lo escribe cuando arranca una prueba
+// y lo limpia cuando termina. El popup lo lee al abrirse y
+// escucha las notificaciones para actualizar en vivo.
+const ESTADO_EN_VIVO_KEY = "plugin_estado_en_vivo";
+
+async function _guardar_estado_en_vivo(estado) {
+    try {
+        await chrome.storage.session.set({ [ESTADO_EN_VIVO_KEY]: estado });
+    } catch (e) {
+        console.warn("No se pudo guardar el estado en vivo:", e);
+    }
+}
+
+async function _leer_estado_en_vivo() {
+    try {
+        const r = await chrome.storage.session.get([ESTADO_EN_VIVO_KEY]);
+        return r[ESTADO_EN_VIVO_KEY] || null;
+    } catch (e) {
+        console.warn("No se pudo leer el estado en vivo:", e);
+        return null;
+    }
+}
+
+async function _limpiar_estado_en_vivo() {
+    try {
+        await chrome.storage.session.remove([ESTADO_EN_VIVO_KEY]);
+    } catch (e) {
+        console.warn("No se pudo limpiar el estado en vivo:", e);
+    }
+}
+
+function _notificar_estado_en_vivo(estado) {
+    try {
+        chrome.runtime.sendMessage(
+            { tipo: "estado_en_vivo_cambio", estado }
+        ).catch(function () { /* nadie escuchando */ });
+    } catch (e) { /* ignorar */ }
+}
+
 function _es_url_piloto(url) {
     if (!url) return false;
     return URLS_PILOTO.some((prefijo) => url.startsWith(prefijo));
 }
+
+// Al arrancar el SW, limpiar cualquier estado en vivo
+// colgado de una corrida anterior. Si el SW se reinicio
+// por inactividad a mitad de una prueba, el estado queda
+// con corriendo: true sin que nadie lo haya terminado.
+// Solo limpiamos; el usuario vera el popup sin marcas.
+(async () => {
+    try {
+        const estado = await _leer_estado_en_vivo();
+        if (estado && estado.corriendo) {
+            await _limpiar_estado_en_vivo();
+        }
+    } catch (e) { /* ignorar */ }
+})();
 
 async function _obtener_pestana_piloto() {
     const pestanas = await chrome.tabs.query({});
@@ -743,6 +802,10 @@ async function _correr_prueba(id_prueba) {
     let resultado = "ok";
     let detalle = "";
 
+    // Estado en vivo: marcar "corriendo".
+    await _guardar_estado_en_vivo({ corriendo: true, id_prueba, inicio });
+    _notificar_estado_en_vivo({ corriendo: true, id_prueba, inicio });
+
     try {
         await prueba.ejecutar(ctx);
     } catch (e) {
@@ -763,6 +826,10 @@ async function _correr_prueba(id_prueba) {
     } catch (e) {
         console.error("No se pudo persistir la corrida:", e);
     }
+
+    // Estado en vivo: marcar "terminada".
+    await _limpiar_estado_en_vivo();
+    _notificar_estado_en_vivo({ corriendo: false, id_prueba, duracion_ms, resultado });
 
     return { exito: true, resultado, detalle, duracion_ms };
 }
@@ -836,6 +903,12 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                 case "correr_prueba":
                     sendResponse(await _correr_prueba(mensaje.id_prueba));
                     break;
+
+                case "estado_en_vivo": {
+                    const estado_ev = await _leer_estado_en_vivo();
+                    sendResponse({ exito: true, estado: estado_ev });
+                    break;
+                }
 
 
                 case "listar_corridas":
