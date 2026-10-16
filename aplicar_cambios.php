@@ -1,327 +1,250 @@
 <?php
 /**
- * Aplicador — Estado en vivo de la corrida en chrome.storage.session.
+ * Aplicador — Tanda 1: miscelaneas/Arbol.js + barrel de miscelaneas.
  *
- * Contexto: si el popup se cierra durante una corrida, al
- * reabrirlo no sabe que el SW sigue ejecutando. Este fix
- * persiste el estado "corriendo" en chrome.storage.session,
- * que sobrevive al cierre del popup. Al reabrir, el popup lee
- * el estado y pinta la prueba en curso.
- *
- * Arquitectura:
- *   - SW escribe {corriendo: true, id_prueba, inicio} al
- *     arrancar cada prueba, y lo limpia al terminar.
- *   - SW notifica al popup por sendMessage (best-effort).
- *   - Popup lee el estado al abrirse (pide al SW) y escucha
- *     las notificaciones para actualizar en vivo.
- *   - Al arrancar el SW, limpia cualquier estado colgado de
- *     una corrida anterior (SW reiniciado por inactividad).
- *
- * Uso (raiz del proyecto plugin): php aplicar_cambios.php
- *
- * PRERREQUISITO: el manifest.json debe tener el permiso
- * "storage" (chrome.storage.session). Ver el bloque al final.
+ * Uso (raíz de iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.7z';
+$version_nueva = '1.5plugin.7aa';
+
+// El plugin no usa ?v= en HTML.
 $htmls_a_bumpear = [];
 
 $cambios = [
-
     // ============================================================
-    // 1. servicio.js: constantes y helpers de estado en vivo
+    // A) Nuevo módulo miscelaneas/Arbol.js (espejo de Arbol.php)
     // ============================================================
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio: helpers de estado en vivo',
-        'buscar' => [
-            'let _cache_nombre_solicitante = null;',
-            'let _cache_dueno_actual = null;',
-        ],
-        'reemplazar' => [
-            'let _cache_nombre_solicitante = null;',
-            'let _cache_dueno_actual = null;',
+        'tipo' => 'crear',
+        'archivo' => 'miscelaneas/Arbol.js',
+        'descripcion' => 'Nuevo módulo Arbol.js (espejo de Arbol.php)',
+        'contenido' => [
+            '/**',
+            ' * Funciones para manejo de árbol general usando nodos.',
+            " * Utiliza enlaces 'hmi' (hijo más izquierdo), 'hd' (hermano derecho) y 'p' (padre).",
+            ' *',
+            ' * Espejo de `miscelaneas/Arbol.php` del proyecto PHP.',
+            ' * No incluye las funciones específicas del piloto',
+            ' * (_nombres_arbol_para_contexto, _nombre_terminal_de_compartido):',
+            ' * esas viven en el proyecto PHP.',
+            ' *',
+            ' * @namespace miscelaneas.Arbol',
+            ' * @author Ignacio David Baigorria',
+            ' * @version 1.5plugin.7aa',
+            ' * @since 1.5plugin.7aa',
+            ' */',
             '',
-            '// ============================================================',
-            '// Estado en vivo de la corrida',
-            '// ============================================================',
-            '//',
-            '// Vive en chrome.storage.session: sobrevive al cierre del',
-            '// popup (mientras el navegador este abierto), pero muere al',
-            '// cerrar Chrome. El SW lo escribe cuando arranca una prueba',
-            '// y lo limpia cuando termina. El popup lo lee al abrirse y',
-            '// escucha las notificaciones para actualizar en vivo.',
-            'const ESTADO_EN_VIVO_KEY = "plugin_estado_en_vivo";',
-            '',
-            'async function _guardar_estado_en_vivo(estado) {',
-            '    try {',
-            '        await chrome.storage.session.set({ [ESTADO_EN_VIVO_KEY]: estado });',
-            '    } catch (e) {',
-            '        console.warn("No se pudo guardar el estado en vivo:", e);',
+            '/**',
+            ' * Normaliza el array de nombres de enlace para las operaciones',
+            ' * de árbol. Si es null, devuelve los nombres default.',
+            ' *',
+            ' * @param {Object|null} nombres',
+            ' * @returns {Object}',
+            ' */',
+            'export function _arbol_nombres(nombres) {',
+            '    if (nombres === null || nombres === undefined) {',
+            "        return { p: 'p', hd: 'hd', hmi: 'hmi' };",
             '    }',
+            '    return {',
+            "        p:   (nombres.p   != null && nombres.p   !== '') ? String(nombres.p)   : 'p',",
+            "        hd:  (nombres.hd  != null && nombres.hd  !== '') ? String(nombres.hd)  : 'hd',",
+            "        hmi: (nombres.hmi != null && nombres.hmi !== '') ? String(nombres.hmi) : 'hmi',",
+            '    };',
             '}',
             '',
-            'async function _leer_estado_en_vivo() {',
-            '    try {',
-            '        const r = await chrome.storage.session.get([ESTADO_EN_VIVO_KEY]);',
-            '        return r[ESTADO_EN_VIVO_KEY] || null;',
-            '    } catch (e) {',
-            '        console.warn("No se pudo leer el estado en vivo:", e);',
-            '        return null;',
+            '/**',
+            ' * Agrega un hijo como hijo más izquierdo del nodo padre.',
+            ' *',
+            ' * @param {Nodo} padre',
+            ' * @param {Nodo} hijo',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {void}',
+            ' */',
+            'export function _hmi(padre, hijo, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    const antiguo_hmi = padre.adyacente(n.hmi);',
+            '    if (antiguo_hmi) {',
+            '        hijo._adyacente_en(antiguo_hmi, n.hd, true);',
             '    }',
+            '    padre._adyacente_en(hijo, n.hmi, true);',
+            '    hijo._adyacente_en(padre, n.p, true);',
             '}',
             '',
-            'async function _limpiar_estado_en_vivo() {',
-            '    try {',
-            '        await chrome.storage.session.remove([ESTADO_EN_VIVO_KEY]);',
-            '    } catch (e) {',
-            '        console.warn("No se pudo limpiar el estado en vivo:", e);',
+            '/**',
+            ' * Agrega un hermano derecho inmediato al nodo actual.',
+            ' *',
+            ' * @param {Nodo} nodo_actual',
+            ' * @param {Nodo} nuevo_hermano',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {void}',
+            ' */',
+            'export function _hd(nodo_actual, nuevo_hermano, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    const padre = nodo_actual.adyacente(n.p);',
+            '    if (!padre) return;',
+            '',
+            '    const hermano_derecho_actual = nodo_actual.adyacente(n.hd);',
+            '    if (hermano_derecho_actual) {',
+            '        nuevo_hermano._adyacente_en(hermano_derecho_actual, n.hd, true);',
             '    }',
+            '    nodo_actual._adyacente_en(nuevo_hermano, n.hd, true);',
+            '    nuevo_hermano._adyacente_en(padre, n.p, true);',
             '}',
             '',
-            'function _notificar_estado_en_vivo(estado) {',
-            '    try {',
-            '        chrome.runtime.sendMessage(',
-            '            { tipo: "estado_en_vivo_cambio", estado }',
-            '        ).catch(function () { /* nadie escuchando */ });',
-            '    } catch (e) { /* ignorar */ }',
+            '/**',
+            ' * Obtiene el hijo más izquierdo de un nodo.',
+            ' *',
+            ' * @param {Nodo} nodo',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {Nodo|null}',
+            ' */',
+            'export function hmi(nodo, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    return nodo.adyacente(n.hmi);',
+            '}',
+            '',
+            '/**',
+            ' * Obtiene el hermano derecho de un nodo.',
+            ' *',
+            ' * @param {Nodo} nodo',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {Nodo|null}',
+            ' */',
+            'export function hd(nodo, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    return nodo.adyacente(n.hd);',
+            '}',
+            '',
+            '/**',
+            ' * Obtiene el padre de un nodo.',
+            ' *',
+            ' * @param {Nodo} nodo',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {Nodo|null}',
+            ' */',
+            'export function p(nodo, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    return nodo.adyacente(n.p);',
+            '}',
+            '',
+            '/**',
+            ' * Elimina el hijo más izquierdo de un nodo padre.',
+            ' * Si el hijo tiene hermano derecho, ese hermano se convierte',
+            ' * en el nuevo hmi.',
+            ' *',
+            ' * @param {Nodo} padre',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {Nodo|null}',
+            ' */',
+            'export function eliminar_hmi(padre, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    const hijo = padre.adyacente(n.hmi);',
+            '    if (!hijo) return null;',
+            '',
+            '    const hermano = hijo.adyacente(n.hd);',
+            '',
+            '    hijo.eliminar_adyacente(n.p);',
+            '    hijo.eliminar_adyacente(n.hd);',
+            '',
+            '    if (hermano) {',
+            '        padre._adyacente_en(hermano, n.hmi, true);',
+            '    } else {',
+            '        padre.eliminar_adyacente(n.hmi);',
+            '    }',
+            '',
+            '    return hijo;',
+            '}',
+            '',
+            '/**',
+            ' * Elimina el hermano derecho inmediato de un nodo.',
+            ' * Si el hermano derecho tiene a su vez hermano derecho,',
+            ' * se enlaza correctamente.',
+            ' *',
+            ' * @param {Nodo} nodo_actual',
+            ' * @param {Object|null} [nombres=null]',
+            ' * @returns {Nodo|null}',
+            ' */',
+            'export function eliminar_hd(nodo_actual, nombres = null) {',
+            '    const n = _arbol_nombres(nombres);',
+            '    const hermano = nodo_actual.adyacente(n.hd);',
+            '    if (!hermano) return null;',
+            '',
+            '    const siguiente_hermano = hermano.adyacente(n.hd);',
+            '',
+            '    hermano.eliminar_adyacente(n.p);',
+            '    hermano.eliminar_adyacente(n.hd);',
+            '',
+            '    if (siguiente_hermano) {',
+            '        nodo_actual._adyacente_en(siguiente_hermano, n.hd, true);',
+            '    } else {',
+            '        nodo_actual.eliminar_adyacente(n.hd);',
+            '    }',
+            '',
+            '    return hermano;',
             '}',
         ],
     ],
 
     // ============================================================
-    // 2. servicio.js: limpiar estado huerfano al arrancar el SW
+    // B) Barrel de miscelaneas (sobrescribe el stub actual)
     // ============================================================
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio: limpiar estado huerfano al arrancar',
-        'buscar' => [
-            'async function _obtener_pestana_piloto() {',
-        ],
-        'reemplazar' => [
-            '// Al arrancar el SW, limpiar cualquier estado en vivo',
-            '// colgado de una corrida anterior. Si el SW se reinicio',
-            '// por inactividad a mitad de una prueba, el estado queda',
-            '// con corriendo: true sin que nadie lo haya terminado.',
-            '// Solo limpiamos; el usuario vera el popup sin marcas.',
-            '(async () => {',
-            '    try {',
-            '        const estado = await _leer_estado_en_vivo();',
-            '        if (estado && estado.corriendo) {',
-            '            await _limpiar_estado_en_vivo();',
-            '        }',
-            '    } catch (e) { /* ignorar */ }',
-            '})();',
+        'tipo' => 'crear',
+        'archivo' => 'miscelaneas/index.js',
+        'descripcion' => 'Barrel de miscelaneas (generarUUID, mixin, Arbol)',
+        'contenido' => [
+            '/**',
+            ' * @namespace miscelaneas',
+            ' *',
+            ' * @author Ignacio David Baigorria',
+            ' */',
             '',
-            'async function _obtener_pestana_piloto() {',
+            "export { generarUUID } from './generarUUID.js';",
+            "export { mezclar_clase_con_interfaces } from './mixin.js';",
+            'export {',
+            '    _arbol_nombres,',
+            '    _hmi,',
+            '    _hd,',
+            '    hmi,',
+            '    hd,',
+            '    p,',
+            '    eliminar_hmi,',
+            '    eliminar_hd,',
+            "} from './Arbol.js';",
         ],
     ],
 
     // ============================================================
-    // 3. servicio.js: marcar/limpiar estado en _correr_prueba
+    // C) Bump de VERSION_APP y VERSION_PLUGIN (regla de §10 del prompt)
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio: estado en vivo en _correr_prueba',
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'Bump VERSION_APP a 1.5plugin.7aa',
         'buscar' => [
-            '    const ctx = _crear_ctx(pestana.id);',
-            '    const inicio = Date.now();',
-            '    let resultado = "ok";',
-            '    let detalle = "";',
-            '',
-            '    try {',
-            '        await prueba.ejecutar(ctx);',
-            '    } catch (e) {',
-            '        resultado = "fallo";',
-            '        detalle = e && e.message ? e.message : String(e);',
-            '    }',
-            '',
-            '    const duracion_ms = Date.now() - inicio;',
-            '',
-            '    try {',
-            '        await registrar_corrida({',
-            '            id_prueba,',
-            '            fecha_hora: new Date().toISOString(),',
-            '            resultado,',
-            '            duracion_ms,',
-            '            detalle',
-            '        });',
-            '    } catch (e) {',
-            '        console.error("No se pudo persistir la corrida:", e);',
-            '    }',
-            '',
-            '    return { exito: true, resultado, detalle, duracion_ms };',
-            '}',
+            'export const VERSION_APP = "1.5plugin.6l";',
         ],
         'reemplazar' => [
-            '    const ctx = _crear_ctx(pestana.id);',
-            '    const inicio = Date.now();',
-            '    let resultado = "ok";',
-            '    let detalle = "";',
-            '',
-            '    // Estado en vivo: marcar "corriendo".',
-            '    await _guardar_estado_en_vivo({ corriendo: true, id_prueba, inicio });',
-            '    _notificar_estado_en_vivo({ corriendo: true, id_prueba, inicio });',
-            '',
-            '    try {',
-            '        await prueba.ejecutar(ctx);',
-            '    } catch (e) {',
-            '        resultado = "fallo";',
-            '        detalle = e && e.message ? e.message : String(e);',
-            '    }',
-            '',
-            '    const duracion_ms = Date.now() - inicio;',
-            '',
-            '    try {',
-            '        await registrar_corrida({',
-            '            id_prueba,',
-            '            fecha_hora: new Date().toISOString(),',
-            '            resultado,',
-            '            duracion_ms,',
-            '            detalle',
-            '        });',
-            '    } catch (e) {',
-            '        console.error("No se pudo persistir la corrida:", e);',
-            '    }',
-            '',
-            '    // Estado en vivo: marcar "terminada".',
-            '    await _limpiar_estado_en_vivo();',
-            '    _notificar_estado_en_vivo({ corriendo: false, id_prueba, duracion_ms, resultado });',
-            '',
-            '    return { exito: true, resultado, detalle, duracion_ms };',
-            '}',
+            'export const VERSION_APP = "1.5plugin.7aa";',
         ],
     ],
-
-    // ============================================================
-    // 4. servicio.js: case "estado_en_vivo" en el listener
-    // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio: case estado_en_vivo',
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'Bump VERSION_PLUGIN a 1.5plugin.7aa',
         'buscar' => [
-            '                case "correr_prueba":',
-            '                    sendResponse(await _correr_prueba(mensaje.id_prueba));',
-            '                    break;',
+            'export const VERSION_PLUGIN = "1.5plugin.6l";',
         ],
         'reemplazar' => [
-            '                case "correr_prueba":',
-            '                    sendResponse(await _correr_prueba(mensaje.id_prueba));',
-            '                    break;',
-            '',
-            '                case "estado_en_vivo": {',
-            '                    const estado_ev = await _leer_estado_en_vivo();',
-            '                    sendResponse({ exito: true, estado: estado_ev });',
-            '                    break;',
-            '                }',
+            'export const VERSION_PLUGIN = "1.5plugin.7aa";',
         ],
     ],
-
-    // ============================================================
-    // 5. ventana.js: aplicar cambio de estado
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.js',
-        'descripcion' => 'ventana: funcion _aplicar_cambio_estado',
-        'buscar' => [
-            '    chrome.runtime.onMessage.addListener((msg) => {',
-            '        if (msg && msg.tipo === "limpieza_progreso") {',
-            '            _procesar_progreso(msg.evento);',
-            '        }',
-            '    });',
-        ],
-        'reemplazar' => [
-            '    chrome.runtime.onMessage.addListener((msg) => {',
-            '        if (msg && msg.tipo === "limpieza_progreso") {',
-            '            _procesar_progreso(msg.evento);',
-            '        }',
-            '        if (msg && msg.tipo === "estado_en_vivo_cambio") {',
-            '            _aplicar_cambio_estado(msg.estado);',
-            '        }',
-            '    });',
-            '',
-            '    // ============================================================',
-            '    // Estado en vivo de la corrida',
-            '    // ============================================================',
-            '    //',
-            '    // El SW escribe el estado en chrome.storage.session y',
-            '    // nos notifica por mensaje. Al abrir el popup, pedimos',
-            '    // el estado para saber si hay algo corriendo.',
-            '    function _aplicar_cambio_estado(estado) {',
-            '        // Limpiar cualquier marca previa.',
-            '        document.querySelectorAll("li.corriendo").forEach((li) => {',
-            '            li.classList.remove("corriendo");',
-            '            const el = li.querySelector(".resultado");',
-            '            if (el && el.textContent === "Corriendo...") {',
-            '                el.textContent = "\\u2014";',
-            '                el.className = "resultado";',
-            '            }',
-            '        });',
-            '',
-            '        if (!estado || !estado.corriendo || !estado.id_prueba) return;',
-            '',
-            '        // Buscar la li de la prueba en curso.',
-            '        const lis = document.querySelectorAll("li[data-id-prueba]");',
-            '        for (const li of lis) {',
-            '            if (li.dataset.idPrueba === estado.id_prueba) {',
-            '                li.classList.add("corriendo");',
-            '                const el = li.querySelector(".resultado");',
-            '                if (el) {',
-            '                    el.textContent = "Corriendo...";',
-            '                    el.className = "resultado";',
-            '                }',
-            '                break;',
-            '            }',
-            '        }',
-            '    }',
-            '',
-            '    async function _cargar_estado_inicial() {',
-            '        let resp;',
-            '        try {',
-            '            resp = await enviar({ tipo: "estado_en_vivo" });',
-            '        } catch (e) {',
-            '            return;',
-            '        }',
-            '        if (resp && resp.exito) {',
-            '            _aplicar_cambio_estado(resp.estado);',
-            '        }',
-            '    }',
-        ],
-    ],
-
-    // ============================================================
-    // 6. ventana.js: arrancar con carga de estado inicial
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.js',
-        'descripcion' => 'ventana: arrancar con estado inicial',
-        'buscar' => [
-            '    renderizar();',
-            '});',
-        ],
-        'reemplazar' => [
-            '    async function _arrancar() {',
-            '        await renderizar();',
-            '        await _cargar_estado_inicial();',
-            '    }',
-            '',
-            '    _arrancar();',
-            '});',
-        ],
-    ],
-
 ];
 
 // ============================================================
-// Runner v2
+// Runner v2 (copiar textual de §14 del prompt_sistema_scripts_v2)
 // ============================================================
 
 echo "=== Aplicador ===\n\n";
@@ -357,9 +280,12 @@ foreach ($cambios as $cambio) {
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
 
+$total_reemplazos = 0;
+foreach ($reemplazos_por_archivo as $l) $total_reemplazos += count($l);
 echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar, "
     . count($creaciones) . " a crear, " . count($eliminaciones) . " a eliminar.\n\n";
 
+// --- Fase 1: aplicar reemplazos ---
 $archivos_a_escribir = [];
 $bloques_ok = 0;
 $bloques_fallidos = [];
@@ -393,18 +319,23 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     exit(1);
 }
 
+// --- Fase 2: bumps automáticos ---
 $archivos_bump_php_js = [];
+$archivos_bump_js_css = [];
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
     $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
     if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
+    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $rel;
 }
 foreach ($creaciones as $cr) {
     $ext = strtolower(pathinfo($cr['archivo'], PATHINFO_EXTENSION));
     if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $cr['archivo'];
+    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $cr['archivo'];
 }
 
 $bumps_atversion = 0;
+$bumps_qv = 0;
 $bumps_detalle = [];
 $info_bumps = [];
 
@@ -429,10 +360,41 @@ if ($bumpear) {
         if ($viejo === $version_nueva) { continue; }
         $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
         $bumps_atversion++;
-        $bumps_detalle[] = "$archivo_rel  @version $viejo -> $version_nueva";
+        $bumps_detalle[] = "$archivo_rel  @version $viejo → $version_nueva";
+    }
+
+    foreach ($htmls_a_bumpear as $html_rel) {
+        $html_abs = $raiz_proyecto . '/' . $html_rel;
+        if (!file_exists($html_abs)) { $info_bumps[] = "$html_rel (no encontrado)"; continue; }
+        if (isset($archivos_a_escribir[$html_abs])) {
+            list($html, $eol) = $archivos_a_escribir[$html_abs];
+        } else {
+            $html_orig = file_get_contents($html_abs);
+            $eol = detectar_eol($html_orig);
+            $html = normalizar_a_unix($html_orig);
+        }
+        $html_antes = $html;
+        foreach (array_unique($archivos_bump_js_css) as $archivo_rel) {
+            $base = basename($archivo_rel);
+            $base_esc = preg_quote($base, '/');
+            $patron = '/(' . $base_esc . '\?v=)([^"\'\s>]+)/';
+            $viejo_qv = '';
+            $html = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo_qv) {
+                $viejo_qv = $m[2];
+                return $m[1] . $version_nueva;
+            }, $html, 1, $c_qv);
+            if ($c_qv > 0 && $viejo_qv !== $version_nueva) {
+                $bumps_qv++;
+                $bumps_detalle[] = "$html_rel  $base ?v= $viejo_qv → $version_nueva";
+            }
+        }
+        if ($html !== $html_antes) {
+            $archivos_a_escribir[$html_abs] = [normalizar_a_unix($html), $eol];
+        }
     }
 }
 
+// --- Fase 3: escribir ---
 $archivos_escritos = 0;
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     list($contenido_unix, $eol) = $info;
@@ -445,6 +407,27 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
+foreach ($creaciones as $creacion) {
+    $ruta_abs = $raiz_proyecto . '/' . $creacion['archivo'];
+    $dir_destino = dirname($ruta_abs);
+    if (!is_dir($dir_destino)) mkdir($dir_destino, 0777, true);
+    $contenido_nuevo = implode("\n", $creacion['contenido']);
+    $ya_existia = file_exists($ruta_abs);
+    if (file_put_contents($ruta_abs, $contenido_nuevo) === false) {
+        echo "[FALLO] No se pudo crear: {$creacion['archivo']}\n"; continue;
+    }
+    $accion = $ya_existia ? 'sobrescrito' : 'creado';
+    echo "[OK] {$creacion['archivo']} ($accion)\n";
+}
+
+foreach ($eliminaciones as $elim) {
+    $ruta_abs = $raiz_proyecto . '/' . $elim['archivo'];
+    if (!file_exists($ruta_abs)) { echo "[INFO] " . $elim['archivo'] . " no existía.\n"; continue; }
+    if (unlink($ruta_abs)) echo "[OK] " . $elim['archivo'] . " (eliminado)\n";
+    else echo "[FALLO] No se pudo eliminar: " . $elim['archivo'] . "\n";
+}
+
+// --- Reporte de bumps ---
 if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
     echo "\n--- Bumps ---\n";
     foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
@@ -454,7 +437,10 @@ if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
-if ($bumpear) echo "Bumps @version:    $bumps_atversion\n";
+if ($bumpear) {
+    echo "Bumps @version:    $bumps_atversion\n";
+    echo "Bumps ?v=:         $bumps_qv\n";
+}
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";
