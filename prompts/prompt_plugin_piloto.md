@@ -64,37 +64,25 @@ maneja como un usuario. Puede:
 
 ## 2. ESTRUCTURA DE ARCHIVOS
 
-**Raíz de `iteradoresJS/`:**
+La estructura completa del plugin (carpetas, archivos,
+responsabilidades de cada módulo, grafo persistido,
+mensajes del service worker, formato de prueba y
+agrupación) vive en `prompts/estructura_plugin.md`.
+Ese archivo es la fuente de verdad y se actualiza
+cuando cambia la estructura.
 
-- `manifest.json` — manifiesto MV3. **Debe estar en la raíz**
-  del directorio cargado como extensión; Chrome no acepta
-  manifiestos anidados.
+Resumen rápido:
+
+- `manifest.json` en la raíz de `iteradoresJS/`. Chrome
+  no acepta manifiestos anidados.
 - Framework (`Nodos/`, `Iteradores/`, `Controlador/`,
-  `Configuracion/`, `miscelaneas/`, `Persistencia/`, etc.) —
-  sin tocar.
-- `index.html`, `index.js` — entrada web actual del framework.
-
-**`prompts/`:**
-
-- `prompt_plugin_piloto.md` — este archivo.
-
-**`Aplicacion/`:**
-
-- `servicio.js` — service worker. **Module** (`type: "module"`
-  en el manifest). Imports estáticos. Registra el listener
-  de mensajes al final.
-- `contenido.js` — script de contenido clásico. Se inyecta en
-  la página del piloto.
-- `ventana.html` / `ventana.js` — interfaz del popup. Renderiza
-  las pruebas agrupadas por sección.
-- `arranque.js` — arranque del framework en el SW.
-- `ConfPlugin.js` — configuración propia del plugin.
-- `GrafoPlugin.js` — capa fina sobre el framework.
-- `pruebas/` — catálogo de pruebas.
-  - `catalogo.js` — agrupa las pruebas en `SECCIONES`. Expone
-    `CATALOGO` como array aplanado para compatibilidad.
-  - `_helpers.js` — helpers compartidos.
-  - `prueba_NN_*.js` — una por prueba.
+  `Configuracion/`, `Persistencia/`) sin tocar.
+- `miscelaneas/`: se le agregó `Arbol.js` (espejo del
+  `Arbol.php` del piloto).
+- Código del plugin en `Aplicacion/`.
+- Catálogo de pruebas en `Aplicacion/pruebas/`.
+- Prompts en `prompts/`: `prompt_plugin_piloto.md`
+  (este) y `estructura_plugin.md`.
 
 ---
 
@@ -119,7 +107,9 @@ que ser estático.**
 
 En un SW no existe `document`. Los caminos HTML del framework
 (`_imprimir_errores_html`, `html_errores`, etc.) romperían.
-Se evitan forzando `Entorno.es_consola()` en `arranque.js`.
+Se evitan forzando `Entorno.es_consola()` en
+`arranque_config.js` (efecto de lado, importado antes del
+Controlador desde `arranque.js`).
 
 ### 3.4 Script de contenido clásico
 
@@ -240,32 +230,21 @@ Cada prueba es un módulo ES con un objeto exportado:
         }
     };
 
-### 4.2 Secciones
+### 4.2 Secciones y grupos
 
-En `catalogo.js` las pruebas se agrupan en `SECCIONES`:
-
-    export const SECCIONES = [
-        { id: "base", nombre: "Base", pruebas: [arranque, login] },
-        { id: "ventas", nombre: "Ventas", pruebas: [...] }
-    ];
-
-La ventana renderiza cada sección con un botón "Correr todas".
-Cuando se aprieta, la ventana itera las pruebas de la
-sección y manda `correr_prueba` una por una, mostrando el
-progreso en vivo: la prueba en curso se resalta y el
-resumen dice "Corriendo N/total...". El SW no tiene un caso
-`correr_seccion`; simplemente ejecuta cada prueba individual.
-Para agregar una sección nueva, sumar un objeto a `SECCIONES`.
+`catalogo.js` agrupa las pruebas en `SECCIONES` (pestañas
+temáticas) con `grupos` por rol. El detalle de la
+estructura (campos de `SECCIONES`, `grupos`, botones por
+pestaña y por grupo, `CATALOGO` aplanado, render del popup)
+vive en `estructura_plugin.md` §4.
 
 ### 4.3 Resultado
 
-Cada corrida persiste un nodo en el grafo del plugin con:
-
-- `id_prueba`
-- `fecha_hora` (ISO)
-- `resultado` (`"ok"` / `"fallo"` / `"error"`)
-- `duracion_ms`
-- `detalle` (texto libre)
+La estructura del grafo del plugin (nodos `corrida_<ts>`,
+mini-árbol por prueba, autoenlace `corriendo`, límite
+`CORRIDAS_POR_PRUEBA_MAX`) y el protocolo de mensajes del
+service worker (`estado_pruebas`, `corrida_iniciada`,
+`corrida_terminada`) viven en `estructura_plugin.md` §3 y §5.
 
 ---
 
@@ -369,7 +348,7 @@ MAIN world):**
 ## 6. ENTORNO DE PRUEBAS
 
 - **URL del piloto:** `http://localhost/iteradores/codigo.worktrees/v1.5i/`.
-  Vive en `Aplicacion/ConfPlugin.js` como `URL_PILOTO`.
+  Vive en `Aplicacion/ConfiguracionApli.js` como `URL_PILOTO`.
 - **Códigos de usuario del piloto** (son códigos de acceso,
   **no** nombres de usuario):
   - admin:    `IDB`
@@ -415,9 +394,14 @@ con la limpieza de viajes de prueba de v74n). Archivos:
 - `Aplicacion/contenido.js` — script de contenido clásico.
 - `Aplicacion/ventana.html` / `ventana.js` — interfaz del
   popup con secciones.
-- `Aplicacion/arranque.js` — arranque del framework en el SW.
-- `Aplicacion/ConfPlugin.js` — configuración propia + URL del
-  piloto + códigos de usuario.
+- `Aplicacion/arranque.js` — arranque del framework en el
+  SW. Imports estáticos.
+- `Aplicacion/arranque_config.js` — configuración temprana
+  (efecto de lado, corre antes de la auto-inicialización
+  del Controlador).
+- `Aplicacion/ConfiguracionApli.js` — configuración propia
+  + URL del piloto + códigos de usuario (antes llamado
+  `ConfPlugin.js`).
 - `Aplicacion/GrafoPlugin.js` — capa sobre el framework.
 - `Aplicacion/pruebas/catalogo.js` — catálogo con secciones.
 - `Aplicacion/pruebas/_helpers.js` — helpers compartidos.
@@ -1115,6 +1099,32 @@ por tema.
     la persistencia del framework (IndexedDB del
     contexto de la extensión).
 
+64. **`Object.entries(Map)` devuelve `[]`.** Para iterar
+    un Map, `for (const [k, v] of map)`. `Nodo.adyacentes()`
+    devuelve un Map; el bug era silencioso (no error,
+    simplemente no iteraba). Afectó a
+    `obtener_estado_por_prueba`, `_podar_si_excede`,
+    `limpiar_autoenlaces_colgados` y
+    `_destruir_contenedor_corridas_viejo` en
+    `GrafoPlugin.js`. Detectado en v8e.
+
+65. **En MV3, todos los imports del service worker
+    tienen que ser estáticos.** Cualquier `await
+    import(...)` que aparezca en el grafo de
+    dependencias del SW rompe cuando el SW se reinicia
+    por inactividad, aunque las primeras ejecuciones
+    funcionen por timing. Síntoma típico: las corridas
+    se persistían mientras el popup estaba abierto, y
+    se perdían después de un rato sin uso. Fix en v8d:
+    `arranque.js` pasó a imports estáticos.
+
+66. **Para configurar el framework antes de que un
+    módulo se auto-inicialice, usar un módulo separado
+    con la configuración como efecto de lado, importado
+    ANTES del módulo que la consume.** Los imports ES
+    se evalúan depth-first en orden de aparición.
+    Implementado en v8d con `arranque_config.js`.
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -1138,9 +1148,10 @@ proyecto.
    refactor interno del SW o de la ventana).
 
 3. **Cada cambio al plugin incrementa la versión.** En
-   `ConfPlugin.js` (`VERSION_APP` y `VERSION_PLUGIN`) y en
-   `@version` de los archivos que se tocan. El `manifest.json`
-   no se bumpea en cada letra (ver sección 3.12).
+   `ConfiguracionApli.js` (`VERSION_APP` y `VERSION_PLUGIN`)
+   y en `@version` de los archivos que se tocan. El
+   `manifest.json` no se bumpea en cada letra (ver
+   sección 3.12).
 
 4. **Los bloques `buscar` del `aplicar_cambios.php` deben
    matchear exactamente el archivo en disco.** No alcanza con
@@ -1152,8 +1163,39 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.7y.
-Cierre del arco de la interfaz del plugin.
+**Última actualización de este prompt:** v1.5plugin.8g.
+Cierre de la línea del grafo del plugin.
+
+**Cierre de la línea del grafo (v8b-v8g):**
+
+- **v8b** — GrafoPlugin rediseñado. Estructura nueva:
+  `pruebas → <id_prueba> → (hmi → cadena con cierre)`.
+  Máximo 5 corridas por prueba. Autoenlace `corriendo`.
+  Migración automática desde el contenedor viejo
+  `corridas`. Adaptación de `servicio.js` (fuera
+  `chrome.storage.session`, entran los mensajes
+  `estado_pruebas`, `corrida_iniciada`,
+  `corrida_terminada`).
+- **v8c** — UI del popup. Indicador de estado por fila
+  (última corrida + corriendo). Click despliega el
+  historial (hasta 5 corridas). Refresco por broadcast.
+- **v8d** — Fix del import dinámico. `arranque.js` usaba
+  `await import(...)`, prohibido en MV3 SW. Nuevo
+  `arranque_config.js` con la configuración como efecto
+  de lado, importado estáticamente ANTES del Controlador.
+- **v8e** — Fix de iteración de `Map` en GrafoPlugin.
+  `Object.entries(x)` sobre un Map devuelve `[]`. Se
+  cambia por `for (const [k, v] of x)`. Afectaba a
+  `obtener_estado_por_prueba`, `_podar_si_excede`,
+  `limpiar_autoenlaces_colgados` y
+  `_destruir_contenedor_corridas_viejo`.
+- **v8f** — Documentación: §2, §3.3, §4.2, §4.3, §6,
+  §7, §8 y §10.3 del prompt corregidas. Nuevo archivo
+  `prompts/estructura_plugin.md` con la fuente de
+  verdad de la estructura.
+- **v8g** — Cierre de la línea.
+
+**Lecciones nuevas:** ver §8, items 64-66.
 
 **Estado al cierre de v1.5plugin.7y:**
 
