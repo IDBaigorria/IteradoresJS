@@ -7,7 +7,7 @@
  * Categorias validas: ventas, cancelaciones, viajes,
  * pasajeros, empresas, terminales, usuarios, huerfanos.
  *
- * @version 1.5plugin.7w
+ * @version 1.5plugin.8f
  */
 
 // === Base ===
@@ -91,6 +91,11 @@ import { prueba as cambiar_asiento_desde_clientes } from "./prueba_65_cambiar_as
 // === Grafo ===
 import { prueba as eliminar_huerfanos_limpia_grafo } from "./prueba_56_eliminar_huerfanos_limpia_grafo.js";
 import { prueba as enlace_dueno_apunta_al_compartido } from "./prueba_57_enlace_dueno_apunta_al_compartido.js";
+
+// === Rendiciones / Liquidaciones (v1.5plugin.8f) ===
+import { prueba as rendicion_detalle_soporte } from "./prueba_67_rendicion_detalle_soporte.js";
+import { prueba as liquidacion_detalle_soporte } from "./prueba_68_liquidacion_detalle_soporte.js";
+import { prueba as rendicion_detalle_dueno } from "./prueba_69_rendicion_detalle_dueno.js";
 
 export const SECCIONES = [
     {
@@ -264,13 +269,30 @@ export const SECCIONES = [
         id: "rendiciones",
         nombre: "Rendiciones",
         limpieza: [],
-        grupos: []
+        grupos: [
+            {
+                id: "soporte",
+                nombre: "Soporte",
+                pruebas: [rendicion_detalle_soporte]
+            },
+            {
+                id: "dueno",
+                nombre: "Dueño",
+                pruebas: [rendicion_detalle_dueno]
+            }
+        ]
     },
     {
         id: "liquidaciones",
         nombre: "Liquidaciones",
         limpieza: [],
-        grupos: []
+        grupos: [
+            {
+                id: "soporte",
+                nombre: "Soporte",
+                pruebas: [liquidacion_detalle_soporte]
+            }
+        ]
     },
     {
         id: "pasajeros",

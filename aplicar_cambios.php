@@ -1,250 +1,501 @@
 <?php
 /**
- * Aplicador — Tanda 7 (v2): actualización de prompts del plugin.
+ * Aplicador — Tanda X (bis): 3 pruebas del plugin + docs.
  *
  * Uso (raíz de iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.8g';
-
+$version_nueva = '1.5plugin.8f';
 $htmls_a_bumpear = [];
 
 $cambios = [
     // ============================================================
-    // A) §2: reemplazar el listado completo por puntero
+    // A) ConfiguracionApli.js: bump VERSION_APP y VERSION_PLUGIN.
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§2: puntero a estructura_plugin.md',
-        'buscar' => [
-            '## 2. ESTRUCTURA DE ARCHIVOS',
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'Bump VERSION_APP a 1.5plugin.8f',
+        'buscar' => ['export const VERSION_APP = "1.5plugin.8e";'],
+        'reemplazar' => ['export const VERSION_APP = "1.5plugin.8f";'],
+    ],
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'Bump VERSION_PLUGIN a 1.5plugin.8f',
+        'buscar' => ['export const VERSION_PLUGIN = "1.5plugin.8e";'],
+        'reemplazar' => ['export const VERSION_PLUGIN = "1.5plugin.8f";'],
+    ],
+
+    // ============================================================
+    // B) Helper compartido (nuevo).
+    // ============================================================
+    [
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/_rendiciones_liquidaciones_helpers.js',
+        'descripcion' => 'Helper de rendiciones/liquidaciones',
+        'contenido' => [
+            '/**',
+            ' * Helpers compartidos por las pruebas del detalle de',
+            ' * rendiciones y liquidaciones.',
+            ' *',
+            ' * Las pruebas de estas secciones ejecutan el flujo real',
+            ' * del usuario: login, ir a la pestaña, elegir un dueño',
+            ' * en el select, esperar a que la tabla cargue, hacer clic',
+            ' * en "Ver detalle" y verificar que el modal se abre con',
+            ' * contenido. No alcanza con un POST al backend: el bug',
+            ' * v81i (frontend no mandaba `nombre_dueno` en el POST)',
+            ' * solo se detecta con el flujo completo.',
+            ' *',
+            ' * @version 1.5plugin.8f',
+            ' * @since 1.5plugin.8f',
+            ' */',
             '',
-            '**Raíz de `iteradoresJS/`:**',
+            'import { CODIGO_SOPORTE } from "../ConfiguracionApli.js";',
             '',
-            '- `manifest.json` — manifiesto MV3. **Debe estar en la raíz**',
-            '  del directorio cargado como extensión; Chrome no acepta',
-            '  manifiestos anidados.',
-            '- Framework (`Nodos/`, `Iteradores/`, `Controlador/`,',
-            '  `Configuracion/`, `miscelaneas/`, `Persistencia/`, etc.) —',
-            '  sin tocar.',
-            '- `index.html`, `index.js` — entrada web actual del framework.',
+            '/**',
+            ' * Login como soporte.',
+            ' *',
+            ' * @param {Object} ctx',
+            ' * @returns {Promise<void>}',
+            ' */',
+            'export async function login_soporte(ctx) {',
+            '    await ctx.asegurar_login(CODIGO_SOPORTE);',
+            '}',
             '',
-            '**`prompts/`:**',
+            '/**',
+            ' * Espera a que el select de dueño tenga más de una opción',
+            ' * (la opción 0 es "Seleccione dueño..."). Devuelve true',
+            ' * si tiene al menos un dueño real.',
+            ' *',
+            ' * @param {Object} ctx',
+            ' * @param {string} selector',
+            ' * @param {number} [timeout_ms=8000]',
+            ' * @returns {Promise<boolean>}',
+            ' */',
+            'export async function esperar_opciones_dueno(ctx, selector, timeout_ms = 8000) {',
+            '    const inicio = Date.now();',
+            '    while (Date.now() - inicio < timeout_ms) {',
+            '        const opciones = await ctx.leer_opciones(selector);',
+            '        if (opciones.length > 1) return true;',
+            '        await ctx.pausa(200);',
+            '    }',
+            '    return false;',
+            '}',
             '',
-            '- `prompt_plugin_piloto.md` — este archivo.',
+            '/**',
+            ' * Espera a que la tabla tenga al menos un botón de',
+            ' * detalle, o a que el contenedor muestre el mensaje',
+            ' * "Sin ... registradas". Devuelve:',
+            ' *   { hay: true,  cantidad: N }   → hay datos.',
+            ' *   { hay: false, cantidad: 0 }   → no hay datos.',
+            ' *',
+            ' * @param {Object} ctx',
+            ' * @param {string} selector_boton',
+            ' * @param {string} selector_vacio',
+            ' * @param {number} [timeout_ms=20000]',
+            ' * @returns {Promise<{hay: boolean, cantidad: number}>}',
+            ' */',
+            'export async function esperar_detalle_o_vacio(ctx, selector_boton, selector_vacio, timeout_ms = 20000) {',
+            '    const inicio = Date.now();',
+            '    while (Date.now() - inicio < timeout_ms) {',
+            '        const cantidad = await ctx.contar(selector_boton);',
+            '        if (cantidad > 0) return { hay: true, cantidad };',
+            '        const texto = await ctx.texto(selector_vacio);',
+            '        if (texto && /sin .* registrad/i.test(texto)) {',
+            '            return { hay: false, cantidad: 0 };',
+            '        }',
+            '        await ctx.pausa(300);',
+            '    }',
+            '    return { hay: false, cantidad: 0 };',
+            '}',
             '',
-            '**`Aplicacion/`:**',
+            '/**',
+            ' * Hace clic en el primer botón "Ver detalle" de la tabla,',
+            ' * espera a que se abra el modal genérico, y verifica que',
+            ' * el contenido no esté vacío y contenga una palabra',
+            ' * esperada ("Rendición" o "Liquidación").',
+            ' *',
+            ' * @param {Object} ctx',
+            ' * @param {string} selector_boton',
+            ' * @param {string} palabra_esperada',
+            ' * @returns {Promise<string>}',
+            ' */',
+            'export async function abrir_primer_detalle(ctx, selector_boton, palabra_esperada) {',
+            '    const btn = await ctx.esperar_visible(selector_boton, 5000);',
+            '    if (!btn || !btn.exito) {',
+            '        throw new Error("No apareció el botón " + selector_boton);',
+            '    }',
+            '    await ctx.clic(selector_boton);',
             '',
-            '- `servicio.js` — service worker. **Module** (`type: "module"`',
-            '  en el manifest). Imports estáticos. Registra el listener',
-            '  de mensajes al final.',
-            '- `contenido.js` — script de contenido clásico. Se inyecta en',
-            '  la página del piloto.',
-            '- `ventana.html` / `ventana.js` — interfaz del popup. Renderiza',
-            '  las pruebas agrupadas por sección.',
-            '- `arranque.js` — arranque del framework en el SW.',
-            '- `ConfPlugin.js` — configuración propia del plugin.',
-            '- `GrafoPlugin.js` — capa fina sobre el framework.',
-            '- `pruebas/` — catálogo de pruebas.',
-            '  - `catalogo.js` — agrupa las pruebas en `SECCIONES`. Expone',
-            '    `CATALOGO` como array aplanado para compatibilidad.',
-            '  - `_helpers.js` — helpers compartidos.',
-            '  - `prueba_NN_*.js` — una por prueba.',
-        ],
-        'reemplazar' => [
-            '## 2. ESTRUCTURA DE ARCHIVOS',
+            '    const modal = await ctx.esperar_visible("#modal_generico", 8000);',
+            '    if (!modal || !modal.exito) {',
+            '        throw new Error("No se abrió el modal del detalle (" + palabra_esperada + ")");',
+            '    }',
             '',
-            'La estructura completa del plugin (carpetas, archivos,',
-            'responsabilidades de cada módulo, grafo persistido,',
-            'mensajes del service worker, formato de prueba y',
-            'agrupación) vive en `prompts/estructura_plugin.md`.',
-            'Ese archivo es la fuente de verdad y se actualiza',
-            'cuando cambia la estructura.',
-            '',
-            'Resumen rápido:',
-            '',
-            '- `manifest.json` en la raíz de `iteradoresJS/`. Chrome',
-            '  no acepta manifiestos anidados.',
-            '- Framework (`Nodos/`, `Iteradores/`, `Controlador/`,',
-            '  `Configuracion/`, `Persistencia/`) sin tocar.',
-            '- `miscelaneas/`: se le agregó `Arbol.js` (espejo del',
-            '  `Arbol.php` del piloto).',
-            '- Código del plugin en `Aplicacion/`.',
-            '- Catálogo de pruebas en `Aplicacion/pruebas/`.',
-            '- Prompts en `prompts/`: `prompt_plugin_piloto.md`',
-            '  (este) y `estructura_plugin.md`.',
+            '    const inicio = Date.now();',
+            '    let contenido = null;',
+            '    while (Date.now() - inicio < 5000) {',
+            '        contenido = await ctx.texto("#modal_generico_contenido");',
+            '        if (contenido && contenido.trim().length > 0) break;',
+            '        await ctx.pausa(200);',
+            '    }',
+            '    if (!contenido || contenido.trim().length === 0) {',
+            '        throw new Error("El modal se abrió pero el contenido está vacío");',
+            '    }',
+            '    if (contenido.indexOf(palabra_esperada) === -1) {',
+            '        throw new Error(',
+            '            "El modal no contiene la palabra \\"" + palabra_esperada + "\\". "',
+            '            + "Primeros 200 chars: " + contenido.slice(0, 200)',
+            '        );',
+            '    }',
+            '    return contenido;',
+            '}',
         ],
     ],
 
     // ============================================================
-    // B) §3.3: arranque_config.js
+    // C) Prueba 67: rendición detalle soporte.
     // ============================================================
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§3.3: arranque_config.js',
-        'buscar' => [
-            '### 3.3 Service worker en modo consola',
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_67_rendicion_detalle_soporte.js',
+        'descripcion' => 'Prueba 67: rendición detalle soporte',
+        'contenido' => [
+            '/**',
+            ' * Prueba: el detalle de una rendición se abre para el',
+            ' * usuario soporte.',
+            ' *',
+            ' * Verifica el fix v81i: el frontend no mandaba',
+            ' * `nombre_dueno` en el POST `rendiciones/obtener`, y el',
+            ' * backend (carga parcial del soporte sin `usuarios`) no',
+            ' * encontraba la rendición. Síntoma: "Rendición no',
+            ' * encontrada" al hacer click en "Ver detalle".',
+            ' *',
+            ' * Flujo real del usuario:',
+            ' *   1. Login soporte.',
+            ' *   2. Ir a la pestaña Rendiciones.',
+            ' *   3. Elegir un dueño en el select.',
+            ' *   4. Esperar a que la tabla cargue.',
+            ' *   5. Click en "Ver detalle" del primer resultado.',
+            ' *   6. Verificar que el modal se abre con contenido.',
+            ' *   7. Cerrar el modal.',
+            ' *',
+            ' * Precondición: el dueño elegido debe tener al menos',
+            ' * una rendición creada. Si no, la prueba pasa con',
+            ' * console.warn (lección 38 del prompt del plugin).',
+            ' *',
+            ' * @version 1.5plugin.8f',
+            ' * @since 1.5plugin.8f',
+            ' */',
             '',
-            'En un SW no existe `document`. Los caminos HTML del framework',
-            '(`_imprimir_errores_html`, `html_errores`, etc.) romperían.',
-            'Se evitan forzando `Entorno.es_consola()` en `arranque.js`.',
-        ],
-        'reemplazar' => [
-            '### 3.3 Service worker en modo consola',
+            'import {',
+            '    login_soporte,',
+            '    esperar_opciones_dueno,',
+            '    esperar_detalle_o_vacio,',
+            '    abrir_primer_detalle',
+            '} from "./_rendiciones_liquidaciones_helpers.js";',
+            'import { cerrar_modales_si_abiertos, ir_a_tab } from "./_helpers.js";',
             '',
-            'En un SW no existe `document`. Los caminos HTML del framework',
-            '(`_imprimir_errores_html`, `html_errores`, etc.) romperían.',
-            'Se evitan forzando `Entorno.es_consola()` en',
-            '`arranque_config.js` (efecto de lado, importado antes del',
-            'Controlador desde `arranque.js`).',
+            'export const prueba = {',
+            '    id: "rendicion_detalle_soporte",',
+            '    nombre: "Rendiciones: detalle se abre para soporte",',
+            '    descripcion: "Login soporte, pestaña Rendiciones, elegir un dueño, click en Ver detalle. Verifica que el modal se abre con contenido (fix v81i).",',
+            '    async ejecutar(ctx) {',
+            '        await cerrar_modales_si_abiertos(ctx);',
+            '        await login_soporte(ctx);',
+            '        await ir_a_tab(ctx, "rendiciones");',
+            '',
+            '        const hay_duenos = await esperar_opciones_dueno(ctx, "#selector_dueno_rendiciones", 8000);',
+            '        if (!hay_duenos) {',
+            '            console.warn("[P67] El soporte no tiene dueños asignados; se omite.");',
+            '            return;',
+            '        }',
+            '',
+            '        const r_sel = await ctx.seleccionar_indice("#selector_dueno_rendiciones", 1);',
+            '        if (!r_sel || !r_sel.exito) {',
+            '            throw new Error("No se pudo elegir un dueño en el select de Rendiciones");',
+            '        }',
+            '',
+            '        const r_tabla = await esperar_detalle_o_vacio(',
+            '            ctx, ".ver_detalle_rendicion",',
+            '            "#tabla_rendiciones_container", 20000',
+            '        );',
+            '        if (!r_tabla.hay) {',
+            '            console.warn("[P67] El dueño " + r_sel.texto + " no tiene rendiciones; se omite.");',
+            '            return;',
+            '        }',
+            '',
+            '        const contenido = await abrir_primer_detalle(ctx, ".ver_detalle_rendicion", "Rendición");',
+            '        ctx.assert(contenido.length > 0, "Contenido del modal vacío");',
+            '',
+            '        await ctx.clic("#cerrar_modal_generico");',
+            '        await ctx.pausa(300);',
+            '    }',
+            '};',
         ],
     ],
 
     // ============================================================
-    // C) §4.2 y §4.3: punteros a estructura_plugin.md
+    // D) Prueba 68: liquidación detalle soporte.
     // ============================================================
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§4.2 y §4.3: punteros a estructura_plugin.md',
-        'buscar' => [
-            '### 4.2 Secciones',
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_68_liquidacion_detalle_soporte.js',
+        'descripcion' => 'Prueba 68: liquidación detalle soporte',
+        'contenido' => [
+            '/**',
+            ' * Prueba: el detalle de una liquidación se abre para el',
+            ' * usuario soporte. Espejo de la prueba 67.',
+            ' *',
+            ' * Cubre el fix v81i en `liquidaciones/obtener`.',
+            ' *',
+            ' * @version 1.5plugin.8f',
+            ' * @since 1.5plugin.8f',
+            ' */',
             '',
-            'En `catalogo.js` las pruebas se agrupan en `SECCIONES`:',
+            'import {',
+            '    login_soporte,',
+            '    esperar_opciones_dueno,',
+            '    esperar_detalle_o_vacio,',
+            '    abrir_primer_detalle',
+            '} from "./_rendiciones_liquidaciones_helpers.js";',
+            'import { cerrar_modales_si_abiertos, ir_a_tab } from "./_helpers.js";',
             '',
-            '    export const SECCIONES = [',
-            '        { id: "base", nombre: "Base", pruebas: [arranque, login] },',
-            '        { id: "ventas", nombre: "Ventas", pruebas: [...] }',
-            '    ];',
+            'export const prueba = {',
+            '    id: "liquidacion_detalle_soporte",',
+            '    nombre: "Liquidaciones: detalle se abre para soporte",',
+            '    descripcion: "Login soporte, pestaña Liquidaciones, elegir un dueño, click en Ver detalle. Verifica que el modal se abre con contenido (fix v81i).",',
+            '    async ejecutar(ctx) {',
+            '        await cerrar_modales_si_abiertos(ctx);',
+            '        await login_soporte(ctx);',
+            '        await ir_a_tab(ctx, "liquidaciones");',
             '',
-            'La ventana renderiza cada sección con un botón "Correr todas".',
-            'Cuando se aprieta, la ventana itera las pruebas de la',
-            'sección y manda `correr_prueba` una por una, mostrando el',
-            'progreso en vivo: la prueba en curso se resalta y el',
-            'resumen dice "Corriendo N/total...". El SW no tiene un caso',
-            '`correr_seccion`; simplemente ejecuta cada prueba individual.',
-            'Para agregar una sección nueva, sumar un objeto a `SECCIONES`.',
+            '        const hay_duenos = await esperar_opciones_dueno(ctx, "#selector_dueno_liquidaciones", 8000);',
+            '        if (!hay_duenos) {',
+            '            console.warn("[P68] El soporte no tiene dueños asignados; se omite.");',
+            '            return;',
+            '        }',
             '',
-            '### 4.3 Resultado',
+            '        const r_sel = await ctx.seleccionar_indice("#selector_dueno_liquidaciones", 1);',
+            '        if (!r_sel || !r_sel.exito) {',
+            '            throw new Error("No se pudo elegir un dueño en el select de Liquidaciones");',
+            '        }',
             '',
-            'Cada corrida persiste un nodo en el grafo del plugin con:',
+            '        const r_tabla = await esperar_detalle_o_vacio(',
+            '            ctx, ".ver_detalle_liquidacion",',
+            '            "#tabla_liquidaciones_container", 20000',
+            '        );',
+            '        if (!r_tabla.hay) {',
+            '            console.warn("[P68] El dueño " + r_sel.texto + " no tiene liquidaciones; se omite.");',
+            '            return;',
+            '        }',
             '',
-            '- `id_prueba`',
-            '- `fecha_hora` (ISO)',
-            '- `resultado` (`"ok"` / `"fallo"` / `"error"`)',
-            '- `duracion_ms`',
-            '- `detalle` (texto libre)',
-        ],
-        'reemplazar' => [
-            '### 4.2 Secciones y grupos',
+            '        const contenido = await abrir_primer_detalle(ctx, ".ver_detalle_liquidacion", "Liquidación");',
+            '        ctx.assert(contenido.length > 0, "Contenido del modal vacío");',
             '',
-            '`catalogo.js` agrupa las pruebas en `SECCIONES` (pestañas',
-            'temáticas) con `grupos` por rol. El detalle de la',
-            'estructura (campos de `SECCIONES`, `grupos`, botones por',
-            'pestaña y por grupo, `CATALOGO` aplanado, render del popup)',
-            'vive en `estructura_plugin.md` §4.',
-            '',
-            '### 4.3 Resultado',
-            '',
-            'La estructura del grafo del plugin (nodos `corrida_<ts>`,',
-            'mini-árbol por prueba, autoenlace `corriendo`, límite',
-            '`CORRIDAS_POR_PRUEBA_MAX`) y el protocolo de mensajes del',
-            'service worker (`estado_pruebas`, `corrida_iniciada`,',
-            '`corrida_terminada`) viven en `estructura_plugin.md` §3 y §5.',
+            '        await ctx.clic("#cerrar_modal_generico");',
+            '        await ctx.pausa(300);',
+            '    }',
+            '};',
         ],
     ],
 
     // ============================================================
-    // D) §6: URL_PILOTO vive en ConfiguracionApli.js
+    // E) Prueba 69: rendición detalle dueño (regresión).
     // ============================================================
     [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§6: ConfiguracionApli.js',
-        'buscar' => [
-            '- **URL del piloto:** `http://localhost/iteradores/codigo.worktrees/v1.5i/`.',
-            '  Vive en `Aplicacion/ConfPlugin.js` como `URL_PILOTO`.',
-        ],
-        'reemplazar' => [
-            '- **URL del piloto:** `http://localhost/iteradores/codigo.worktrees/v1.5i/`.',
-            '  Vive en `Aplicacion/ConfiguracionApli.js` como `URL_PILOTO`.',
+        'tipo' => 'crear',
+        'archivo' => 'Aplicacion/pruebas/prueba_69_rendicion_detalle_dueno.js',
+        'descripcion' => 'Prueba 69: rendición detalle dueño (regresión)',
+        'contenido' => [
+            '/**',
+            ' * Prueba: el detalle de una rendición se abre para el',
+            ' * dueño (regresión).',
+            ' *',
+            ' * Con dueño, el backend devolvía el nombre del solicitante',
+            ' * solo (`_nombre_dueno_solicitante` rama nivel=dueno), así',
+            ' * que el bug v81i no se manifestaba. Esta prueba verifica',
+            ' * que el flujo del dueño sigue funcionando tras el fix.',
+            ' *',
+            ' * @version 1.5plugin.8f',
+            ' * @since 1.5plugin.8f',
+            ' */',
+            '',
+            'import { CODIGO_DUENO } from "../ConfiguracionApli.js";',
+            'import {',
+            '    esperar_detalle_o_vacio,',
+            '    abrir_primer_detalle',
+            '} from "./_rendiciones_liquidaciones_helpers.js";',
+            'import { cerrar_modales_si_abiertos, ir_a_tab } from "./_helpers.js";',
+            '',
+            'export const prueba = {',
+            '    id: "rendicion_detalle_dueno",',
+            '    nombre: "Rendiciones: detalle se abre para el dueño",',
+            '    descripcion: "Regresión tras el fix v81i: login dueño, pestaña Rendiciones, click en Ver detalle. Verifica que el modal se abre con contenido.",',
+            '    async ejecutar(ctx) {',
+            '        await cerrar_modales_si_abiertos(ctx);',
+            '        await ctx.asegurar_login(CODIGO_DUENO);',
+            '        await ir_a_tab(ctx, "rendiciones");',
+            '',
+            '        const r_tabla = await esperar_detalle_o_vacio(',
+            '            ctx, ".ver_detalle_rendicion",',
+            '            "#tabla_rendiciones_container", 20000',
+            '        );',
+            '        if (!r_tabla.hay) {',
+            '            console.warn("[P69] El dueño no tiene rendiciones; se omite.");',
+            '            return;',
+            '        }',
+            '',
+            '        const contenido = await abrir_primer_detalle(ctx, ".ver_detalle_rendicion", "Rendición");',
+            '        ctx.assert(contenido.length > 0, "Contenido del modal vacío");',
+            '',
+            '        await ctx.clic("#cerrar_modal_generico");',
+            '        await ctx.pausa(300);',
+            '    }',
+            '};',
         ],
     ],
 
     // ============================================================
-    // E) §7: listado de archivos del estado actual
+    // F) catalogo.js: imports de las 3 pruebas nuevas.
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§7: listado de archivos actualizado',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo.js: imports de las 3 pruebas nuevas',
         'buscar' => [
-            '- `Aplicacion/arranque.js` — arranque del framework en el SW.',
-            '- `Aplicacion/ConfPlugin.js` — configuración propia + URL del',
-            '  piloto + códigos de usuario.',
-            '- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.',
+            '// === Grafo ===',
+            'import { prueba as eliminar_huerfanos_limpia_grafo } from "./prueba_56_eliminar_huerfanos_limpia_grafo.js";',
+            'import { prueba as enlace_dueno_apunta_al_compartido } from "./prueba_57_enlace_dueno_apunta_al_compartido.js";',
         ],
         'reemplazar' => [
-            '- `Aplicacion/arranque.js` — arranque del framework en el',
-            '  SW. Imports estáticos.',
-            '- `Aplicacion/arranque_config.js` — configuración temprana',
-            '  (efecto de lado, corre antes de la auto-inicialización',
-            '  del Controlador).',
-            '- `Aplicacion/ConfiguracionApli.js` — configuración propia',
-            '  + URL del piloto + códigos de usuario (antes llamado',
-            '  `ConfPlugin.js`).',
-            '- `Aplicacion/GrafoPlugin.js` — capa sobre el framework.',
+            '// === Grafo ===',
+            'import { prueba as eliminar_huerfanos_limpia_grafo } from "./prueba_56_eliminar_huerfanos_limpia_grafo.js";',
+            'import { prueba as enlace_dueno_apunta_al_compartido } from "./prueba_57_enlace_dueno_apunta_al_compartido.js";',
+            '',
+            '// === Rendiciones / Liquidaciones (v1.5plugin.8f) ===',
+            'import { prueba as rendicion_detalle_soporte } from "./prueba_67_rendicion_detalle_soporte.js";',
+            'import { prueba as liquidacion_detalle_soporte } from "./prueba_68_liquidacion_detalle_soporte.js";',
+            'import { prueba as rendicion_detalle_dueno } from "./prueba_69_rendicion_detalle_dueno.js";',
         ],
     ],
 
     // ============================================================
-    // F) §8: agregar lecciones 64, 65, 66
+    // G) catalogo.js: secciones rendiciones/liquidaciones con pruebas.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'catalogo.js: secciones rendiciones/liquidaciones con pruebas',
+        'buscar' => [
+            '    {',
+            '        id: "rendiciones",',
+            '        nombre: "Rendiciones",',
+            '        limpieza: [],',
+            '        grupos: []',
+            '    },',
+            '    {',
+            '        id: "liquidaciones",',
+            '        nombre: "Liquidaciones",',
+            '        limpieza: [],',
+            '        grupos: []',
+            '    },',
+        ],
+        'reemplazar' => [
+            '    {',
+            '        id: "rendiciones",',
+            '        nombre: "Rendiciones",',
+            '        limpieza: [],',
+            '        grupos: [',
+            '            {',
+            '                id: "soporte",',
+            '                nombre: "Soporte",',
+            '                pruebas: [rendicion_detalle_soporte]',
+            '            },',
+            '            {',
+            '                id: "dueno",',
+            '                nombre: "Dueño",',
+            '                pruebas: [rendicion_detalle_dueno]',
+            '            }',
+            '        ]',
+            '    },',
+            '    {',
+            '        id: "liquidaciones",',
+            '        nombre: "Liquidaciones",',
+            '        limpieza: [],',
+            '        grupos: [',
+            '            {',
+            '                id: "soporte",',
+            '                nombre: "Soporte",',
+            '                pruebas: [liquidacion_detalle_soporte]',
+            '            }',
+            '        ]',
+            '    },',
+        ],
+    ],
+
+    // ============================================================
+    // H) catalogo.js: bump @version.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/pruebas/catalogo.js',
+        'descripcion' => 'Bump @version de catalogo.js',
+        'buscar' => [' * @version 1.5plugin.7w'],
+        'reemplazar' => [' * @version 1.5plugin.8f'],
+    ],
+
+    // ============================================================
+    // I) prompt_plugin_piloto.md §7: sumar rendiciones/liquidaciones.
     // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§8: lecciones 64, 65, 66',
+        'descripcion' => '§7: secciones rendiciones/liquidaciones',
         'buscar' => [
-            '63. **Persistencia en `localStorage` es un paliativo.**',
-            '    La pestaña activa del plugin se guarda en',
-            "    `localStorage['plugin_tab_activa']`. Está anotado",
-            '    en el código como `ANOTADO`: hay que migrarlo a',
-            '    la persistencia del framework (IndexedDB del',
-            '    contexto de la extensión).',
+            '  Las pruebas de la Fase 2 miden nodos con',
+            '  `grafo/resumen` antes y después. Las de la Fase B2.4',
+            '  navegan desde la raíz y comparan listados.',
             '',
             '---',
+            '',
+            '## 8. LECCIONES APRENDIDAS A LA FUERZA',
         ],
         'reemplazar' => [
-            '63. **Persistencia en `localStorage` es un paliativo.**',
-            '    La pestaña activa del plugin se guarda en',
-            "    `localStorage['plugin_tab_activa']`. Está anotado",
-            '    en el código como `ANOTADO`: hay que migrarlo a',
-            '    la persistencia del framework (IndexedDB del',
-            '    contexto de la extensión).',
+            '  Las pruebas de la Fase 2 miden nodos con',
+            '  `grafo/resumen` antes y después. Las de la Fase B2.4',
+            '  navegan desde la raíz y comparan listados.',
+            '- `rendiciones`: 2 pruebas (v1.5plugin.8f).',
+            '  `rendicion_detalle_soporte`: login soporte, pestaña',
+            '  Rendiciones, elegir dueño, click en "Ver detalle",',
+            '  verificar modal. `rendicion_detalle_dueno`: regresión,',
+            '  login dueño, click en "Ver detalle". Cubren el fix',
+            '  v81i del piloto: el frontend no mandaba',
+            '  `nombre_dueno` en `rendiciones/obtener` y el soporte',
+            '  (carga parcial sin `usuarios`) recibía "Rendición no',
+            '  encontrada". Si el dueño no tiene rendiciones, pasan',
+            '  con `console.warn`.',
+            '- `liquidaciones`: 1 prueba (v1.5plugin.8f).',
+            '  `liquidacion_detalle_soporte`: espejo de la de',
+            '  rendiciones con `liquidaciones/obtener`.',
             '',
-            '64. **`Object.entries(Map)` devuelve `[]`.** Para iterar',
-            '    un Map, `for (const [k, v] of map)`. `Nodo.adyacentes()`',
-            '    devuelve un Map; el bug era silencioso (no error,',
-            '    simplemente no iteraba). Afectó a',
-            '    `obtener_estado_por_prueba`, `_podar_si_excede`,',
-            '    `limpiar_autoenlaces_colgados` y',
-            '    `_destruir_contenedor_corridas_viejo` en',
-            '    `GrafoPlugin.js`. Detectado en v8e.',
+            '---',
             '',
-            '65. **En MV3, todos los imports del service worker',
-            '    tienen que ser estáticos.** Cualquier `await',
-            '    import(...)` que aparezca en el grafo de',
-            '    dependencias del SW rompe cuando el SW se reinicia',
-            '    por inactividad, aunque las primeras ejecuciones',
-            '    funcionen por timing. Síntoma típico: las corridas',
-            '    se persistían mientras el popup estaba abierto, y',
-            '    se perdían después de un rato sin uso. Fix en v8d:',
-            '    `arranque.js` pasó a imports estáticos.',
-            '',
+            '## 8. LECCIONES APRENDIDAS A LA FUERZA',
+        ],
+    ],
+
+    // ============================================================
+    // J) prompt_plugin_piloto.md §8: lección 67.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§8: lección 67 (probar el flujo del usuario)',
+        'buscar' => [
             '66. **Para configurar el framework antes de que un',
             '    módulo se auto-inicialice, usar un módulo separado',
             '    con la configuración como efecto de lado, importado',
@@ -253,322 +504,99 @@ $cambios = [
             '    Implementado en v8d con `arranque_config.js`.',
             '',
             '---',
+            '',
+            '## 10. REGLAS DE TRABAJO',
+        ],
+        'reemplazar' => [
+            '66. **Para configurar el framework antes de que un',
+            '    módulo se auto-inicialice, usar un módulo separado',
+            '    con la configuración como efecto de lado, importado',
+            '    ANTES del módulo que la consume.** Los imports ES',
+            '    se evalúan depth-first en orden de aparición.',
+            '    Implementado en v8d con `arranque_config.js`.',
+            '',
+            '67. **El flujo del usuario incluye el frontend, no',
+            '    solo el backend.** Un POST directo al backend puede',
+            '    pasar aunque el flujo real del usuario esté roto: si',
+            '    el frontend no manda los parámetros que el backend',
+            '    espera, el usuario ve un error aunque el endpoint',
+            '    funcione con los parámetros correctos. Caso real',
+            '    v81i: los POST `rendiciones/obtener`,',
+            '    `rendiciones/aceptar_ajuste` y',
+            '    `liquidaciones/obtener` existían y funcionaban si',
+            '    se les pasaba `nombre_dueno`, pero el frontend del',
+            '    piloto no lo mandaba, y el soporte veía "no',
+            '    encontrada". Un test que solo hace POST al backend',
+            '    con el parámetro correcto NO detecta el bug.',
+            '    **Regla: las pruebas que verifican flujos del',
+            '    usuario deben hacer el click del usuario** (botón',
+            '    "Ver detalle"), no solo el POST. Verificar el',
+            '    efecto en el DOM (modal abierto con contenido) es',
+            '    parte del contrato.',
+            '',
+            '---',
+            '',
+            '## 10. REGLAS DE TRABAJO',
         ],
     ],
 
     // ============================================================
-    // G) §9: nota de cierre
+    // K) prompt_plugin_piloto.md §9: cabecera v8h.
     // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§9: nota de cierre',
+        'descripcion' => '§9: cabecera v8h',
         'buscar' => [
-            '**Última actualización de este prompt:** v1.5plugin.7y.',
-            'Cierre del arco de la interfaz del plugin.',
-        ],
-        'reemplazar' => [
+            '## 9. DISCUSIÓN ACTUAL',
+            '',
             '**Última actualización de este prompt:** v1.5plugin.8g.',
             'Cierre de la línea del grafo del plugin.',
+        ],
+        'reemplazar' => [
+            '## 9. DISCUSIÓN ACTUAL',
             '',
-            '**Cierre de la línea del grafo (v8b-v8g):**',
-            '',
-            '- **v8b** — GrafoPlugin rediseñado. Estructura nueva:',
-            '  `pruebas → <id_prueba> → (hmi → cadena con cierre)`.',
-            '  Máximo 5 corridas por prueba. Autoenlace `corriendo`.',
-            '  Migración automática desde el contenedor viejo',
-            '  `corridas`. Adaptación de `servicio.js` (fuera',
-            '  `chrome.storage.session`, entran los mensajes',
-            '  `estado_pruebas`, `corrida_iniciada`,',
-            '  `corrida_terminada`).',
-            '- **v8c** — UI del popup. Indicador de estado por fila',
-            '  (última corrida + corriendo). Click despliega el',
-            '  historial (hasta 5 corridas). Refresco por broadcast.',
-            '- **v8d** — Fix del import dinámico. `arranque.js` usaba',
-            '  `await import(...)`, prohibido en MV3 SW. Nuevo',
-            '  `arranque_config.js` con la configuración como efecto',
-            '  de lado, importado estáticamente ANTES del Controlador.',
-            '- **v8e** — Fix de iteración de `Map` en GrafoPlugin.',
-            '  `Object.entries(x)` sobre un Map devuelve `[]`. Se',
-            '  cambia por `for (const [k, v] of x)`. Afectaba a',
-            '  `obtener_estado_por_prueba`, `_podar_si_excede`,',
-            '  `limpiar_autoenlaces_colgados` y',
-            '  `_destruir_contenedor_corridas_viejo`.',
-            '- **v8f** — Documentación: §2, §3.3, §4.2, §4.3, §6,',
-            '  §7, §8 y §10.3 del prompt corregidas. Nuevo archivo',
-            '  `prompts/estructura_plugin.md` con la fuente de',
-            '  verdad de la estructura.',
+            '**Última actualización de este prompt:** v1.5plugin.8h.',
+            'Cierre de la línea del grafo del plugin + 3 pruebas',
+            'nuevas de rendiciones/liquidaciones (v8h).',
+        ],
+    ],
+
+    // ============================================================
+    // L) prompt_plugin_piloto.md §9: bloque de cierre v8h.
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => '§9: cierre v8h',
+        'buscar' => [
             '- **v8g** — Cierre de la línea.',
             '',
             '**Lecciones nuevas:** ver §8, items 64-66.',
         ],
-    ],
-
-    // ============================================================
-    // H) §10.3: ConfiguracionApli.js
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'prompts/prompt_plugin_piloto.md',
-        'descripcion' => '§10.3: ConfiguracionApli.js',
-        'buscar' => [
-            '3. **Cada cambio al plugin incrementa la versión.** En',
-            '   `ConfPlugin.js` (`VERSION_APP` y `VERSION_PLUGIN`) y en',
-            '   `@version` de los archivos que se tocan. El `manifest.json`',
-            '   no se bumpea en cada letra (ver sección 3.12).',
-        ],
         'reemplazar' => [
-            '3. **Cada cambio al plugin incrementa la versión.** En',
-            '   `ConfiguracionApli.js` (`VERSION_APP` y `VERSION_PLUGIN`)',
-            '   y en `@version` de los archivos que se tocan. El',
-            '   `manifest.json` no se bumpea en cada letra (ver',
-            '   sección 3.12).',
-        ],
-    ],
-
-    // ============================================================
-    // I) Nuevo archivo: estructura_plugin.md
-    // ============================================================
-    [
-        'tipo' => 'crear',
-        'archivo' => 'prompts/estructura_plugin.md',
-        'descripcion' => 'Nuevo estructura_plugin.md',
-        'contenido' => [
-            '# Estructura del plugin de pruebas (Chrome MV3)',
+            '- **v8g** — Cierre de la línea.',
             '',
-            'Este archivo es la **fuente de verdad de la estructura**',
-            'del plugin: carpetas, archivos, grafo persistido, mensajes',
-            'del service worker, formato de pruebas y agrupación.',
+            '**Cierre de v8h — 3 pruebas del arco de los módulos',
+            'menores:**',
             '',
-            'Vive en `iteradoresJS/prompts/estructura_plugin.md`. Se',
-            'actualiza cuando cambia la estructura (archivos nuevos,',
-            'cambios del grafo, mensajes nuevos). El prompt del plugin',
-            '(`prompt_plugin_piloto.md`) guarda el método, las',
-            'decisiones técnicas y las lecciones; este archivo guarda',
-            'la foto de la estructura.',
+            '- **Prueba 67** `rendicion_detalle_soporte`: login',
+            '  soporte, pestaña Rendiciones, elegir dueño, click',
+            '  en "Ver detalle", verificar modal. Cubre el fix',
+            '  v81i del piloto (el frontend no mandaba',
+            '  `nombre_dueno` en `rendiciones/obtener`).',
+            '- **Prueba 68** `liquidacion_detalle_soporte`: idem',
+            '  con Liquidaciones.',
+            '- **Prueba 69** `rendicion_detalle_dueno`: regresión,',
+            '  login dueño, click en "Ver detalle".',
+            '- **Nuevo helper** `_rendiciones_liquidaciones_helpers.js`:',
+            '  `login_soporte`, `esperar_opciones_dueno`,',
+            '  `esperar_detalle_o_vacio`, `abrir_primer_detalle`.',
+            '- **`catalogo.js`**: secciones `rendiciones` (grupos',
+            '  soporte + dueño) y `liquidaciones` (grupo soporte)',
+            '  llenas. Antes estaban vacías desde v7s.',
             '',
-            'Última actualización: v1.5plugin.8g.',
-            '',
-            '---',
-            '',
-            '## 1. ÁRBOL DE ARCHIVOS',
-            '',
-            '**Raíz de `iteradoresJS/`:**',
-            '',
-            '- `manifest.json` — manifiesto MV3. **Debe estar en la raíz**',
-            '  del directorio cargado como extensión; Chrome no acepta',
-            '  manifiestos anidados.',
-            '- Framework (`Nodos/`, `Iteradores/`, `Controlador/`,',
-            '  `Configuracion/`, `Persistencia/`, `miscelaneas/`, etc.).',
-            '- `index.html`, `index.js` — entrada web del framework.',
-            '- `auditar_plugin.php` — auditoría del plugin.',
-            '',
-            '**`prompts/`:**',
-            '',
-            '- `prompt_plugin_piloto.md` — método, decisiones, lecciones.',
-            '- `estructura_plugin.md` — este archivo.',
-            '',
-            '**`Aplicacion/`:**',
-            '',
-            '- `servicio.js` — service worker (module, imports estáticos).',
-            '- `contenido.js` — script de contenido clásico.',
-            '- `ventana.html` / `ventana.js` — popup.',
-            '- `arranque.js` — arranque del framework en el SW.',
-            '- `arranque_config.js` — configuración temprana (efecto de',
-            '  lado, corre antes de la auto-inicialización del Controlador).',
-            '- `ConfiguracionApli.js` — config propia + URL + códigos.',
-            '- `GrafoPlugin.js` — capa sobre el framework.',
-            '- `LimpiezaPrueba.js` — limpieza de datos de prueba.',
-            '- `CopiarPasajeros.js` — copia la tabla del micro abierto.',
-            '- `pruebas/`:',
-            '  - `catalogo.js` — agrupa pruebas en secciones y grupos.',
-            '  - `_helpers.js`, `_<tipo>_helpers.js` — helpers.',
-            '  - `prueba_NN_*.js` — una por prueba.',
-            '',
-            '**`miscelaneas/`:**',
-            '',
-            '- `index.js` — barrel.',
-            '- `generarUUID.js`.',
-            '- `mixin.js`.',
-            '- `Arbol.js` — operaciones de árbol (`hmi`/`hd`/`p`), espejo',
-            '  del `Arbol.php` del piloto. Incluye `_arbol_nombres`,',
-            '  `_hmi`, `_hd`, `hmi`, `hd`, `p`, `eliminar_hmi`,',
-            '  `eliminar_hd`. Todas aceptan un parámetro opcional',
-            '  `nombres` para enlaces alternativos.',
-            '',
-            '---',
-            '',
-            '## 2. RESPONSABILIDADES DE CADA MÓDULO',
-            '',
-            '**`servicio.js`** (service worker):',
-            '',
-            '- Registra el listener de mensajes.',
-            '- Orquesta la ejecución de pruebas: crea el `ctx`, marca',
-            '  `corrida_iniciada`, ejecuta, persiste la corrida, marca',
-            '  `corrida_terminada`.',
-            '- Cachea `nombre_solicitante` y `nombre_dueno` (se',
-            '  invalidan en login/logout).',
-            '- Expone helpers al `ctx` (DOM, fetch, MAIN world).',
-            '',
-            '**`contenido.js`** (content script):',
-            '',
-            '- Se inyecta en la página del piloto.',
-            '- Recibe mensajes del SW y los ejecuta contra el DOM.',
-            '- Hace el `fetch` multipart (las cookies del piloto viajan',
-            '  solo desde el origen del piloto).',
-            '',
-            '**`ventana.js`** (popup):',
-            '',
-            '- No usa imports. Pide datos al SW por',
-            '  `chrome.runtime.sendMessage`.',
-            '- Renderiza pestañas, grupos y pruebas.',
-            '- Muestra indicadores de estado y el historial de las',
-            '  últimas 5 corridas por prueba.',
-            '- Escucha `corrida_iniciada`, `corrida_terminada` y',
-            '  `limpieza_progreso`.',
-            '',
-            '**`arranque.js`**:',
-            '',
-            '- Importa `./arranque_config.js` (efecto de lado) ANTES',
-            '  de `../Controlador/index.js`.',
-            '- Expone `obtener_controlador()`: espera a que el',
-            '  Controlador termine de inicializar, fuerza el método',
-            '  de persistencia a `IndexedDB`.',
-            '',
-            '**`arranque_config.js`**:',
-            '',
-            '- Configura `Entorno` (salida consola, modo desarrollo)',
-            '  y aplica `configurar_conf(Conf)`.',
-            '- Existe por orden de evaluación: los imports ES se',
-            '  evalúan depth-first en orden de aparición.',
-            '',
-            '**`ConfiguracionApli.js`**:',
-            '',
-            '- Constantes del plugin (`NOMBRE_APP`, `VERSION_APP`,',
-            '  `NOMBRE_GRAFO`, `VERSION_PLUGIN`, `CORRIDAS_POR_PRUEBA_MAX`).',
-            '- Constantes del piloto (`URL_PILOTO`, códigos de usuario).',
-            '- `configurar_conf(Conf)` aplica los valores al framework.',
-            '',
-            '**`GrafoPlugin.js`**:',
-            '',
-            '- Carga / guarda el grafo del plugin.',
-            '- API: `asegurar_grafo_cargado()`, `registrar_corrida()`,',
-            '  `marcar_en_vivo()`, `limpiar_en_vivo()`,',
-            '  `limpiar_autoenlaces_colgados()`,',
-            '  `obtener_estado_por_prueba()`.',
-            '- Migración automática desde el contenedor viejo `corridas`.',
-            '',
-            '---',
-            '',
-            '## 3. GRAFO PERSISTIDO',
-            '',
-            '```',
-            'plugin (especial)',
-            '└── pruebas (contenedor principal)',
-            '    ├── <id_prueba_1>          (contenedor del mini-árbol)',
-            '    │   ├── corriendo          (autoenlace, si corre ahora)',
-            '    │   └── hmi → corrida_<t5>',
-            '    │       └── hd → corrida_<t4>',
-            '    │           └── hd → ...',
-            '    │               └── hd → <id_prueba_1>  (cierre)',
-            '    └── <id_prueba_2>',
-            '        └── hmi → corrida_<tN>',
-            '```',
-            '',
-            'Cada nodo `corrida_<ts>` guarda:',
-            '',
-            '- `fecha_hora` (ISO).',
-            '- `resultado` (`"ok"` / `"fallo"` / `"error"`).',
-            '- `duracion_ms`.',
-            '- `detalle` (opcional).',
-            '',
-            'Detalles:',
-            '',
-            '- El `id_prueba` se infiere del contenedor padre.',
-            '- Máximo `CORRIDAS_POR_PRUEBA_MAX` (5) corridas por prueba.',
-            '  Al insertar, si se supera, se destruye la más vieja.',
-            '- Las corridas se insertan como `hmi` (la más nueva primero).',
-            '- El último nodo de la cadena apunta al contenedor vía `hd`.',
-            '- El autoenlace `corriendo` sirve doble: marca visual +',
-            '  protección contra eliminación accidental.',
-            '',
-            '---',
-            '',
-            '## 4. CATÁLOGO DE PRUEBAS',
-            '',
-            '`catalogo.js` exporta:',
-            '',
-            '- `SECCIONES` — array de pestañas temáticas.',
-            '  - `id`, `nombre`.',
-            '  - `limpieza` — array de categorías que limpia su botón',
-            '    "Limpiar pruebas" (puede ser `[]`).',
-            '  - `grupos` — array de grupos por rol.',
-            '    - `id`, `nombre`.',
-            '    - `pruebas` — array de pruebas.',
-            '- `CATALOGO` — array aplanado de todas las pruebas.',
-            '',
-            '**Estructura de una prueba:**',
-            '',
-            '```js',
-            'export const prueba = {',
-            '    id: "arranque",',
-            '    nombre: "Arranque: plugin y script de contenido",',
-            '    descripcion: "Verifica que el script de contenido...",',
-            '    async ejecutar(ctx) {',
-            '        // usar helpers de ctx',
-            '    }',
-            '};',
-            '```',
-            '',
-            '**Render en el popup:**',
-            '',
-            '- Barra de pestañas (una por sección).',
-            '- Pestaña activa: barra con "Ejecutar todos los roles" +',
-            '  "Limpiar pruebas" + estado.',
-            '- Grilla de 2 columnas con las tarjetas por grupo.',
-            '- Cada tarjeta: header con nombre + botón "Correr todas";',
-            '  filas por prueba con botón play, resultado en vivo,',
-            '  indicador de estado (última corrida) e historial',
-            '  desplegable.',
-            '',
-            '**Progreso al correr una pestaña o grupo:**',
-            '',
-            '- El popup itera las pruebas y manda `correr_prueba` una',
-            '  por una, actualizando en vivo.',
-            '- El SW no tiene caso `correr_seccion`.',
-            '',
-            '---',
-            '',
-            '## 5. MENSAJES DEL SERVICE WORKER',
-            '',
-            '**Popup → SW:**',
-            '',
-            '- `listar_secciones` → `{exito, secciones}`.',
-            '- `listar_pruebas` → `{exito, pruebas}`.',
-            '- `correr_prueba {id_prueba}` →',
-            '  `{exito, resultado, detalle, duracion_ms}`.',
-            '- `estado_pruebas` → `{exito, por_prueba}`. Reemplaza a',
-            '  los viejos `estado_en_vivo` y `listar_corridas`.',
-            '- `limpiar_datos_prueba` → limpieza total.',
-            '- `limpiar_prueba_categoria {categorias}` → limpieza parcial.',
-            '- `copiar_tabla_pasajeros` →',
-            '  `{exito, tabla, cantidad_filas}`.',
-            '- `refrescar_asientos_pagina`.',
-            '',
-            '**SW → popup (broadcasts):**',
-            '',
-            '- `limpieza_progreso {evento}`.',
-            '- `corrida_iniciada {id_prueba}`.',
-            '- `corrida_terminada {id_prueba, resultado, fecha_hora,',
-            '  duracion_ms, detalle}`.',
-            '',
-            '---',
-            '',
-            '## 6. HELPERS DE `ctx`',
-            '',
-            'Ver prompt del plugin §5. Se mantiene ahí porque es la',
-            'API del plugin (contrato con las pruebas), no la',
-            'estructura interna del código.',
+            '**Lecciones nuevas:** ver §8, items 64-67.',
         ],
     ],
 ];
@@ -615,7 +643,6 @@ foreach ($reemplazos_por_archivo as $l) $total_reemplazos += count($l);
 echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar, "
     . count($creaciones) . " a crear, " . count($eliminaciones) . " a eliminar.\n\n";
 
-// --- Fase 1: aplicar reemplazos ---
 $archivos_a_escribir = [];
 $bloques_ok = 0;
 $bloques_fallidos = [];
@@ -649,7 +676,80 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     exit(1);
 }
 
-// --- Fase 3: escribir ---
+$archivos_bump_php_js = [];
+$archivos_bump_js_css = [];
+foreach ($archivos_a_escribir as $ruta_abs => $info) {
+    $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
+    $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
+    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
+    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $rel;
+}
+foreach ($creaciones as $cr) {
+    $ext = strtolower(pathinfo($cr['archivo'], PATHINFO_EXTENSION));
+    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $cr['archivo'];
+    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $cr['archivo'];
+}
+
+$bumps_atversion = 0;
+$bumps_qv = 0;
+$bumps_detalle = [];
+$info_bumps = [];
+
+if ($bumpear) {
+    foreach (array_unique($archivos_bump_php_js) as $archivo_rel) {
+        $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
+        if (!file_exists($ruta_abs)) continue;
+        if (isset($archivos_a_escribir[$ruta_abs])) {
+            list($contenido, $eol) = $archivos_a_escribir[$ruta_abs];
+        } else {
+            $contenido_original = file_get_contents($ruta_abs);
+            $eol = detectar_eol($contenido_original);
+            $contenido = normalizar_a_unix($contenido_original);
+        }
+        $patron = '/(\*\s+@version\s+)(\S+)/';
+        $viejo = '';
+        $nuevo = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo) {
+            $viejo = $m[2];
+            return $m[1] . $version_nueva;
+        }, $contenido, 1, $count);
+        if ($count === 0) { $info_bumps[] = "$archivo_rel (sin @version)"; continue; }
+        if ($viejo === $version_nueva) { continue; }
+        $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
+        $bumps_atversion++;
+        $bumps_detalle[] = "$archivo_rel  @version $viejo → $version_nueva";
+    }
+
+    foreach ($htmls_a_bumpear as $html_rel) {
+        $html_abs = $raiz_proyecto . '/' . $html_rel;
+        if (!file_exists($html_abs)) { $info_bumps[] = "$html_rel (no encontrado)"; continue; }
+        if (isset($archivos_a_escribir[$html_abs])) {
+            list($html, $eol) = $archivos_a_escribir[$html_abs];
+        } else {
+            $html_orig = file_get_contents($html_abs);
+            $eol = detectar_eol($html_orig);
+            $html = normalizar_a_unix($html_orig);
+        }
+        $html_antes = $html;
+        foreach (array_unique($archivos_bump_js_css) as $archivo_rel) {
+            $base = basename($archivo_rel);
+            $base_esc = preg_quote($base, '/');
+            $patron = '/(' . $base_esc . '\?v=)([^"\'\s>]+)/';
+            $viejo_qv = '';
+            $html = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo_qv) {
+                $viejo_qv = $m[2];
+                return $m[1] . $version_nueva;
+            }, $html, 1, $c_qv);
+            if ($c_qv > 0 && $viejo_qv !== $version_nueva) {
+                $bumps_qv++;
+                $bumps_detalle[] = "$html_rel  $base ?v= $viejo_qv → $version_nueva";
+            }
+        }
+        if ($html !== $html_antes) {
+            $archivos_a_escribir[$html_abs] = [normalizar_a_unix($html), $eol];
+        }
+    }
+}
+
 $archivos_escritos = 0;
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     list($contenido_unix, $eol) = $info;
@@ -675,9 +775,26 @@ foreach ($creaciones as $creacion) {
     echo "[OK] {$creacion['archivo']} ($accion)\n";
 }
 
+foreach ($eliminaciones as $elim) {
+    $ruta_abs = $raiz_proyecto . '/' . $elim['archivo'];
+    if (!file_exists($ruta_abs)) { echo "[INFO] " . $elim['archivo'] . " no existía.\n"; continue; }
+    if (unlink($ruta_abs)) echo "[OK] " . $elim['archivo'] . " (eliminado)\n";
+    else echo "[FALLO] No se pudo eliminar: " . $elim['archivo'] . "\n";
+}
+
+if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
+    echo "\n--- Bumps ---\n";
+    foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
+    foreach ($info_bumps as $i) echo "[INFO] $i\n";
+}
+
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
+if ($bumpear) {
+    echo "Bumps @version:    $bumps_atversion\n";
+    echo "Bumps ?v=:         $bumps_qv\n";
+}
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";

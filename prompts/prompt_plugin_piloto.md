@@ -543,6 +543,19 @@ con la limpieza de viajes de prueba de v74n). Archivos:
   Las pruebas de la Fase 2 miden nodos con
   `grafo/resumen` antes y después. Las de la Fase B2.4
   navegan desde la raíz y comparan listados.
+- `rendiciones`: 2 pruebas (v1.5plugin.8f).
+  `rendicion_detalle_soporte`: login soporte, pestaña
+  Rendiciones, elegir dueño, click en "Ver detalle",
+  verificar modal. `rendicion_detalle_dueno`: regresión,
+  login dueño, click en "Ver detalle". Cubren el fix
+  v81i del piloto: el frontend no mandaba
+  `nombre_dueno` en `rendiciones/obtener` y el soporte
+  (carga parcial sin `usuarios`) recibía "Rendición no
+  encontrada". Si el dueño no tiene rendiciones, pasan
+  con `console.warn`.
+- `liquidaciones`: 1 prueba (v1.5plugin.8f).
+  `liquidacion_detalle_soporte`: espejo de la de
+  rendiciones con `liquidaciones/obtener`.
 
 ---
 
@@ -1125,6 +1138,25 @@ por tema.
     se evalúan depth-first en orden de aparición.
     Implementado en v8d con `arranque_config.js`.
 
+67. **El flujo del usuario incluye el frontend, no
+    solo el backend.** Un POST directo al backend puede
+    pasar aunque el flujo real del usuario esté roto: si
+    el frontend no manda los parámetros que el backend
+    espera, el usuario ve un error aunque el endpoint
+    funcione con los parámetros correctos. Caso real
+    v81i: los POST `rendiciones/obtener`,
+    `rendiciones/aceptar_ajuste` y
+    `liquidaciones/obtener` existían y funcionaban si
+    se les pasaba `nombre_dueno`, pero el frontend del
+    piloto no lo mandaba, y el soporte veía "no
+    encontrada". Un test que solo hace POST al backend
+    con el parámetro correcto NO detecta el bug.
+    **Regla: las pruebas que verifican flujos del
+    usuario deben hacer el click del usuario** (botón
+    "Ver detalle"), no solo el POST. Verificar el
+    efecto en el DOM (modal abierto con contenido) es
+    parte del contrato.
+
 ---
 
 ## 10. REGLAS DE TRABAJO
@@ -1163,8 +1195,9 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.8g.
-Cierre de la línea del grafo del plugin.
+**Última actualización de este prompt:** v1.5plugin.8h.
+Cierre de la línea del grafo del plugin + 3 pruebas
+nuevas de rendiciones/liquidaciones (v8h).
 
 **Cierre de la línea del grafo (v8b-v8g):**
 
@@ -1195,7 +1228,26 @@ Cierre de la línea del grafo del plugin.
   verdad de la estructura.
 - **v8g** — Cierre de la línea.
 
-**Lecciones nuevas:** ver §8, items 64-66.
+**Cierre de v8h — 3 pruebas del arco de los módulos
+menores:**
+
+- **Prueba 67** `rendicion_detalle_soporte`: login
+  soporte, pestaña Rendiciones, elegir dueño, click
+  en "Ver detalle", verificar modal. Cubre el fix
+  v81i del piloto (el frontend no mandaba
+  `nombre_dueno` en `rendiciones/obtener`).
+- **Prueba 68** `liquidacion_detalle_soporte`: idem
+  con Liquidaciones.
+- **Prueba 69** `rendicion_detalle_dueno`: regresión,
+  login dueño, click en "Ver detalle".
+- **Nuevo helper** `_rendiciones_liquidaciones_helpers.js`:
+  `login_soporte`, `esperar_opciones_dueno`,
+  `esperar_detalle_o_vacio`, `abrir_primer_detalle`.
+- **`catalogo.js`**: secciones `rendiciones` (grupos
+  soporte + dueño) y `liquidaciones` (grupo soporte)
+  llenas. Antes estaban vacías desde v7s.
+
+**Lecciones nuevas:** ver §8, items 64-67.
 
 **Estado al cierre de v1.5plugin.7y:**
 
