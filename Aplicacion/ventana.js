@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.9a
+ * @version 1.5plugin.9d
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -853,6 +853,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += '<li class="migracion-paso">';
                 html += '<span style="flex:1">' + (i+1) + '. ' + p.nombre + '</span>';
                 html += '<span class="estado estado-' + pe.estado + '">' + pe.estado + '</span>';
+                if (pe.estado === "error" && pe.output) {
+                    html += '<button class="btn-ver-output" data-paso-id="' + p.id + '" title="Ver output" style="font-size:10px; padding:1px 6px;">ver</button>';
+                }
                 html += '</li>';
             }
             const pe_dr = pasos_e["drenar_buzon"] || { estado: "pendiente" };
@@ -888,8 +891,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += '<label>';
             html += '<input type="checkbox" id="migracion_check_drenar" checked>';
             html += '<span>10. Drenar buzón al final</span>';
-            html += '<span class="tooltip-icon" title="Login como dueño con el código configurado. Si falla, drenar manualmente.'>⚠️</span>';
-            html += '</label>';
+            html += '<span class="tooltip-icon" title="Login como dueño con el código configurado. Si falla, drenar manualmente.">⚠️</span>';            html += '</label>';
             html += '</li>';
             html += '</ul>';
 
@@ -921,6 +923,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (en_curso) {
             document.getElementById("btn_continuar_migracion").addEventListener("click", () => _continuar_migracion(actual));
             document.getElementById("btn_abandonar_migracion").addEventListener("click", () => _abandonar_migracion(actual.id));
+            document.querySelectorAll(".btn-ver-output").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    const pid = btn.dataset.pasoId;
+                    const pe = (actual.pasos || {})[pid];
+                    if (!pe || !pe.output) return;
+                    const msg = (pe.mensaje ? "Mensaje: " + pe.mensaje + "\n\n" : "") + pe.output;
+                    alert(msg);
+                });
+            });
         } else {
             document.getElementById("btn_correr_migracion").addEventListener("click", _correr_migracion);
         }
@@ -956,13 +967,35 @@ document.addEventListener("DOMContentLoaded", () => {
                 opciones: { pasos: pasos, drenar_buzon: drenar },
             });
             if (!r || !r.exito) {
-                alert("Error: " + (r && r.error ? r.error : "desconocido"));
+                await _renderizar_migraciones();
+                _mostrar_output_pasos_fallidos(r);
             }
         } catch (e) {
             alert("Error: " + e.message);
         } finally {
             await _renderizar_migraciones();
         }
+    }
+
+    function _mostrar_output_pasos_fallidos(respuesta) {
+        const resultados = respuesta && respuesta.resultados ? respuesta.resultados : [];
+        const fallidos = resultados.filter(function (p) { return p.estado === "error" && p.output; });
+        if (fallidos.length === 0) {
+            const err = respuesta && respuesta.error ? respuesta.error : "(sin detalle)";
+            alert("Migración falló.\n\n" + err + "\n\nAbrí la consola del SW (chrome://extensions → plugin → Service Worker) para más detalle.");
+            return;
+        }
+        const panel = document.getElementById("migraciones_panel");
+        if (!panel) return;
+        let html = '<h3>Output de pasos fallidos</h3>';
+        for (const f of fallidos) {
+            html += '<div class="migracion-aviso">';
+            html += '<strong>Paso: ' + _escapar_html(f.paso) + '</strong>';
+            if (f.mensaje) html += '<br>' + _escapar_html(f.mensaje);
+            html += '</div>';
+            html += '<pre style="background:#1e1e1e; color:#d4d4d4; padding:8px; border-radius:4px; max-height:300px; overflow:auto; font-size:11px; white-space:pre-wrap; margin-bottom:12px;">' + _escapar_html(f.output) + '</pre>';
+        }
+        panel.insertAdjacentHTML("beforeend", html);
     }
 
     async function _continuar_migracion(actual) {

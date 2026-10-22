@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `estado_pruebas`  -> devuelve el estado consolidado por prueba.
  *
- * @version 1.5plugin.9b
+ * @version 1.5plugin.9d
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -125,13 +125,22 @@ async function _ejecutar_migraciones(opciones, pasos_ya_ok) {
             estado_global: resultado_final,
             fecha_fin: new Date().toISOString(),
         }).catch(function (e) { console.error(e); });
+        if (!r.exito) {
+            console.error("[Migración] Falló:", r.error || "(sin detalle)");
+            const paso_fallido = (r.resultados || []).find(function (p) { return p.estado === "error"; });
+            if (paso_fallido && paso_fallido.output) {
+                console.error("[Migración] Output del paso " + paso_fallido.paso + ":");
+                console.error(paso_fallido.output);
+            }
+        }
         _notificar_migracion({
             tipo: "migracion_terminada",
             id_corrida: id_corrida,
             estado_global: resultado_final,
             resultados: r.resultados,
+            error: r.error,
         });
-        return { exito: r.exito, id_corrida: id_corrida, estado_global: resultado_final, resultados: r.resultados };
+        return { exito: r.exito, id_corrida: id_corrida, estado_global: resultado_final, resultados: r.resultados, error: r.error };
     } catch (e) {
         await finalizar_migracion(id_corrida, {
             estado_global: "error",

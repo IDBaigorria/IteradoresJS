@@ -27,7 +27,7 @@
  * contra destrucción accidental del contenedor mientras la
  * prueba corre.
  *
- * @version 1.5plugin.9a
+ * @version 1.5plugin.9d
  * @since 1.5plugin.5t
  */
 
@@ -525,6 +525,17 @@ export async function actualizar_paso_migracion(id_corrida, paso_id, datos) {
         else paso._adyacente_en(Nodo.crear_con_dato(s), "duracion_ms");
     }
 
+    // v1.5plugin.9d: guardar el output del paso (primeros 2000
+    // chars). Antes solo se guardaba al crear la corrida, con
+    // output vacío. Ahora el panel puede mostrarlo al hacer
+    // click en un paso fallido.
+    if (datos.output) {
+        const s_out = String(datos.output).slice(0, 2000);
+        n = paso.adyacente("output");
+        if (n) n._dato(s_out);
+        else paso._adyacente_en(Nodo.crear_con_dato(s_out), "output");
+    }
+
     await Controlador.guardar(NOMBRE_GRAFO);
 }
 
@@ -612,6 +623,7 @@ function _formatear_corrida_mig(nombre, corrida) {
                 estado: _dato_adyacente(paso, "estado"),
                 mensaje: _dato_adyacente(paso, "mensaje"),
                 duracion_ms: _dato_adyacente(paso, "duracion_ms"),
+                output: _dato_adyacente(paso, "output"),
             };
         }
     }

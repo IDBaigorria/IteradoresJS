@@ -8,7 +8,7 @@
  * La secuencia vive acá. El estado se persiste en el grafo
  * vía GrafoPlugin.js.
  *
- * @version 1.5plugin.9a
+ * @version 1.5plugin.9e
  */
 
 import { URL_PILOTO, CODIGO_DUENO } from "./ConfiguracionApli.js";
@@ -210,15 +210,25 @@ function _parsear_output(paso, r) {
 
     if (r && r.error) return { estado: "error", mensaje: "Red: " + r.error };
     if (status >= 500) {
-        const m = texto.match(/(?:ERROR|Fatal error)[^\n]*/i);
+        const m = texto.match(/(?:Fatal error|^ERROR:)[^\n]*/im);
         return { estado: "error", mensaje: m ? m[0].slice(0, 120) : "HTTP " + status };
     }
 
-    const err_match = texto.match(/(?:ERROR|Fatal error)[^\n]*/i);
+    // v1.5plugin.9e: solo matchear errores reales. El piloto
+    // imprime "errores:" (vacío, lowercase) y "Errores:" (label
+    // de array con contenido abajo) en outputs exitosos. El
+    // regex anterior era case-insensitive y matcheaba "errores"
+    // como si fuera un error. Ahora solo "ERROR:" (mayúscula
+    // al principio de línea) y "Fatal error" son errores.
+    const err_match = texto.match(/(?:Fatal error|^ERROR:)[^\n]*/im);
     if (err_match) return { estado: "error", mensaje: err_match[0].slice(0, 120) };
 
-    if (/Saltados?:\s+[1-9]/i.test(texto)) return { estado: "saltado", mensaje: "Ya estaba migrado" };
-    if (/Cambios aplicados:\s+0/i.test(texto)) return { estado: "saltado", mensaje: "Sin cambios" };
+    // Saltado: "saltados => N", "Saltados: N", "cambios aplicados: N"
+    // (N>0). El piloto usa "=>" en algunas migraciones y ":" en
+    // otras; el regex acepta los dos formatos.
+    if (/(?:saltados?|cambios aplicados)\s*(?:=>|:)\s*[1-9]/i.test(texto)) {
+        return { estado: "saltado", mensaje: "Ya estaba migrado / sin cambios" };
+    }
     if (/no existe en SQL\. Se saltea/i.test(texto)) return { estado: "saltado", mensaje: "No existe en SQL" };
 
     if (/Listo\./i.test(texto) || /Guardado\./i.test(texto)) {
