@@ -1,190 +1,34 @@
 <?php
 /**
- * Aplicador — v1.5plugin.9f: resumen final persistente + error
- * del drenado visible.
+ * Aplicador — v1.5plugin.9g: código configurable de drenado +
+ * drenado como paso opcional.
  *
  * Uso (raíz de iteradoresJS/): php aplicar_cambios.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.9f';
+$version_nueva = '1.5plugin.9g';
 $htmls_a_bumpear = [];
 
 $cambios = [
 
     // ============================================================
-    // 1. ventana.js: resumen final expandido en el panel
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.js',
-        'descripcion' => 'ventana.js: resumen expandido de última corrida',
-        'buscar' => [
-            '            if (actual && actual.estado_global !== "en_curso") {',
-            '                html += \'<h3>Última migración</h3>\';',
-            '                html += \'<div class="migracion-hist-item">\';',
-            '                html += \'<span>\' + _formatear_fecha(actual.fecha_inicio) + \' · \' + (actual.entorno || "") + \'</span>\';',
-            '                html += \'<span class="migracion-hist-estado-\' + actual.estado_global + \'">\' + actual.estado_global + \'</span>\';',
-            '                html += \'</div>\';',
-            '            }',
-        ],
-        'reemplazar' => [
-            '            if (actual && actual.estado_global !== "en_curso") {',
-            '                html += \'<h3>Última migración</h3>\';',
-            '                html += \'<div class="migracion-hist-item">\';',
-            '                html += \'<span>\' + _formatear_fecha(actual.fecha_inicio) + \' · \' + (actual.entorno || "") + \'</span>\';',
-            '                html += \'<span class="migracion-hist-estado-\' + actual.estado_global + \'">\' + actual.estado_global + \'</span>\';',
-            '                html += \'</div>\';',
-            '',
-            '                // v1.5plugin.9f: mostrar todos los pasos con sus',
-            '                // estados y, si hubo errores, sus mensajes y',
-            '                // outputs. Antes solo se veía el resumen de una',
-            '                // línea y los detalles se perdían al re-renderizar.',
-            '                const pasos_c = actual.pasos || {};',
-            '                const total_pasos = _pasos_migracion.length + 1; // + drenar',
-            '                const ok_count = Object.values(pasos_c).filter(function(p) { return p.estado === "ok"; }).length;',
-            '                const salt_count = Object.values(pasos_c).filter(function(p) { return p.estado === "saltado"; }).length;',
-            '                const err_count = Object.values(pasos_c).filter(function(p) { return p.estado === "error"; }).length;',
-            '                html += \'<div class="migracion-hist-item" style="background:#f8f9fa;">\';',
-            '                html += \'<span>\' + ok_count + \' OK · \' + salt_count + \' saltados · \' + err_count + \' errores</span>\';',
-            '                html += \'</div>\';',
-            '',
-            '                if (err_count > 0 || (actual.estado_global === "error")) {',
-            '                    html += \'<div class="migracion-aviso" style="margin-top:8px;">\';',
-            '                    html += \'<strong>Detalle de errores:</strong>\';',
-            '                    for (let i = 0; i < _pasos_migracion.length; i++) {',
-            '                        const p = _pasos_migracion[i];',
-            '                        const pe = pasos_c[p.id];',
-            '                        if (!pe || pe.estado !== "error") continue;',
-            '                        html += \'<div style="margin-top:6px;"><b>\' + (i+1) + \'. \' + _escapar_html(p.nombre) + \':</b> \';',
-            '                        html += _escapar_html(pe.mensaje || "(sin mensaje)");',
-            '                        html += \'</div>\';',
-            '                        if (pe.output) {',
-            '                            html += \'<pre style="background:#1e1e1e; color:#d4d4d4; padding:6px; border-radius:4px; max-height:200px; overflow:auto; font-size:10px; white-space:pre-wrap; margin:4px 0 0 0;">\' + _escapar_html(pe.output) + \'</pre>\';',
-            '                        }',
-            '                    }',
-            '                    const pe_dr = pasos_c["drenar_buzon"];',
-            '                    if (pe_dr && pe_dr.estado === "error") {',
-            '                        html += \'<div style="margin-top:6px;"><b>10. Drenar buzón:</b> \';',
-            '                        html += _escapar_html(pe_dr.mensaje || "(sin mensaje)");',
-            '                        html += \'</div>\';',
-            '                    }',
-            '                    html += \'</div>\';',
-            '                }',
-            '            }',
-        ],
-    ],
-
-    // ============================================================
-    // 2. ventana.js: mostrar output de drenado en el alert final
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ventana.js',
-        'descripcion' => 'ventana.js: mostrar error del drenado en alert final',
-        'buscar' => [
-            '    function _mostrar_output_pasos_fallidos(respuesta) {',
-            '        const resultados = respuesta && respuesta.resultados ? respuesta.resultados : [];',
-            '        const fallidos = resultados.filter(function (p) { return p.estado === "error" && p.output; });',
-            '        if (fallidos.length === 0) {',
-            '            const err = respuesta && respuesta.error ? respuesta.error : "(sin detalle)";',
-            '            alert("Migración falló.\\n\\n" + err + "\\n\\nAbrí la consola del SW (chrome://extensions → plugin → Service Worker) para más detalle.");',
-            '            return;',
-            '        }',
-            '        const panel = document.getElementById("migraciones_panel");',
-            '        if (!panel) return;',
-            '        let html = \'<h3>Output de pasos fallidos</h3>\';',
-            '        for (const f of fallidos) {',
-            '            html += \'<div class="migracion-aviso">\';',
-            '            html += \'<strong>Paso: \' + _escapar_html(f.paso) + \'</strong>\';',
-            '            if (f.mensaje) html += \'<br>\' + _escapar_html(f.mensaje);',
-            '            html += \'</div>\';',
-            '            html += \'<pre style="background:#1e1e1e; color:#d4d4d4; padding:8px; border-radius:4px; max-height:300px; overflow:auto; font-size:11px; white-space:pre-wrap; margin-bottom:12px;">\' + _escapar_html(f.output) + \'</pre>\';',
-            '        }',
-            '        panel.insertAdjacentHTML("beforeend", html);',
-            '    }',
-        ],
-        'reemplazar' => [
-            '    function _mostrar_output_pasos_fallidos(respuesta) {',
-            '        const resultados = respuesta && respuesta.resultados ? respuesta.resultados : [];',
-            '        // v1.5plugin.9f: mostrar TODOS los errores, tengan o no',
-            '        // output. El drenado no hace GET, así que su error solo',
-            '        // tiene mensaje. Antes se filtraba por p.output, y el',
-            '        // error del drenado quedaba invisible.',
-            '        const fallidos = resultados.filter(function (p) { return p.estado === "error"; });',
-            '        if (fallidos.length === 0) {',
-            '            const err = respuesta && respuesta.error ? respuesta.error : "(sin detalle)";',
-            '            alert("Migración falló.\\n\\n" + err + "\\n\\nAbrí la consola del SW (chrome://extensions → plugin → Service Worker) para más detalle.");',
-            '            return;',
-            '        }',
-            '        // Alert principal con la lista de errores.',
-            '        let txt = "Migración terminó con errores:\\n";',
-            '        for (const f of fallidos) {',
-            '            txt += "\\n• " + f.paso + ": " + (f.mensaje || "(sin detalle)");',
-            '        }',
-            '        alert(txt);',
-            '',
-            '        // Además, insertar los outputs (si los hay) en el panel.',
-            '        const con_output = fallidos.filter(function (f) { return f.output; });',
-            '        if (con_output.length === 0) return;',
-            '        const panel = document.getElementById("migraciones_panel");',
-            '        if (!panel) return;',
-            '        let html = \'<h3>Output de pasos fallidos</h3>\';',
-            '        for (const f of con_output) {',
-            '            html += \'<div class="migracion-aviso">\';',
-            '            html += \'<strong>Paso: \' + _escapar_html(f.paso) + \'</strong>\';',
-            '            if (f.mensaje) html += \'<br>\' + _escapar_html(f.mensaje);',
-            '            html += \'</div>\';',
-            '            html += \'<pre style="background:#1e1e1e; color:#d4d4d4; padding:8px; border-radius:4px; max-height:300px; overflow:auto; font-size:11px; white-space:pre-wrap; margin-bottom:12px;">\' + _escapar_html(f.output) + \'</pre>\';',
-            '        }',
-            '        panel.insertAdjacentHTML("beforeend", html);',
-            '    }',
-        ],
-    ],
-
-    // ============================================================
-    // 3. Migraciones.js: mensaje más claro en fallo de drenado
+    // 1. Migraciones.js: drenar_buzon acepta código, falla como advertencia
     // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/Migraciones.js',
-        'descripcion' => 'Migraciones.js: mensaje más claro en fallo de drenado',
+        'descripcion' => 'Migraciones.js: drenar_buzon con código configurable',
         'buscar' => [
-            'export async function drenar_buzon(ctx) {',
-            '    // 1. Login como dueño de prueba.',
-            '    try {',
-            '        await ctx.asegurar_login(CODIGO_DUENO);',
-            '    } catch (e) {',
-            '        return { exito: false, error: "Login dueño falló: " + e.message + ". Drenar manualmente." };',
-            '    }',
-            '',
-            '    // 2. Ir a Vendidos.',
-            '    try {',
-            '        await ctx.activar_pestana_piloto("vendidos");',
-            '    } catch (e) {',
-            '        try { await ctx.clic(\'.tab[data-tab="vendidos"]\'); }',
-            '        catch (e2) {',
-            '            try { await ctx.cerrar_sesion(); } catch (e3) {}',
-            '            return { exito: false, error: "No se pudo abrir Vendidos" };',
-            '        }',
-            '    }',
-            '',
-            '    // 3. Esperar a que la lista cargue (o a que aparezca el mensaje de vacío).',
-            '    try {',
-            '        await ctx.esperar("#lista_ventas", 30000);',
-            '    } catch (e) { /* no es crítico */ }',
-            '    await ctx.pausa(2000);',
-            '',
-            '    // 4. Logout.',
-            '    try {',
-            '        await ctx.cerrar_sesion();',
-            '    } catch (e) { /* no es crítico */ }',
-            '',
-            '    return { exito: true };',
-            '}',
-        ],
-        'reemplazar' => [
+            '// ============================================================',
+            '// Drenar buzón',
+            '// ============================================================',
+            '//',
+            '// Logout + login dueño + ir a Vendidos + esperar + logout.',
+            '//',
+            '// Al terminar, el usuario queda deslogueado. El panel lo',
+            '// advierte antes de correr.',
             'export async function drenar_buzon(ctx) {',
             '    // 1. Login como dueño de prueba.',
             '    try {',
@@ -197,57 +41,317 @@ $cambios = [
             '                   + " Verificá que el usuario dueño exista en este grafo, o drená manualmente: login dueño → Vendidos → logout.",',
             '        };',
             '    }',
+        ],
+        'reemplazar' => [
+            '// ============================================================',
+            '// Drenar buzón',
+            '// ============================================================',
+            '//',
+            '// Logout + login dueño + ir a Vendidos + esperar + logout.',
+            '//',
+            '// Al terminar, el usuario queda deslogueado. El panel lo',
+            '// advierte antes de correr.',
+            '//',
+            '// v1.5plugin.9g: acepta un código de dueño configurable. Si no',
+            '// viene, usa CODIGO_DUENO (el de los datos de prueba locales).',
+            '// En producción o pruebas, el código real del dueño puede ser',
+            '// otro; el panel ahora lo permite editar.',
+            'export async function drenar_buzon(ctx, codigo_dueno) {',
+            '    const codigo = codigo_dueno || CODIGO_DUENO;',
             '',
-            '    // 2. Ir a Vendidos.',
+            '    // 1. Login como dueño.',
             '    try {',
-            '        await ctx.activar_pestana_piloto("vendidos");',
+            '        await ctx.asegurar_login(codigo);',
             '    } catch (e) {',
-            '        try { await ctx.clic(\'.tab[data-tab="vendidos"]\'); }',
-            '        catch (e2) {',
-            '            try { await ctx.cerrar_sesion(); } catch (e3) {}',
-            '            return { exito: false, error: "No se pudo abrir la pestaña Vendidos. Drenar manualmente: login dueño → Vendidos → logout." };',
+            '        return {',
+            '            exito: false,',
+            '            error: "Login dueño falló con código \\"" + codigo + "\\": "',
+            '                   + (e && e.message ? e.message : "desconocido")',
+            '                   + ". Verificá que el código sea el correcto en este grafo, o drená manualmente: login dueño → Vendidos → logout.",',
+            '        };',
+            '    }',
+        ],
+    ],
+
+    // ============================================================
+    // 2. Migraciones.js: drenado como advertencia + exito ajustado
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/Migraciones.js',
+        'descripcion' => 'Migraciones.js: drenado como advertencia + exito por errores críticos',
+        'buscar' => [
+            '    if (opciones.drenar_buzon) {',
+            '        await al_progreso({ paso_id: "drenar_buzon", estado: "corriendo" });',
+            '        const inicio = Date.now();',
+            '        let r;',
+            '        try {',
+            '            r = await drenar_buzon(ctx);',
+            '        } catch (e) {',
+            '            r = { exito: false, error: e.message };',
             '        }',
+            '        const duracion_ms = Date.now() - inicio;',
+            '        resultados.push({',
+            '            paso: "drenar_buzon",',
+            '            estado: r.exito ? "ok" : "error",',
+            '            mensaje: r.exito ? "Buzón drenado" : (r.error || "Error desconocido"),',
+            '            duracion_ms: duracion_ms,',
+            '        });',
+            '        await al_progreso({',
+            '            paso_id: "drenar_buzon",',
+            '            estado: r.exito ? "ok" : "error",',
+            '            mensaje: r.exito ? "Buzón drenado" : (r.error || "Error desconocido"),',
+            '            duracion_ms: duracion_ms,',
+            '        });',
+            '    } else {',
+            '        await al_progreso({ paso_id: "drenar_buzon", estado: "saltado", mensaje: "No seleccionado" });',
             '    }',
             '',
-            '    // 3. Esperar a que la lista cargue (o a que aparezca el mensaje de vacío).',
-            '    try {',
-            '        await ctx.esperar("#lista_ventas", 30000);',
-            '    } catch (e) { /* no es crítico */ }',
-            '    await ctx.pausa(2000);',
+            '    return { exito: true, resultados };',
+            '}',
+        ],
+        'reemplazar' => [
+            '    if (opciones.drenar_buzon) {',
+            '        await al_progreso({ paso_id: "drenar_buzon", estado: "corriendo" });',
+            '        const inicio = Date.now();',
+            '        let r;',
+            '        try {',
+            '            r = await drenar_buzon(ctx, opciones.codigo_dueno);',
+            '        } catch (e) {',
+            '            r = { exito: false, error: e.message };',
+            '        }',
+            '        const duracion_ms = Date.now() - inicio;',
+            '        // v1.5plugin.9g: el drenado es opcional. Si falla, se',
+            '        // marca como "advertencia" (amarillo) en vez de "error"',
+            '        // (rojo). No afecta el estado_global de la migración.',
+            '        const estado_paso = r.exito ? "ok" : "advertencia";',
+            '        const msg_paso = r.exito ? "Buzón drenado" : (r.error || "Error desconocido");',
+            '        resultados.push({',
+            '            paso: "drenar_buzon",',
+            '            estado: estado_paso,',
+            '            mensaje: msg_paso,',
+            '            duracion_ms: duracion_ms,',
+            '        });',
+            '        await al_progreso({',
+            '            paso_id: "drenar_buzon",',
+            '            estado: estado_paso,',
+            '            mensaje: msg_paso,',
+            '            duracion_ms: duracion_ms,',
+            '        });',
+            '    } else {',
+            '        await al_progreso({ paso_id: "drenar_buzon", estado: "saltado", mensaje: "No seleccionado" });',
+            '    }',
             '',
-            '    // 4. Logout.',
-            '    try {',
-            '        await ctx.cerrar_sesion();',
-            '    } catch (e) { /* no es crítico */ }',
-            '',
-            '    return { exito: true };',
+            '    // v1.5plugin.9g: exito = true si no hubo errores críticos',
+            '    // (los "advertencia" no cuentan). Solo los pasos con estado',
+            '    // "error" (los 9 del piloto) hacen que la migración falle.',
+            '    const hubo_error_critico = resultados.some(function (r) { return r.estado === "error"; });',
+            '    return { exito: !hubo_error_critico, resultados };',
             '}',
         ],
     ],
 
     // ============================================================
-    // 4. ConfiguracionApli.js: bump a 9f
+    // 3. Migraciones.js: exportar código por defecto
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/Migraciones.js',
+        'descripcion' => 'Migraciones.js: exportar CODIGO_DRENADO_DEFAULT',
+        'buscar' => [
+            'import { URL_PILOTO, CODIGO_DUENO } from "./ConfiguracionApli.js";',
+        ],
+        'reemplazar' => [
+            'import { URL_PILOTO, CODIGO_DUENO } from "./ConfiguracionApli.js";',
+            '',
+            '// v1.5plugin.9g: exportado para que ventana.js pueda mostrar',
+            '// el default del input de código de drenado.',
+            'export const CODIGO_DRENADO_DEFAULT = CODIGO_DUENO;',
+        ],
+    ],
+
+    // ============================================================
+    // 4. ventana.js: input de código al lado del checkbox de drenar
+    // ============================================================
+    // ============================================================
+    // 4. ventana.js: input de código al lado del checkbox de drenar
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: input de código de drenado',
+        'buscar' => [
+            '            html += \'<li class="migracion-paso">\';',
+            '            html += \'<label>\';',
+            '            html += \'<input type="checkbox" id="migracion_check_drenar" checked>\';',
+            '            html += \'<span>10. Drenar buzón al final</span>\';',
+            '            html += \'<span class="tooltip-icon" title="Login como dueño con el código configurado. Si falla, drenar manualmente.">⚠️</span>\';            html += \'</label>\';',
+            '            html += \'</li>\';',
+        ],
+        'reemplazar' => [
+            '            html += \'<li class="migracion-paso">\';',
+            '            html += \'<label style="flex:1;">\';',
+            '            html += \'<input type="checkbox" id="migracion_check_drenar" checked>\';',
+            '            html += \'<span>10. Drenar buzón al final</span>\';',
+            '            html += \'<span class="tooltip-icon" title="Login como dueño, ir a Vendidos, logout.">⚠️</span>\';',
+            '            html += \'</label>\';',
+            '            html += \'<input type="text" id="migracion_codigo_drenar" placeholder="código dueño" style="width:90px; padding:2px 4px; font-size:11px; font-family:Consolas,monospace;" title="Código de acceso del dueño en este grafo.">\';',
+            '            html += \'</li>\';',
+        ],
+    ],
+
+    // ============================================================
+    // 5. ventana.js: leer código de drenado
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: leer código de drenado',
+        'buscar' => [
+            '        const drenar = document.getElementById("migracion_check_drenar").checked;',
+        ],
+        'reemplazar' => [
+            '        const drenar = document.getElementById("migracion_check_drenar").checked;',
+            '        const codigo_drenar = (document.getElementById("migracion_codigo_drenar")?.value || "").trim();',
+        ],
+    ],
+
+    // ============================================================
+    // 6. ventana.js: pasar código en opciones
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: pasar código en opciones',
+        'buscar' => [
+            '            const r = await enviar({',
+            '                tipo: "correr_migraciones",',
+            '                opciones: { pasos: pasos, drenar_buzon: drenar },',
+            '            });',
+        ],
+        'reemplazar' => [
+            '            const opciones_envio = { pasos: pasos, drenar_buzon: drenar };',
+            '            if (codigo_drenar) opciones_envio.codigo_dueno = codigo_drenar;',
+            '            const r = await enviar({',
+            '                tipo: "correr_migraciones",',
+            '                opciones: opciones_envio,',
+            '            });',
+        ],
+    ],
+
+    // ============================================================
+    // 7. ventana.js: contador de advertencias en resumen
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: contador de advertencias en resumen',
+        'buscar' => [
+            '                const err_count = Object.values(pasos_c).filter(function(p) { return p.estado === "error"; }).length;',
+            '                html += \'<div class="migracion-hist-item" style="background:#f8f9fa;">\';',
+            '                html += \'<span>\' + ok_count + \' OK · \' + salt_count + \' saltados · \' + err_count + \' errores</span>\';',
+            '                html += \'</div>\';',
+        ],
+        'reemplazar' => [
+            '                const err_count = Object.values(pasos_c).filter(function(p) { return p.estado === "error"; }).length;',
+            '                const adv_count = Object.values(pasos_c).filter(function(p) { return p.estado === "advertencia"; }).length;',
+            '                html += \'<div class="migracion-hist-item" style="background:#f8f9fa;">\';',
+            '                html += \'<span>\' + ok_count + \' OK · \' + salt_count + \' saltados · \' + err_count + \' errores\';',
+            '                if (adv_count > 0) html += \' · \' + adv_count + \' advertencias\';',
+            '                html += \'</span>\';',
+            '                html += \'</div>\';',
+        ],
+    ],
+
+    // ============================================================
+    // 8. ventana.js: detalle de advertencias en el panel
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: detalle de advertencias en el panel',
+        'buscar' => [
+            '                    const pe_dr = pasos_c["drenar_buzon"];',
+            '                    if (pe_dr && pe_dr.estado === "error") {',
+            '                        html += \'<div style="margin-top:6px;"><b>10. Drenar buzón:</b> \';',
+            '                        html += _escapar_html(pe_dr.mensaje || "(sin mensaje)");',
+            '                        html += \'</div>\';',
+            '                    }',
+            '                    html += \'</div>\';',
+            '                }',
+        ],
+        'reemplazar' => [
+            '                    const pe_dr = pasos_c["drenar_buzon"];',
+            '                    if (pe_dr && (pe_dr.estado === "error" || pe_dr.estado === "advertencia")) {',
+            '                        const color = pe_dr.estado === "advertencia" ? "#b06000" : "#c5221f";',
+            '                        html += \'<div style="margin-top:6px; color:\' + color + \';"><b>10. Drenar buzón (\' + pe_dr.estado + \'):</b> \';',
+            '                        html += _escapar_html(pe_dr.mensaje || "(sin mensaje)");',
+            '                        html += \'</div>\';',
+            '                    }',
+            '                    html += \'</div>\';',
+            '                }',
+            '                // v1.5plugin.9g: si la migración fue completa pero',
+            '                // el drenado quedó como advertencia, avisar sin',
+            '                // bloquear. Los pasos 1-9 fueron exitosos.',
+            '                if (adv_count > 0 && err_count === 0) {',
+            '                    html += \'<div class="migracion-aviso" style="background:#fef7e0; border-color:#ffc107; margin-top:8px;">\';',
+            '                    html += \'<strong>Migración completa.</strong> El drenado del buzón falló (código inválido o red). \';',
+            '                    html += \'Podés drenar a mano: login con el código del dueño → Vendidos → logout.\';',
+            '                    html += \'</div>\';',
+            '                }',
+        ],
+    ],
+
+    // ============================================================
+    // 9. ventana.js: pre-cargar el código por defecto al abrir el panel
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ventana.js',
+        'descripcion' => 'ventana.js: pre-cargar código default del drenado',
+        'buscar' => [
+            '        panel.innerHTML = html;',
+            '',
+            '        if (en_curso) {',
+        ],
+        'reemplazar' => [
+            '        panel.innerHTML = html;',
+            '',
+            '        // v1.5plugin.9g: pre-cargar el input del código de drenado',
+            '        // con el default (carmen1). Si el usuario lo cambia, queda',
+            '        // hasta la próxima re-renderización del panel.',
+            '        const input_cod = document.getElementById("migracion_codigo_drenar");',
+            '        if (input_cod && !input_cod.value) {',
+            '            input_cod.value = "carmen1";',
+            '        }',
+            '',
+            '        if (en_curso) {',
+        ],
+    ],
+
+    // ============================================================
+    // 10. ConfiguracionApli.js: bump a 9g
     // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: bump VERSION_APP a 9f',
+        'descripcion' => 'ConfiguracionApli.js: bump VERSION_APP a 9g',
         'buscar' => [
-            'export const VERSION_APP = "1.5plugin.9e";',
+            'export const VERSION_APP = "1.5plugin.9f";',
         ],
         'reemplazar' => [
-            'export const VERSION_APP = "1.5plugin.9f";',
+            'export const VERSION_APP = "1.5plugin.9g";',
         ],
     ],
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: bump VERSION_PLUGIN a 9f',
+        'descripcion' => 'ConfiguracionApli.js: bump VERSION_PLUGIN a 9g',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.9e";',
+            'export const VERSION_PLUGIN = "1.5plugin.9f";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.9f";',
+            'export const VERSION_PLUGIN = "1.5plugin.9g";',
         ],
     ],
 
@@ -279,6 +383,7 @@ foreach ($cambios as $cambio) {
     $tipo = $cambio['tipo'] ?? 'reemplazar';
     if ($tipo === 'crear') { $creaciones[] = $cambio; continue; }
     if ($tipo === 'eliminar') { $eliminaciones[] = $cambio; continue; }
+    if (!isset($cambio['buscar']) || !isset($cambio['reemplazar'])) continue;
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
 

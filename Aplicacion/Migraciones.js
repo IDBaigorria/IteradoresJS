@@ -8,10 +8,14 @@
  * La secuencia vive acá. El estado se persiste en el grafo
  * vía GrafoPlugin.js.
  *
- * @version 1.5plugin.9f
+ * @version 1.5plugin.9g
  */
 
 import { URL_PILOTO, CODIGO_DUENO } from "./ConfiguracionApli.js";
+
+// v1.5plugin.9g: exportado para que ventana.js pueda mostrar
+// el default del input de código de drenado.
+export const CODIGO_DRENADO_DEFAULT = CODIGO_DUENO;
 
 // ============================================================
 // Lista de pasos
@@ -160,28 +164,37 @@ export async function ejecutar_migracion(ctx, opciones, al_progreso, debe_cancel
         const inicio = Date.now();
         let r;
         try {
-            r = await drenar_buzon(ctx);
+            r = await drenar_buzon(ctx, opciones.codigo_dueno);
         } catch (e) {
             r = { exito: false, error: e.message };
         }
         const duracion_ms = Date.now() - inicio;
+        // v1.5plugin.9g: el drenado es opcional. Si falla, se
+        // marca como "advertencia" (amarillo) en vez de "error"
+        // (rojo). No afecta el estado_global de la migración.
+        const estado_paso = r.exito ? "ok" : "advertencia";
+        const msg_paso = r.exito ? "Buzón drenado" : (r.error || "Error desconocido");
         resultados.push({
             paso: "drenar_buzon",
-            estado: r.exito ? "ok" : "error",
-            mensaje: r.exito ? "Buzón drenado" : (r.error || "Error desconocido"),
+            estado: estado_paso,
+            mensaje: msg_paso,
             duracion_ms: duracion_ms,
         });
         await al_progreso({
             paso_id: "drenar_buzon",
-            estado: r.exito ? "ok" : "error",
-            mensaje: r.exito ? "Buzón drenado" : (r.error || "Error desconocido"),
+            estado: estado_paso,
+            mensaje: msg_paso,
             duracion_ms: duracion_ms,
         });
     } else {
         await al_progreso({ paso_id: "drenar_buzon", estado: "saltado", mensaje: "No seleccionado" });
     }
 
-    return { exito: true, resultados };
+    // v1.5plugin.9g: exito = true si no hubo errores críticos
+    // (los "advertencia" no cuentan). Solo los pasos con estado
+    // "error" (los 9 del piloto) hacen que la migración falle.
+    const hubo_error_critico = resultados.some(function (r) { return r.estado === "error"; });
+    return { exito: !hubo_error_critico, resultados };
 }
 
 // ============================================================
@@ -247,16 +260,23 @@ function _parsear_output(paso, r) {
 //
 // Al terminar, el usuario queda deslogueado. El panel lo
 // advierte antes de correr.
-export async function drenar_buzon(ctx) {
-    // 1. Login como dueño de prueba.
+//
+// v1.5plugin.9g: acepta un código de dueño configurable. Si no
+// viene, usa CODIGO_DUENO (el de los datos de prueba locales).
+// En producción o pruebas, el código real del dueño puede ser
+// otro; el panel ahora lo permite editar.
+export async function drenar_buzon(ctx, codigo_dueno) {
+    const codigo = codigo_dueno || CODIGO_DUENO;
+
+    // 1. Login como dueño.
     try {
-        await ctx.asegurar_login(CODIGO_DUENO);
+        await ctx.asegurar_login(codigo);
     } catch (e) {
         return {
             exito: false,
-            error: "Login dueño falló: " + (e && e.message ? e.message : "desconocido")
-                   + " (código intentado: " + CODIGO_DUENO + ")."
-                   + " Verificá que el usuario dueño exista en este grafo, o drená manualmente: login dueño → Vendidos → logout.",
+            error: "Login dueño falló con código \"" + codigo + "\": "
+                   + (e && e.message ? e.message : "desconocido")
+                   + ". Verificá que el código sea el correcto en este grafo, o drená manualmente: login dueño → Vendidos → logout.",
         };
     }
 

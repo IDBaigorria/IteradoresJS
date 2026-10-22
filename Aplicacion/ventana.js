@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.9f
+ * @version 1.5plugin.9g
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -888,10 +888,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += '</li>';
             }
             html += '<li class="migracion-paso">';
-            html += '<label>';
+            html += '<label style="flex:1;">';
             html += '<input type="checkbox" id="migracion_check_drenar" checked>';
             html += '<span>10. Drenar buzón al final</span>';
-            html += '<span class="tooltip-icon" title="Login como dueño con el código configurado. Si falla, drenar manualmente.">⚠️</span>';            html += '</label>';
+            html += '<span class="tooltip-icon" title="Login como dueño, ir a Vendidos, logout.">⚠️</span>';
+            html += '</label>';
+            html += '<input type="text" id="migracion_codigo_drenar" placeholder="código dueño" style="width:90px; padding:2px 4px; font-size:11px; font-family:Consolas,monospace;" title="Código de acceso del dueño en este grafo.">';
             html += '</li>';
             html += '</ul>';
 
@@ -915,8 +917,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const ok_count = Object.values(pasos_c).filter(function(p) { return p.estado === "ok"; }).length;
                 const salt_count = Object.values(pasos_c).filter(function(p) { return p.estado === "saltado"; }).length;
                 const err_count = Object.values(pasos_c).filter(function(p) { return p.estado === "error"; }).length;
+                const adv_count = Object.values(pasos_c).filter(function(p) { return p.estado === "advertencia"; }).length;
                 html += '<div class="migracion-hist-item" style="background:#f8f9fa;">';
-                html += '<span>' + ok_count + ' OK · ' + salt_count + ' saltados · ' + err_count + ' errores</span>';
+                html += '<span>' + ok_count + ' OK · ' + salt_count + ' saltados · ' + err_count + ' errores';
+                if (adv_count > 0) html += ' · ' + adv_count + ' advertencias';
+                html += '</span>';
                 html += '</div>';
 
                 if (err_count > 0 || (actual.estado_global === "error")) {
@@ -934,11 +939,21 @@ document.addEventListener("DOMContentLoaded", () => {
                         }
                     }
                     const pe_dr = pasos_c["drenar_buzon"];
-                    if (pe_dr && pe_dr.estado === "error") {
-                        html += '<div style="margin-top:6px;"><b>10. Drenar buzón:</b> ';
+                    if (pe_dr && (pe_dr.estado === "error" || pe_dr.estado === "advertencia")) {
+                        const color = pe_dr.estado === "advertencia" ? "#b06000" : "#c5221f";
+                        html += '<div style="margin-top:6px; color:' + color + ';"><b>10. Drenar buzón (' + pe_dr.estado + '):</b> ';
                         html += _escapar_html(pe_dr.mensaje || "(sin mensaje)");
                         html += '</div>';
                     }
+                    html += '</div>';
+                }
+                // v1.5plugin.9g: si la migración fue completa pero
+                // el drenado quedó como advertencia, avisar sin
+                // bloquear. Los pasos 1-9 fueron exitosos.
+                if (adv_count > 0 && err_count === 0) {
+                    html += '<div class="migracion-aviso" style="background:#fef7e0; border-color:#ffc107; margin-top:8px;">';
+                    html += '<strong>Migración completa.</strong> El drenado del buzón falló (código inválido o red). ';
+                    html += 'Podés drenar a mano: login con el código del dueño → Vendidos → logout.';
                     html += '</div>';
                 }
             }
@@ -955,6 +970,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         panel.innerHTML = html;
+
+        // v1.5plugin.9g: pre-cargar el input del código de drenado
+        // con el default (carmen1). Si el usuario lo cambia, queda
+        // hasta la próxima re-renderización del panel.
+        const input_cod = document.getElementById("migracion_codigo_drenar");
+        if (input_cod && !input_cod.value) {
+            input_cod.value = "carmen1";
+        }
 
         if (en_curso) {
             document.getElementById("btn_continuar_migracion").addEventListener("click", () => _continuar_migracion(actual));
@@ -982,6 +1005,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         const drenar = document.getElementById("migracion_check_drenar").checked;
+        const codigo_drenar = (document.getElementById("migracion_codigo_drenar")?.value || "").trim();
 
         let es_local = true;
         try {
@@ -998,9 +1022,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         _renderizar_progreso_migracion();
         try {
+            const opciones_envio = { pasos: pasos, drenar_buzon: drenar };
+            if (codigo_drenar) opciones_envio.codigo_dueno = codigo_drenar;
             const r = await enviar({
                 tipo: "correr_migraciones",
-                opciones: { pasos: pasos, drenar_buzon: drenar },
+                opciones: opciones_envio,
             });
             if (!r || !r.exito) {
                 await _renderizar_migraciones();
