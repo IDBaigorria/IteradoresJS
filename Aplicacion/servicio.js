@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `estado_pruebas`  -> devuelve el estado consolidado por prueba.
  *
- * @version 1.5plugin.9h
+ * @version 1.5plugin.9l
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -33,13 +33,20 @@ import { PASOS_MIGRACION, ejecutar_migracion, drenar_buzon } from "./Migraciones
 // identificar la pestana del piloto. NO depende de la URL
 // activa configurada en ConfiguracionApli.js: es la lista
 // de dominios donde el plugin puede actuar.
+//
+// v1.5plugin.9l: en localhost, restringir a la ruta
+// `/iteradores/` (antes era `http://localhost/` genérico,
+// que matcheaba phpMyAdmin, XAMPP dashboard, etc.). Bug
+// detectado cuando el plugin seleccionó phpMyAdmin como
+// "pestaña del piloto" y el drenado del buzón falló al
+// no encontrar #codigo_acceso.
 const URLS_PILOTO = [
-    "http://localhost/",
-    "http://127.0.0.1/",
-    "https://viajesdelcarmen.rf.gd/",
-    "http://viajesdelcarmen.rf.gd/",
-    "https://viajesdelcarmen.click.gd/",
-    "http://viajesdelcarmen.click.gd/",
+    "http://localhost/iteradores/",
+    "http://127.0.0.1/iteradores/",
+    "https://viajespquiadelcarmen.rf.gd/",
+    "http://viajespquiadelcarmen.rf.gd/",
+    "https://viajespquiadelcarmen.infy.click/",
+    "http://viajespquiadelcarmen.infy.click/",
 ];
 
 // ============================================================
@@ -76,7 +83,12 @@ function _notificar_migracion(payload) {
 
 async function _ejecutar_migraciones(opciones, pasos_ya_ok) {
     const pestana = await _obtener_pestana_piloto();
-    if (!pestana) return { exito: false, error: "No hay pestaña del piloto abierta" };
+    if (!pestana) {
+        return { exito: false, error: "No hay una pestaña del piloto abierta. Abrí " + URL_PILOTO + " en una pestaña del navegador y reintentá." };
+    }
+    if (!pestana.url || !pestana.url.startsWith(URL_PILOTO)) {
+        return { exito: false, error: "La pestaña seleccionada apunta a " + (pestana.url || "(desconocida)") + " en lugar de " + URL_PILOTO + ". Abrí el piloto en una pestaña y reintentá." };
+    }
     const ctx = _crear_ctx(pestana.id);
 
     const es_local = URL_PILOTO.indexOf("localhost") !== -1
@@ -189,7 +201,18 @@ function _es_url_piloto(url) {
 
 async function _obtener_pestana_piloto() {
     const pestanas = await chrome.tabs.query({});
-    return pestanas.find((t) => _es_url_piloto(t.url)) || null;
+    const encontrada = pestanas.find((t) => _es_url_piloto(t.url)) || null;
+    if (!encontrada) {
+        // v1.5plugin.9l: log de URLs para diagnóstico.
+        // Si el plugin dice "No hay pestaña del piloto", acá
+        // se ve qué pestañas hay abiertas.
+        console.warn("[piloto] no se encontró pestaña del piloto. Pestañas abiertas:");
+        pestanas.forEach(function (t) { console.warn("  - " + (t.url || "(sin url)")); });
+        console.warn("[piloto] URLs válidas: " + URLS_PILOTO.join(", "));
+    } else {
+        console.log("[piloto] pestaña seleccionada: " + encontrada.url + " (id=" + encontrada.id + ")");
+    }
+    return encontrada;
 }
 
 async function _enviar_a_pestana(pestana_id, tipo, datos) {
@@ -833,126 +856,202 @@ function _crear_ctx(pestana_id) {
             return r && r.exito === true;
         },
         async asegurar_login(codigo) {
-            // v1.5plugin.9h: reescrito para eliminar la race
-            // condition entre salir() y escribir el código.
-            // salir() del piloto limpia #codigo_acceso.value
-            // DESPUÉS del fetch de sesiones/cerrar. Si escribíamos
-            // el código mientras salir() seguía corriendo, salir()
-            // lo borraba. Ahora se llama salir() desde el page
-            // context, se espera a que termine, y recién ahí se
-            // escribe el código y se dispara el login.
+            // v1.5plugin.9k: asegurar_login 100% con
+            // chrome.scripting.executeScript en world: "MAIN".
+            // Cero dependencia del content script. El content
+            // script estaba fallando después del logout
+            // (devolvía null al leer #codigo_acceso, y esta_visible
+            // devolvía false aunque #aplicacion estuviera visible),
+            // lo que hacía que salir() NUNCA se llamara y el login
+            // fallara con un DOM en estado inconsistente.
+            //
+            // El flujo es equivalente al que usan las pruebas
+            // (login_terminal -> asegurar_login), pero el logout
+            // se invoca SIEMPRE (no condicionado a esta_visible),
+            // porque en el contexto del drenado (después de 9
+            // migraciones) el DOM puede estar en cualquier estado.
             _cache_nombre_solicitante = null;
             _cache_dueno_actual = null;
 
             console.log("[asegurar_login] inicio, código:", codigo);
 
-            // 1. Esperar a que el DOM esté estable.
+            // v1.5plugin.9l: verificar que la pestaña apunte al
+            // piloto antes de cualquier executeScript. Si el
+            // usuario navegó a otra URL (por ejemplo, phpMyAdmin)
+            // en la pestaña que el plugin tiene como "del piloto",
+            // los executeScript corren sobre el DOM equivocado y
+            // fallan con mensajes confusos.
             try {
-                await this.esperar("#pantalla_login, #aplicacion", 8000);
+                const tab = await chrome.tabs.get(pestana_id);
+                if (!tab || !tab.url || !tab.url.startsWith(URL_PILOTO)) {
+                    throw new Error(
+                        "La pestaña del plugin apunta a " +
+                        (tab && tab.url ? tab.url : "(desconocida)") +
+                        " en lugar de " + URL_PILOTO +
+                        ". Abrí el piloto en una pestaña del navegador y reintentá."
+                    );
+                }
             } catch (e) {
-                console.warn("[asegurar_login] esperar inicial falló:", e);
-            }
-
-            // 2. Si hay sesión abierta, cerrarla esperando a que termine.
-            const app_visible = await this.esta_visible("#aplicacion");
-            console.log("[asegurar_login] app visible:", app_visible);
-            if (app_visible) {
-                try {
-                    const r_salir = await chrome.scripting.executeScript({
-                        target: { tabId: pestana_id },
-                        world: "MAIN",
-                        func: async () => {
-                            if (typeof salir === "function") {
-                                try { await salir(); } catch (e) { console.error("[salir]", e); }
-                            }
-                            const pantalla = document.getElementById("pantalla_login");
-                            const app = document.getElementById("aplicacion");
-                            return {
-                                login_visible: !!(pantalla && !pantalla.classList.contains("hidden")),
-                                app_visible: !!(app && !app.classList.contains("hidden")),
-                            };
-                        }
-                    });
-                    const r_res = (r_salir && r_salir[0] && r_salir[0].result) ? r_salir[0].result : null;
-                    console.log("[asegurar_login] resultado salir:", r_res);
-                    if (!r_res || !r_res.login_visible) {
-                        await this.esperar_visible("#pantalla_login", 8000);
-                    }
-                } catch (e) {
-                    console.error("[asegurar_login] salir() falló:", e);
-                    throw new Error("No se pudo cerrar la sesión anterior: " + e.message);
+                if (e.message && e.message.indexOf("La pestaña del plugin apunta a") !== -1) {
+                    throw e;
                 }
+                throw new Error("No se pudo acceder a la pestaña del piloto (id=" + pestana_id + "): " + (e.message || e));
             }
 
-            // 3. Asegurar que el subpanel de código esté visible.
-            const user_panel_visible = await this.esta_visible("#login_por_usuario");
-            const code_panel_visible = await this.esta_visible("#login_por_codigo");
-            console.log("[asegurar_login] subpanel usuario:", user_panel_visible, "subpanel código:", code_panel_visible);
-            if (user_panel_visible || !code_panel_visible) {
-                try {
-                    await chrome.scripting.executeScript({
-                        target: { tabId: pestana_id },
-                        world: "MAIN",
-                        func: () => {
-                            if (typeof mostrar_login_por_codigo === "function") {
-                                mostrar_login_por_codigo();
-                                return { exito: true, via: "funcion" };
-                            }
-                            const link = document.getElementById("link_login_codigo");
-                            if (link) { link.click(); return { exito: true, via: "link" }; }
-                            return { exito: false, error: "no hay toggle" };
-                        }
-                    });
-                    await this.pausa(300);
-                } catch (e) {
-                    console.warn("[asegurar_login] toggle falló:", e);
-                }
-            }
-
-            // 4. Escribir el código con verificación.
-            await this.escribir("#codigo_acceso", codigo);
-            const val_escrito = await this.valor("#codigo_acceso");
-            console.log("[asegurar_login] valor escrito:", val_escrito);
-            if (val_escrito !== codigo) {
-                throw new Error("No se pudo escribir el código en #codigo_acceso (esperado: \"" + codigo + "\", obtenido: \"" + val_escrito + "\").");
-            }
-
-            // 5. Disparar el login (llamando a ingresar_con_codigo del piloto).
+            // 1. Logout SIEMPRE con executeScript, sin chequear
+            // primero si la app está visible. salir() del piloto
+            // es idempotente: si no hay sesión, limpia el DOM
+            // igual (localStorage, #aplicacion, #pantalla_login).
             try {
-                const r_login = await chrome.scripting.executeScript({
+                const r_salir = await chrome.scripting.executeScript({
                     target: { tabId: pestana_id },
                     world: "MAIN",
                     func: async () => {
-                        if (typeof ingresar_con_codigo === "function") {
-                            try {
-                                await ingresar_con_codigo();
-                            } catch (e) {
-                                return { exito: false, error: String(e) };
+                        try {
+                            if (typeof salir === "function") {
+                                await salir();
                             }
-                            return { exito: true, via: "funcion" };
+                        } catch (e) {
+                            console.error("[salir]", e);
                         }
-                        const btn = document.getElementById("boton_ingresar");
-                        if (!btn) return { exito: false, error: "no existe #boton_ingresar" };
-                        btn.click();
-                        return { exito: true, via: "click" };
+                        const pantalla = document.getElementById("pantalla_login");
+                        const app = document.getElementById("aplicacion");
+                        return {
+                            login_visible: !!(pantalla && !pantalla.classList.contains("hidden")),
+                            app_visible: !!(app && !app.classList.contains("hidden")),
+                        };
                     }
                 });
-                const r_login_res = (r_login && r_login[0] && r_login[0].result) ? r_login[0].result : null;
-                console.log("[asegurar_login] resultado login:", r_login_res);
-                if (!r_login_res || !r_login_res.exito) {
-                    throw new Error("Login falló al dispararse: " + ((r_login_res && r_login_res.error) || "desconocido"));
-                }
+                const r_res = (r_salir && r_salir[0] && r_salir[0].result) ? r_salir[0].result : null;
+                console.log("[asegurar_login] resultado salir:", r_res);
             } catch (e) {
-                console.error("[asegurar_login] error disparando login:", e);
-                throw e;
+                console.error("[asegurar_login] salir() falló:", e);
+            }
+            await this.pausa(800);
+
+            // 2. Diagnóstico completo del DOM + toggle al subpanel
+            // de código. Si #codigo_acceso no existe, el error
+            // incluye el diagnóstico para saber qué pasó.
+            let r_t = null;
+            try {
+                const r_toggle = await chrome.scripting.executeScript({
+                    target: { tabId: pestana_id },
+                    world: "MAIN",
+                    func: () => {
+                        if (typeof mostrar_login_por_codigo === "function") {
+                            try { mostrar_login_por_codigo(); } catch (e) { /* fallback */ }
+                        }
+                        const input = document.getElementById("codigo_acceso");
+                        const code_panel = document.getElementById("login_por_codigo");
+                        const user_panel = document.getElementById("login_por_usuario");
+                        const pantalla = document.getElementById("pantalla_login");
+                        const app = document.getElementById("aplicacion");
+                        return {
+                            url: location.href,
+                            input_existe: !!input,
+                            input_visible: !!(input && input.offsetParent !== null),
+                            code_panel_visible: !!(code_panel && !code_panel.classList.contains("hidden")),
+                            user_panel_visible: !!(user_panel && !user_panel.classList.contains("hidden")),
+                            pantalla_login_existe: !!pantalla,
+                            pantalla_login_visible: !!(pantalla && !pantalla.classList.contains("hidden")),
+                            app_existe: !!app,
+                            app_visible: !!(app && !app.classList.contains("hidden")),
+                            body_len: document.body ? document.body.innerHTML.length : 0,
+                            input_ids: Array.from(document.querySelectorAll("input[id]")).map(e => e.id),
+                        };
+                    }
+                });
+                r_t = r_toggle && r_toggle[0] && r_toggle[0].result;
+                console.log("[asegurar_login] estado del DOM:", r_t);
+            } catch (e) {
+                console.error("[asegurar_login] executeScript del toggle falló:", e);
+                throw new Error("executeScript falló al inspeccionar el DOM: " + e.message);
             }
 
-            // 6. Esperar a que la app sea visible.
-            const r = await this.esperar_visible("#aplicacion", 20000);
-            console.log("[asegurar_login] app visible después del login:", r && r.exito);
-            if (!r || !r.exito) {
-                const nivel = await this.texto("#nivel_usuario_actual");
-                throw new Error("Login enviado pero la app no se hizo visible en 20s. Verificá que el código sea válido y que el usuario no esté bloqueado. (nivel detectado: " + (nivel || "vacío") + ")");
+            if (!r_t) {
+                throw new Error("executeScript no devolvió resultado al inspeccionar el DOM. Esto suele pasar si la pestaña del piloto no está cargada o la URL cambió. Abrí el piloto y reintentá.");
+            }
+            if (!r_t.input_existe) {
+                throw new Error("El input #codigo_acceso no está en el DOM. Diagnóstico: url=" + r_t.url + ", pantalla_login_existe=" + r_t.pantalla_login_existe + ", pantalla_login_visible=" + r_t.pantalla_login_visible + ", app_visible=" + r_t.app_visible + ", body_len=" + r_t.body_len + ", inputs=" + (r_t.input_ids || []).join(","));
+            }
+
+            await this.pausa(200);
+
+            // 3. Escribir el código con executeScript directo.
+            const r_escribir = await chrome.scripting.executeScript({
+                target: { tabId: pestana_id },
+                world: "MAIN",
+                func: (cod) => {
+                    const input = document.getElementById("codigo_acceso");
+                    if (!input) return { exito: false, error: "no existe #codigo_acceso" };
+                    input.value = cod;
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                    return { exito: true, valor: input.value };
+                },
+                args: [codigo]
+            });
+            const r_e = r_escribir && r_escribir[0] && r_escribir[0].result;
+            console.log("[asegurar_login] escritura:", r_e);
+            if (!r_e || !r_e.exito) {
+                throw new Error("No se pudo escribir el código: " + ((r_e && r_e.error) || "desconocido"));
+            }
+            if (r_e.valor !== codigo) {
+                throw new Error("El código escrito no coincide: esperado=\"" + codigo + "\", obtenido=\"" + r_e.valor + "\"");
+            }
+
+            // 4. Disparar el login con executeScript directo.
+            const r_login = await chrome.scripting.executeScript({
+                target: { tabId: pestana_id },
+                world: "MAIN",
+                func: async () => {
+                    if (typeof ingresar_con_codigo === "function") {
+                        try {
+                            await ingresar_con_codigo();
+                            return { exito: true, via: "funcion" };
+                        } catch (e) {
+                            return { exito: false, error: String(e) };
+                        }
+                    }
+                    const btn = document.getElementById("boton_ingresar");
+                    if (!btn) return { exito: false, error: "no existe #boton_ingresar" };
+                    btn.click();
+                    return { exito: true, via: "click" };
+                }
+            });
+            const r_l = r_login && r_login[0] && r_login[0].result;
+            console.log("[asegurar_login] login:", r_l);
+            if (!r_l || !r_l.exito) {
+                throw new Error("Login falló al dispararse: " + ((r_l && r_l.error) || "desconocido"));
+            }
+
+            // 5. Esperar a que #aplicacion sea visible (polling en
+            // MAIN world, sin content script).
+            const inicio = Date.now();
+            let app_visible = false;
+            while (Date.now() - inicio < 20000) {
+                try {
+                    const r_poll = await chrome.scripting.executeScript({
+                        target: { tabId: pestana_id },
+                        world: "MAIN",
+                        func: () => {
+                            const app = document.getElementById("aplicacion");
+                            const visible = !!(app && !app.classList.contains("hidden"));
+                            const nivel = document.getElementById("nivel_usuario_actual");
+                            return { visible: visible, nivel: nivel ? nivel.textContent : "" };
+                        }
+                    });
+                    const r_p = r_poll && r_poll[0] && r_poll[0].result;
+                    if (r_p && r_p.visible) {
+                        console.log("[asegurar_login] app visible, nivel:", r_p.nivel);
+                        app_visible = true;
+                        break;
+                    }
+                } catch (e) { /* ignorar y reintentar */ }
+                await this.pausa(300);
+            }
+            if (!app_visible) {
+                throw new Error("Login enviado pero la app no se hizo visible en 20s. Verificá que el código sea válido y que el usuario no esté bloqueado.");
             }
             console.log("[asegurar_login] OK");
         },

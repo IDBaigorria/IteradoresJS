@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.9g
+ * @version 1.5plugin.9i
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -947,13 +947,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                     html += '</div>';
                 }
-                // v1.5plugin.9g: si la migración fue completa pero
-                // el drenado quedó como advertencia, avisar sin
-                // bloquear. Los pasos 1-9 fueron exitosos.
-                if (adv_count > 0 && err_count === 0) {
+                // v1.5plugin.9i: mostrar el detalle del drenado
+                // también cuando es advertencia (no solo error).
+                // Antes el mensaje específico quedaba invisible
+                // porque el bloque de detalle solo entraba con
+                // err_count > 0.
+                const pe_dr_adv = pasos_c["drenar_buzon"];
+                if (pe_dr_adv && pe_dr_adv.estado === "advertencia" && err_count === 0) {
                     html += '<div class="migracion-aviso" style="background:#fef7e0; border-color:#ffc107; margin-top:8px;">';
-                    html += '<strong>Migración completa.</strong> El drenado del buzón falló (código inválido o red). ';
-                    html += 'Podés drenar a mano: login con el código del dueño → Vendidos → logout.';
+                    html += '<strong>Migración completa.</strong> El drenado del buzón falló:<br>';
+                    html += _escapar_html(pe_dr_adv.mensaje || "(sin mensaje)");
                     html += '</div>';
                 }
             }

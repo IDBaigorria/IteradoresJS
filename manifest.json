@@ -15,16 +15,16 @@
   "host_permissions": [
     "http://localhost/*",
     "http://127.0.0.1/*",
-    "*://viajesdelcarmen.rf.gd/*",
-    "*://viajesdelcarmen.click.gd/*"
+    "*://viajespquiadelcarmen.rf.gd/*",
+    "*://viajespquiadelcarmen.infy.click/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "http://localhost/*",
         "http://127.0.0.1/*",
-        "*://viajesdelcarmen.rf.gd/*",
-        "*://viajesdelcarmen.click.gd/*"
+        "*://viajespquiadelcarmen.rf.gd/*",
+        "*://viajespquiadelcarmen.infy.click/*"
       ],
       "js": ["Aplicacion/contenido.js"],
       "run_at": "document_idle"

@@ -15,7 +15,7 @@
  * framework los valores que el framework sí necesita conocer
  * (nombre de la app, método de persistencia, nombre de la BD).
  *
- * @version 1.5plugin.9h
+ * @version 1.5plugin.9m
  * @since 1.5plugin.5w
  */
 
@@ -27,7 +27,7 @@ import { Entorno } from "../Configuracion/Entorno.js";
 
 export const NOMBRE_APP = "IteradoresPluginPruebas";
 export const NOMBRE_APP_CREDENCIALES = "IteradoresPluginPruebas_credenciales";
-export const VERSION_APP = "1.5plugin.9h";
+export const VERSION_APP = "1.5plugin.9m";
 export const AUTOR_APP = "Ignacio David Baigorria";
 export const PREFIJO_SESSION = "IteradoresPluginPruebas_";
 
@@ -87,7 +87,7 @@ export function configurar_conf(Conf) {
 // ═══════════════════════════════════════════════════════════
 
 export const NOMBRE_GRAFO = "plugin_pruebas";
-export const VERSION_PLUGIN = "1.5plugin.9h";
+export const VERSION_PLUGIN = "1.5plugin.9m";
 
 // Maximo de corridas guardadas por prueba. Al insertar
 // una nueva, si se supera, se destruye la mas vieja.
@@ -104,8 +104,8 @@ export const CORRIDAS_POR_PRUEBA_MAX = 5;
 // plugin no puede encontrar la pestana del piloto ni hacer
 // fetch.
 export const URL_PILOTO_LOCAL = "http://localhost/iteradores/codigo.worktrees/v1.5i/";
-export const URL_PILOTO_PRUEBAS = "https://viajesdelcarmen.rf.gd/";
-export const URL_PILOTO_PRODUCCION = "https://viajesdelcarmen.click.gd/";
+export const URL_PILOTO_PRUEBAS = "https://viajespquiadelcarmen.rf.gd/";
+export const URL_PILOTO_PRODUCCION = "https://viajespquiadelcarmen.infy.click/";
 
 // URL activa. Cambiar a URL_PILOTO_PRUEBAS o
 // URL_PILOTO_PRODUCCION segun donde se vaya a probar.

@@ -1,204 +1,91 @@
 <?php
 /**
- * Aplicador — v1.5plugin.9h: fix de asegurar_login.
+ * Aplicador — v1.5plugin.9m (v3): URLs nuevas + bump desde 9i.
+ * Runner corregido para escribir cambios parciales en modo no estricto.
  *
  * Uso (raíz de iteradoresJS/): php aplicar_cambios.php
  */
 
-$modo_estricto = true;
+$modo_estricto = false;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.9h';
+$version_nueva = '';
 $htmls_a_bumpear = [];
 
 $cambios = [
 
     // ============================================================
-    // 1. servicio.js: asegurar_login reforzado
+    // 1. ConfiguracionApli.js: URLs de entorno
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/servicio.js',
-        'descripcion' => 'servicio.js: asegurar_login espera salir() y llama ingresar_con_codigo',
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'ConfiguracionApli.js: URLs de pruebas y producción',
         'buscar' => [
-            '        async asegurar_login(codigo) {',
-            '            // Invalidar el cache del solicitante antes de',
-            '            // loguear: si ya habia sesion, el usuario que',
-            '            // entra es otro.',
-            '            _cache_nombre_solicitante = null;',
-            '            _cache_dueno_actual = null;',
-            '',
-            '            await this.esperar("#pantalla_login, #aplicacion", 8000);',
-            '            const app_visible = await this.esta_visible("#aplicacion");',
-            '            if (app_visible) {',
-            '                await this.clic("#boton_salir");',
-            '                await this.esperar_visible("#pantalla_login", 5000);',
-            '            }',
-            '            await this.escribir("#codigo_acceso", codigo);',
-            '            await this.clic("#boton_ingresar");',
-            '            const r = await this.esperar_visible("#aplicacion", 8000);',
-            '            if (!r || !r.exito) {',
-            '                throw new Error("Login fallo. El codigo puede ser invalido o el usuario esta bloqueado.");',
-            '            }',
-            '        },',
+            'export const URL_PILOTO_PRUEBAS = "https://viajesdelcarmen.rf.gd/";',
+            'export const URL_PILOTO_PRODUCCION = "https://viajesdelcarmen.click.gd/";',
         ],
         'reemplazar' => [
-            '        async asegurar_login(codigo) {',
-            '            // v1.5plugin.9h: reescrito para eliminar la race',
-            '            // condition entre salir() y escribir el código.',
-            '            // salir() del piloto limpia #codigo_acceso.value',
-            '            // DESPUÉS del fetch de sesiones/cerrar. Si escribíamos',
-            '            // el código mientras salir() seguía corriendo, salir()',
-            '            // lo borraba. Ahora se llama salir() desde el page',
-            '            // context, se espera a que termine, y recién ahí se',
-            '            // escribe el código y se dispara el login.',
-            '            _cache_nombre_solicitante = null;',
-            '            _cache_dueno_actual = null;',
-            '',
-            '            console.log("[asegurar_login] inicio, código:", codigo);',
-            '',
-            '            // 1. Esperar a que el DOM esté estable.',
-            '            try {',
-            '                await this.esperar("#pantalla_login, #aplicacion", 8000);',
-            '            } catch (e) {',
-            '                console.warn("[asegurar_login] esperar inicial falló:", e);',
-            '            }',
-            '',
-            '            // 2. Si hay sesión abierta, cerrarla esperando a que termine.',
-            '            const app_visible = await this.esta_visible("#aplicacion");',
-            '            console.log("[asegurar_login] app visible:", app_visible);',
-            '            if (app_visible) {',
-            '                try {',
-            '                    const r_salir = await chrome.scripting.executeScript({',
-            '                        target: { tabId: pestana_id },',
-            '                        world: "MAIN",',
-            '                        func: async () => {',
-            '                            if (typeof salir === "function") {',
-            '                                try { await salir(); } catch (e) { console.error("[salir]", e); }',
-            '                            }',
-            '                            const pantalla = document.getElementById("pantalla_login");',
-            '                            const app = document.getElementById("aplicacion");',
-            '                            return {',
-            '                                login_visible: !!(pantalla && !pantalla.classList.contains("hidden")),',
-            '                                app_visible: !!(app && !app.classList.contains("hidden")),',
-            '                            };',
-            '                        }',
-            '                    });',
-            '                    const r_res = (r_salir && r_salir[0] && r_salir[0].result) ? r_salir[0].result : null;',
-            '                    console.log("[asegurar_login] resultado salir:", r_res);',
-            '                    if (!r_res || !r_res.login_visible) {',
-            '                        await this.esperar_visible("#pantalla_login", 8000);',
-            '                    }',
-            '                } catch (e) {',
-            '                    console.error("[asegurar_login] salir() falló:", e);',
-            '                    throw new Error("No se pudo cerrar la sesión anterior: " + e.message);',
-            '                }',
-            '            }',
-            '',
-            '            // 3. Asegurar que el subpanel de código esté visible.',
-            '            const user_panel_visible = await this.esta_visible("#login_por_usuario");',
-            '            const code_panel_visible = await this.esta_visible("#login_por_codigo");',
-            '            console.log("[asegurar_login] subpanel usuario:", user_panel_visible, "subpanel código:", code_panel_visible);',
-            '            if (user_panel_visible || !code_panel_visible) {',
-            '                try {',
-            '                    await chrome.scripting.executeScript({',
-            '                        target: { tabId: pestana_id },',
-            '                        world: "MAIN",',
-            '                        func: () => {',
-            '                            if (typeof mostrar_login_por_codigo === "function") {',
-            '                                mostrar_login_por_codigo();',
-            '                                return { exito: true, via: "funcion" };',
-            '                            }',
-            '                            const link = document.getElementById("link_login_codigo");',
-            '                            if (link) { link.click(); return { exito: true, via: "link" }; }',
-            '                            return { exito: false, error: "no hay toggle" };',
-            '                        }',
-            '                    });',
-            '                    await this.pausa(300);',
-            '                } catch (e) {',
-            '                    console.warn("[asegurar_login] toggle falló:", e);',
-            '                }',
-            '            }',
-            '',
-            '            // 4. Escribir el código con verificación.',
-            '            await this.escribir("#codigo_acceso", codigo);',
-            '            const val_escrito = await this.valor("#codigo_acceso");',
-            '            console.log("[asegurar_login] valor escrito:", val_escrito);',
-            '            if (val_escrito !== codigo) {',
-            '                throw new Error("No se pudo escribir el código en #codigo_acceso (esperado: \\"" + codigo + "\\", obtenido: \\"" + val_escrito + "\\").");',
-            '            }',
-            '',
-            '            // 5. Disparar el login (llamando a ingresar_con_codigo del piloto).',
-            '            try {',
-            '                const r_login = await chrome.scripting.executeScript({',
-            '                    target: { tabId: pestana_id },',
-            '                    world: "MAIN",',
-            '                    func: async () => {',
-            '                        if (typeof ingresar_con_codigo === "function") {',
-            '                            try {',
-            '                                await ingresar_con_codigo();',
-            '                            } catch (e) {',
-            '                                return { exito: false, error: String(e) };',
-            '                            }',
-            '                            return { exito: true, via: "funcion" };',
-            '                        }',
-            '                        const btn = document.getElementById("boton_ingresar");',
-            '                        if (!btn) return { exito: false, error: "no existe #boton_ingresar" };',
-            '                        btn.click();',
-            '                        return { exito: true, via: "click" };',
-            '                    }',
-            '                });',
-            '                const r_login_res = (r_login && r_login[0] && r_login[0].result) ? r_login[0].result : null;',
-            '                console.log("[asegurar_login] resultado login:", r_login_res);',
-            '                if (!r_login_res || !r_login_res.exito) {',
-            '                    throw new Error("Login falló al dispararse: " + ((r_login_res && r_login_res.error) || "desconocido"));',
-            '                }',
-            '            } catch (e) {',
-            '                console.error("[asegurar_login] error disparando login:", e);',
-            '                throw e;',
-            '            }',
-            '',
-            '            // 6. Esperar a que la app sea visible.',
-            '            const r = await this.esperar_visible("#aplicacion", 20000);',
-            '            console.log("[asegurar_login] app visible después del login:", r && r.exito);',
-            '            if (!r || !r.exito) {',
-            '                const nivel = await this.texto("#nivel_usuario_actual");',
-            '                throw new Error("Login enviado pero la app no se hizo visible en 20s. Verificá que el código sea válido y que el usuario no esté bloqueado. (nivel detectado: " + (nivel || "vacío") + ")");',
-            '            }',
-            '            console.log("[asegurar_login] OK");',
-            '        },',
+            'export const URL_PILOTO_PRUEBAS = "https://viajespquiadelcarmen.rf.gd/";',
+            'export const URL_PILOTO_PRODUCCION = "https://viajespquiadelcarmen.infy.click/";',
         ],
     ],
 
     // ============================================================
-    // 2. ConfiguracionApli.js: bump a 9h
+    // 2. ConfiguracionApli.js: @version header
     // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: bump VERSION_APP a 9h',
+        'descripcion' => 'ConfiguracionApli.js: @version header 9i → 9m',
         'buscar' => [
-            'export const VERSION_APP = "1.5plugin.9g";',
+            ' * @version 1.5plugin.9i',
         ],
         'reemplazar' => [
-            'export const VERSION_APP = "1.5plugin.9h";',
+            ' * @version 1.5plugin.9m',
         ],
     ],
+
+    // ============================================================
+    // 3. ConfiguracionApli.js: VERSION_APP 9i → 9m
+    // ============================================================
     [
         'tipo' => 'reemplazar',
         'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: bump VERSION_PLUGIN a 9h',
+        'descripcion' => 'ConfiguracionApli.js: VERSION_APP 9i → 9m',
         'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.9g";',
+            'export const VERSION_APP = "1.5plugin.9i";',
         ],
         'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.9h";',
+            'export const VERSION_APP = "1.5plugin.9m";',
+        ],
+    ],
+
+    // ============================================================
+    // 4. ConfiguracionApli.js: VERSION_PLUGIN 9i → 9m
+    // ============================================================
+    [
+        'tipo' => 'reemplazar',
+        'archivo' => 'Aplicacion/ConfiguracionApli.js',
+        'descripcion' => 'ConfiguracionApli.js: VERSION_PLUGIN 9i → 9m',
+        'buscar' => [
+            'export const VERSION_PLUGIN = "1.5plugin.9i";',
+        ],
+        'reemplazar' => [
+            'export const VERSION_PLUGIN = "1.5plugin.9m";',
         ],
     ],
 
 ];
 
 // ============================================================
-// Runner v2 (estándar)
+// Runner v2 (corregido)
+// ============================================================
+// Cambio respecto del runner estándar: en modo no estricto
+// (strict=false), si hay fallos, los archivos con cambios
+// efectivos SÍ se escriben. El bug anterior era que
+// `$hubo_error` (por archivo) bloqueaba la escritura incluso
+// cuando otros bloques del mismo archivo habían matcheado.
+// En modo estricto, se sigue abortando antes de escribir.
 // ============================================================
 
 echo "=== Aplicador ===\n\n";
@@ -239,17 +126,17 @@ foreach ($reemplazos_por_archivo as $archivo_rel => $lista) {
     $eol = detectar_eol($contenido_original);
     $contenido = normalizar_a_unix($contenido_original);
     $contenido_antes = $contenido;
-    $hubo_error = false;
     foreach ($lista as $cambio) {
         $buscar_str = implode("\n", $cambio['buscar']);
         $reemplazar_str = implode("\n", $cambio['reemplazar']);
         $n = contar_ocurrencias($contenido, $buscar_str);
-        if ($n === 0) { $bloques_fallidos[] = "$archivo_rel: no encontrado - {$cambio['descripcion']}"; $hubo_error = true; continue; }
-        if ($n > 1) { $bloques_fallidos[] = "$archivo_rel: ambiguo ($n) - {$cambio['descripcion']}"; $hubo_error = true; continue; }
+        if ($n === 0) { $bloques_fallidos[] = "$archivo_rel: no encontrado - {$cambio['descripcion']}"; continue; }
+        if ($n > 1) { $bloques_fallidos[] = "$archivo_rel: ambiguo ($n) - {$cambio['descripcion']}"; continue; }
         $contenido = str_replace($buscar_str, $reemplazar_str, $contenido);
         $bloques_ok++;
     }
-    if (!$hubo_error && $contenido !== $contenido_antes) {
+    // CORRECCIÓN: escribir aunque haya fallos, si hubo cambios efectivos.
+    if ($contenido !== $contenido_antes) {
         $archivos_a_escribir[$ruta_abs] = [$contenido, $eol];
     }
 }
