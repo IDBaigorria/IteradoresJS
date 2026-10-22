@@ -18,7 +18,7 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `estado_pruebas`  -> devuelve el estado consolidado por prueba.
  *
- * @version 1.5plugin.9a
+ * @version 1.5plugin.9b
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
@@ -29,7 +29,18 @@ import { limpiar_datos_de_prueba } from "./LimpiezaPrueba.js";
 import { copiar_pasajeros_del_micro } from "./CopiarPasajeros.js";
 import { PASOS_MIGRACION, ejecutar_migracion, drenar_buzon } from "./Migraciones.js";
 
-const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
+// URLs del piloto validas. `_es_url_piloto` las usa para
+// identificar la pestana del piloto. NO depende de la URL
+// activa configurada en ConfiguracionApli.js: es la lista
+// de dominios donde el plugin puede actuar.
+const URLS_PILOTO = [
+    "http://localhost/",
+    "http://127.0.0.1/",
+    "https://viajesdelcarmen.rf.gd/",
+    "http://viajesdelcarmen.rf.gd/",
+    "https://viajesdelcarmen.click.gd/",
+    "http://viajesdelcarmen.click.gd/",
+];
 
 // ============================================================
 // Cache del solicitante y del dueno
@@ -1016,6 +1027,20 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                     } catch (e) {
                         sendResponse({ exito: false, error: e.message });
                     }
+                    break;
+                }
+
+                case "listar_pasos_migracion": {
+                    sendResponse({
+                        exito: true,
+                        pasos: PASOS_MIGRACION.map(p => ({
+                            id: p.id,
+                            nombre: p.nombre,
+                            peligroso: !!p.peligroso,
+                            default: !!p.default,
+                            tooltip: p.tooltip || "",
+                        })),
+                    });
                     break;
                 }
 

@@ -1159,6 +1159,110 @@ por tema.
 
 ---
 
+## 11. MIGRACIONES (v1.5plugin.9a-9b)
+
+El plugin tiene un botón **🔧 Migraciones** en la barra de
+acciones globales del popup. Corre la secuencia de
+migraciones del piloto PHP (9 pasos + drenado del buzón) y
+persiste el estado en el grafo.
+
+### 11.1 Los 10 pasos
+
+| # | Endpoint | Default | Peligroso |
+|---|---|---|---|
+| 1 | `?migrar_a_sql64=1` | ON | sí |
+| 2 | `?migrar_usuarios_especiales=1` | ON | no |
+| 3 | `?migrar_niveles_usuario=1` | ON | no |
+| 4 | `?migrar_compartidos_terminal=1` | ON | no |
+| 5 | `?construir_arboles_compartidos=1` | ON | no |
+| 6 | `?repuntar_terminales_compartido=1` | ON | no |
+| 7 | `?migrar_topologia=1` | OFF | sí |
+| 8 | `?reparar_topologia=1` | ON | no |
+| 9 | `?reparar_arboles=1` | ON | no |
+| 10 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |
+
+Los pasos peligrosos muestran un ⚠️ y un tooltip:
+
+- **1.** Reemplaza SQL64 con lo que hay en SQL. Solo en un
+  reset fresco.
+- **7.** Crea `soporte` singular legacy. No correr si ya hay
+  soportes con `soportes` plural. El admin link lo cubre el
+  paso 8 (`reparar_topologia`).
+
+### 11.2 Confirmación por entorno
+
+`entorno_actual` se calcula comparando `URL_PILOTO` con
+`localhost`/`127.0.0.1`:
+
+- **Local**: `confirm()` estándar.
+- **Remoto** (pruebas o producción): `prompt()` que exige
+  escribir `MIGRAR` en mayúsculas.
+
+No se distingue pruebas de producción. El usuario tiene que
+saber en qué servidor está.
+
+### 11.3 Persistencia y reanudación
+
+Cada corrida se guarda en `plugin → migraciones →
+corrida_<ts>` (ver `estructura_plugin.md` §3.2). Al abrir
+el panel:
+
+- Si la corrida `actual` está en `en_curso`, ofrece
+  "▶ Continuar" (usa los pasos ya OK como saltados y retoma
+  desde el primero pendiente).
+- Si no, muestra el formulario de configuración con los
+  checkboxes (defaults de §11.1) y el historial de las
+  últimas corridas.
+
+### 11.4 Drenar buzón
+
+El paso 10 hace:
+
+1. `ctx.asegurar_login(CODIGO_DUENO)` — login como dueño
+   con el código de `ConfiguracionApli.js`.
+2. `ctx.activar_pestana_piloto("vendidos")` — abre la
+   pestaña Vendidos. El piloto drena el buzón al cargar.
+3. `ctx.esperar("#lista_ventas", 30000)` — espera que
+   cargue la lista.
+4. `ctx.cerrar_sesion()` — logout.
+
+**Al terminar, el usuario queda deslogueado.** Si el paso
+falla (por ejemplo, el código de dueño cambió), el panel
+sugiere drenar a mano.
+
+### 11.5 Cancelación
+
+El botón "Cancelar" se habilita entre pasos. Manda
+`cancelar_migracion` al SW, que activa un flag que el
+ejecutor consulta entre pasos. Los pasos ya corridos no se
+deshacen; los pendientes quedan en `pendiente`.
+
+Si el usuario cierra el popup en medio de una corrida, el
+SW sigue ejecutando. Al reabrir el popup, el panel detecta
+`en_curso` y ofrece "Continuar" o "Abandonar".
+
+### 11.6 URLs de los tres entornos
+
+`ConfiguracionApli.js` tiene tres constantes:
+
+- `URL_PILOTO_LOCAL` = `http://localhost/iteradores/codigo.worktrees/v1.5i/`
+- `URL_PILOTO_PRUEBAS` = `https://viajesdelcarmen.rf.gd/`
+- `URL_PILOTO_PRODUCCION` = `https://viajesdelcarmen.click.gd/`
+
+`URL_PILOTO` apunta a la activa (hoy: LOCAL). Para probar en
+otro entorno, se cambia a mano y se recarga la extensión.
+**Pendiente próxima tanda:** selector de entorno en el
+popup para no tener que editar código.
+
+### 11.7 Pendientes detectados
+
+- Selector de entorno en el popup (local/pruebas/producción).
+- Botón "Probar conexión" antes de correr (verifica que el
+  piloto responde en `URL_PILOTO`).
+- Export/import del estado de migraciones (backup del grafo
+  del plugin).
+- Modo dry-run: mostrar qué haría cada paso sin ejecutarlo.
+
 ## 10. REGLAS DE TRABAJO
 
 Reglas del método que aplican específicamente a este
@@ -1195,9 +1299,11 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.8h.
-Cierre de la línea del grafo del plugin + 3 pruebas
-nuevas de rendiciones/liquidaciones (v8h).
+**Última actualización de este prompt:** v1.5plugin.9b.
+Botón "🔧 Migraciones" en el plugin (v9a-9b). Corre los
+9 pasos del piloto + drenado del buzón. Estado persistido
+en el grafo. Reanudable. Manifest con dominios de pruebas
+y producción. Ver §11.
 
 **Cierre de la línea del grafo (v8b-v8g):**
 

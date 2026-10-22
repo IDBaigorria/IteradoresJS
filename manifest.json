@@ -14,13 +14,17 @@
   "permissions": ["storage","tabs", "activeTab", "scripting"],
   "host_permissions": [
     "http://localhost/*",
-    "http://127.0.0.1/*"
+    "http://127.0.0.1/*",
+    "*://viajesdelcarmen.rf.gd/*",
+    "*://viajesdelcarmen.click.gd/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "http://localhost/*",
-        "http://127.0.0.1/*"
+        "http://127.0.0.1/*",
+        "*://viajesdelcarmen.rf.gd/*",
+        "*://viajesdelcarmen.click.gd/*"
       ],
       "js": ["Aplicacion/contenido.js"],
       "run_at": "document_idle"

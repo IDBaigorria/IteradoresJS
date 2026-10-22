@@ -15,7 +15,7 @@
  * framework los valores que el framework sí necesita conocer
  * (nombre de la app, método de persistencia, nombre de la BD).
  *
- * @version 1.5plugin.9a
+ * @version 1.5plugin.9b
  * @since 1.5plugin.5w
  */
 
@@ -93,9 +93,23 @@ export const VERSION_PLUGIN = "1.5plugin.9a";
 // una nueva, si se supera, se destruye la mas vieja.
 export const CORRIDAS_POR_PRUEBA_MAX = 5;
 
-// URL del piloto PHP. Debe estar cubierta por host_permissions
-// y content_scripts.matches en manifest.json.
-export const URL_PILOTO = "http://localhost/iteradores/codigo.worktrees/v1.5i/";
+// URLs de los tres entornos del piloto. Cambiar `URL_PILOTO`
+// (al final de este bloque) a la constante correspondiente
+// antes de recargar la extension. El popup todavia no tiene
+// selector de entorno; se agrega en una proxima tanda.
+//
+// Importante: la URL que se elija aca tiene que estar
+// cubierta por `host_permissions` y
+// `content_scripts.matches` en `manifest.json`. Si no, el
+// plugin no puede encontrar la pestana del piloto ni hacer
+// fetch.
+export const URL_PILOTO_LOCAL = "http://localhost/iteradores/codigo.worktrees/v1.5i/";
+export const URL_PILOTO_PRUEBAS = "https://viajesdelcarmen.rf.gd/";
+export const URL_PILOTO_PRODUCCION = "https://viajesdelcarmen.click.gd/";
+
+// URL activa. Cambiar a URL_PILOTO_PRUEBAS o
+// URL_PILOTO_PRODUCCION segun donde se vaya a probar.
+export const URL_PILOTO = URL_PILOTO_LOCAL;
 
 // Códigos de acceso de los usuarios del piloto, para las pruebas.
 export const CODIGO_ADMIN     = "IDB";

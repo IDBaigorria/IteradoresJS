@@ -11,7 +11,7 @@ cambios del grafo, mensajes nuevos). El prompt del plugin
 decisiones técnicas y las lecciones; este archivo guarda
 la foto de la estructura.
 
-Última actualización: v1.5plugin.8g.
+Última actualización: v1.5plugin.9b.
 
 ---
 
@@ -44,6 +44,8 @@ la foto de la estructura.
 - `GrafoPlugin.js` — capa sobre el framework.
 - `LimpiezaPrueba.js` — limpieza de datos de prueba.
 - `CopiarPasajeros.js` — copia la tabla del micro abierto.
+- `Migraciones.js` — secuencia de migraciones del piloto
+  (botón "🔧 Migraciones"). Ver §7.
 - `pruebas/`:
   - `catalogo.js` — agrupa pruebas en secciones y grupos.
   - `_helpers.js`, `_<tipo>_helpers.js` — helpers.
@@ -116,15 +118,30 @@ la foto de la estructura.
 **`GrafoPlugin.js`**:
 
 - Carga / guarda el grafo del plugin.
-- API: `asegurar_grafo_cargado()`, `registrar_corrida()`,
-  `marcar_en_vivo()`, `limpiar_en_vivo()`,
-  `limpiar_autoenlaces_colgados()`,
+- API de pruebas: `asegurar_grafo_cargado()`,
+  `registrar_corrida()`, `marcar_en_vivo()`,
+  `limpiar_en_vivo()`, `limpiar_autoenlaces_colgados()`,
   `obtener_estado_por_prueba()`.
+- API de migraciones (v1.5plugin.9a):
+  `registrar_migracion()`, `actualizar_paso_migracion()`,
+  `finalizar_migracion()`, `obtener_estado_migracion()`.
 - Migración automática desde el contenedor viejo `corridas`.
+
+**`Migraciones.js`**:
+
+- Lista de pasos (`PASOS_MIGRACION`): los 9 del piloto.
+- `ejecutar_migracion(ctx, opciones, al_progreso, debe_cancelar,
+  pasos_ya_ok)`: itera los pasos seleccionados, hace GET
+  a cada endpoint, parsea el output, persiste el resultado.
+- `drenar_buzon(ctx)`: login dueño → Vendidos → esperar →
+  logout.
+- GET dentro del page context (para enviar cookies del piloto).
 
 ---
 
 ## 3. GRAFO PERSISTIDO
+
+### 3.1 Corridas de pruebas
 
 ```
 plugin (especial)
@@ -155,6 +172,39 @@ Detalles:
 - El último nodo de la cadena apunta al contenedor vía `hd`.
 - El autoenlace `corriendo` sirve doble: marca visual +
   protección contra eliminación accidental.
+
+### 3.2 Migraciones (v1.5plugin.9a)
+
+```
+plugin (especial)
+└── migraciones (contenedor)
+    ├── actual → corrida_<ts>   (autoenlace, la más reciente)
+    └── corrida_<ts>
+        ├── fecha_inicio        ISO
+        ├── fecha_fin           ISO (opcional)
+        ├── entorno             "local" | "remoto"
+        ├── estado_global       "en_curso" | "completa" |
+        │                       "error" | "cancelada" | "abandonada"
+        ├── opciones → (sub-nodo con un hijo por paso)
+        │   ├── migrar_a_sql64 → "1"/"0"
+        │   ├── ...
+        │   └── drenar_buzon → "1"/"0"
+        └── paso_<id> → (sub-nodo por cada paso)
+            ├── estado         "pendiente" | "corriendo" |
+            │                  "ok" | "saltado" | "error" |
+            │                  "ambiguo"
+            ├── mensaje        (texto corto)
+            ├── output         (primeros 2000 chars del response)
+            └── duracion_ms
+```
+
+Se conservan las últimas 10 corridas. El autoenlace `actual`
+facilita el lookup de la corrida en curso sin recorrer el
+contenedor.
+
+Si una corrida queda con `estado_global = "en_curso"` (el SW
+se reinició a mitad, o el usuario cerró el popup), el popup
+ofrece "Continuar" al reabrirse.
 
 ---
 
@@ -218,6 +268,13 @@ export const prueba = {
 - `copiar_tabla_pasajeros` →
   `{exito, tabla, cantidad_filas}`.
 - `refrescar_asientos_pagina`.
+- `listar_pasos_migracion` → `{exito, pasos}` (v9a-v9b).
+- `estado_migracion` → `{exito, estado: {actual, historial}}` (v9a).
+- `entorno_actual` → `{exito, entorno: "local"|"remoto"}` (v9a).
+- `correr_migraciones {opciones, pasos_ya_ok}` →
+  `{exito, id_corrida, estado_global, resultados}` (v9a).
+- `cancelar_migracion` → `{exito}` (v9a).
+- `abandonar_migracion {id_corrida}` → `{exito}` (v9a).
 
 **SW → popup (broadcasts):**
 
@@ -225,6 +282,11 @@ export const prueba = {
 - `corrida_iniciada {id_prueba}`.
 - `corrida_terminada {id_prueba, resultado, fecha_hora,
   duracion_ms, detalle}`.
+- `migracion_iniciada {id_corrida, opciones, entorno}` (v9a).
+- `migracion_progreso {id_corrida, paso_id, estado,
+  mensaje, duracion_ms}` (v9a).
+- `migracion_terminada {id_corrida, estado_global,
+  resultados, error?}` (v9a).
 
 ---
 
