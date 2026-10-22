@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.9d
+ * @version 1.5plugin.9f
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -905,6 +905,42 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += '<span>' + _formatear_fecha(actual.fecha_inicio) + ' · ' + (actual.entorno || "") + '</span>';
                 html += '<span class="migracion-hist-estado-' + actual.estado_global + '">' + actual.estado_global + '</span>';
                 html += '</div>';
+
+                // v1.5plugin.9f: mostrar todos los pasos con sus
+                // estados y, si hubo errores, sus mensajes y
+                // outputs. Antes solo se veía el resumen de una
+                // línea y los detalles se perdían al re-renderizar.
+                const pasos_c = actual.pasos || {};
+                const total_pasos = _pasos_migracion.length + 1; // + drenar
+                const ok_count = Object.values(pasos_c).filter(function(p) { return p.estado === "ok"; }).length;
+                const salt_count = Object.values(pasos_c).filter(function(p) { return p.estado === "saltado"; }).length;
+                const err_count = Object.values(pasos_c).filter(function(p) { return p.estado === "error"; }).length;
+                html += '<div class="migracion-hist-item" style="background:#f8f9fa;">';
+                html += '<span>' + ok_count + ' OK · ' + salt_count + ' saltados · ' + err_count + ' errores</span>';
+                html += '</div>';
+
+                if (err_count > 0 || (actual.estado_global === "error")) {
+                    html += '<div class="migracion-aviso" style="margin-top:8px;">';
+                    html += '<strong>Detalle de errores:</strong>';
+                    for (let i = 0; i < _pasos_migracion.length; i++) {
+                        const p = _pasos_migracion[i];
+                        const pe = pasos_c[p.id];
+                        if (!pe || pe.estado !== "error") continue;
+                        html += '<div style="margin-top:6px;"><b>' + (i+1) + '. ' + _escapar_html(p.nombre) + ':</b> ';
+                        html += _escapar_html(pe.mensaje || "(sin mensaje)");
+                        html += '</div>';
+                        if (pe.output) {
+                            html += '<pre style="background:#1e1e1e; color:#d4d4d4; padding:6px; border-radius:4px; max-height:200px; overflow:auto; font-size:10px; white-space:pre-wrap; margin:4px 0 0 0;">' + _escapar_html(pe.output) + '</pre>';
+                        }
+                    }
+                    const pe_dr = pasos_c["drenar_buzon"];
+                    if (pe_dr && pe_dr.estado === "error") {
+                        html += '<div style="margin-top:6px;"><b>10. Drenar buzón:</b> ';
+                        html += _escapar_html(pe_dr.mensaje || "(sin mensaje)");
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
             }
 
             if (historial.length > 1) {
@@ -979,16 +1015,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function _mostrar_output_pasos_fallidos(respuesta) {
         const resultados = respuesta && respuesta.resultados ? respuesta.resultados : [];
-        const fallidos = resultados.filter(function (p) { return p.estado === "error" && p.output; });
+        // v1.5plugin.9f: mostrar TODOS los errores, tengan o no
+        // output. El drenado no hace GET, así que su error solo
+        // tiene mensaje. Antes se filtraba por p.output, y el
+        // error del drenado quedaba invisible.
+        const fallidos = resultados.filter(function (p) { return p.estado === "error"; });
         if (fallidos.length === 0) {
             const err = respuesta && respuesta.error ? respuesta.error : "(sin detalle)";
             alert("Migración falló.\n\n" + err + "\n\nAbrí la consola del SW (chrome://extensions → plugin → Service Worker) para más detalle.");
             return;
         }
+        // Alert principal con la lista de errores.
+        let txt = "Migración terminó con errores:\n";
+        for (const f of fallidos) {
+            txt += "\n• " + f.paso + ": " + (f.mensaje || "(sin detalle)");
+        }
+        alert(txt);
+
+        // Además, insertar los outputs (si los hay) en el panel.
+        const con_output = fallidos.filter(function (f) { return f.output; });
+        if (con_output.length === 0) return;
         const panel = document.getElementById("migraciones_panel");
         if (!panel) return;
         let html = '<h3>Output de pasos fallidos</h3>';
-        for (const f of fallidos) {
+        for (const f of con_output) {
             html += '<div class="migracion-aviso">';
             html += '<strong>Paso: ' + _escapar_html(f.paso) + '</strong>';
             if (f.mensaje) html += '<br>' + _escapar_html(f.mensaje);

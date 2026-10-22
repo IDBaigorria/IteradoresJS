@@ -8,7 +8,7 @@
  * La secuencia vive acá. El estado se persiste en el grafo
  * vía GrafoPlugin.js.
  *
- * @version 1.5plugin.9e
+ * @version 1.5plugin.9f
  */
 
 import { URL_PILOTO, CODIGO_DUENO } from "./ConfiguracionApli.js";
@@ -252,7 +252,12 @@ export async function drenar_buzon(ctx) {
     try {
         await ctx.asegurar_login(CODIGO_DUENO);
     } catch (e) {
-        return { exito: false, error: "Login dueño falló: " + e.message + ". Drenar manualmente." };
+        return {
+            exito: false,
+            error: "Login dueño falló: " + (e && e.message ? e.message : "desconocido")
+                   + " (código intentado: " + CODIGO_DUENO + ")."
+                   + " Verificá que el usuario dueño exista en este grafo, o drená manualmente: login dueño → Vendidos → logout.",
+        };
     }
 
     // 2. Ir a Vendidos.
@@ -262,7 +267,7 @@ export async function drenar_buzon(ctx) {
         try { await ctx.clic('.tab[data-tab="vendidos"]'); }
         catch (e2) {
             try { await ctx.cerrar_sesion(); } catch (e3) {}
-            return { exito: false, error: "No se pudo abrir Vendidos" };
+            return { exito: false, error: "No se pudo abrir la pestaña Vendidos. Drenar manualmente: login dueño → Vendidos → logout." };
         }
     }
 
