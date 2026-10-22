@@ -18,14 +18,16 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `estado_pruebas`  -> devuelve el estado consolidado por prueba.
  *
- * @version 1.5plugin.8b
+ * @version 1.5plugin.9a
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
-import { registrar_corrida, marcar_en_vivo, limpiar_en_vivo, limpiar_autoenlaces_colgados, obtener_estado_por_prueba } from "./GrafoPlugin.js";
+import { registrar_corrida, marcar_en_vivo, limpiar_en_vivo, limpiar_autoenlaces_colgados, obtener_estado_por_prueba,
+         registrar_migracion, actualizar_paso_migracion, finalizar_migracion, obtener_estado_migracion } from "./GrafoPlugin.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 import { limpiar_datos_de_prueba } from "./LimpiezaPrueba.js";
 import { copiar_pasajeros_del_micro } from "./CopiarPasajeros.js";
+import { PASOS_MIGRACION, ejecutar_migracion, drenar_buzon } from "./Migraciones.js";
 
 const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 
@@ -42,6 +44,11 @@ const URLS_PILOTO = ["http://localhost/", "http://127.0.0.1/"];
 let _cache_nombre_solicitante = null;
 let _cache_dueno_actual = null;
 
+// Flag de cancelación de migración (v1.5plugin.9a).
+// El popup manda "cancelar_migracion" y el ejecutor
+// lo consulta entre pasos para abortar.
+let _migracion_cancelada = false;
+
 // ============================================================
 // Notificaciones a la ventana
 // ============================================================
@@ -50,6 +57,85 @@ let _cache_dueno_actual = null;
 // grafo, como autoenlace `corriendo` en el contenedor de
 // cada prueba. Acá solo mandamos notificaciones para que
 // el popup actualice en vivo sin tener que releer todo.
+function _notificar_migracion(payload) {
+    try {
+        chrome.runtime.sendMessage(payload).catch(function () { /* nadie escuchando */ });
+    } catch (e) { /* ignorar */ }
+}
+
+async function _ejecutar_migraciones(opciones, pasos_ya_ok) {
+    const pestana = await _obtener_pestana_piloto();
+    if (!pestana) return { exito: false, error: "No hay pestaña del piloto abierta" };
+    const ctx = _crear_ctx(pestana.id);
+
+    const es_local = URL_PILOTO.indexOf("localhost") !== -1
+                  || URL_PILOTO.indexOf("127.0.0.1") !== -1;
+    const entorno = es_local ? "local" : "remoto";
+
+    _migracion_cancelada = false;
+
+    let id_corrida;
+    try {
+        id_corrida = await registrar_migracion({
+            fecha_inicio: new Date().toISOString(),
+            entorno: entorno,
+            estado_global: "en_curso",
+            opciones: opciones,
+            resultados: [],
+        });
+    } catch (e) {
+        return { exito: false, error: "No se pudo registrar: " + e.message };
+    }
+
+    _notificar_migracion({ tipo: "migracion_iniciada", id_corrida: id_corrida, opciones: opciones, entorno: entorno });
+
+    async function al_progreso(evento) {
+        _notificar_migracion({
+            tipo: "migracion_progreso",
+            id_corrida: id_corrida,
+            paso_id: evento.paso_id,
+            estado: evento.estado,
+            mensaje: evento.mensaje,
+            duracion_ms: evento.duracion_ms,
+        });
+        try {
+            await actualizar_paso_migracion(id_corrida, evento.paso_id, evento);
+        } catch (e) {
+            console.error("Error persistiendo paso:", e);
+        }
+    }
+
+    const debe_cancelar = () => _migracion_cancelada;
+
+    try {
+        const r = await ejecutar_migracion(ctx, opciones, al_progreso, debe_cancelar, pasos_ya_ok || {});
+        const resultado_final = r.cancelada ? "cancelada" : (r.exito ? "completa" : "error");
+        await finalizar_migracion(id_corrida, {
+            estado_global: resultado_final,
+            fecha_fin: new Date().toISOString(),
+        }).catch(function (e) { console.error(e); });
+        _notificar_migracion({
+            tipo: "migracion_terminada",
+            id_corrida: id_corrida,
+            estado_global: resultado_final,
+            resultados: r.resultados,
+        });
+        return { exito: r.exito, id_corrida: id_corrida, estado_global: resultado_final, resultados: r.resultados };
+    } catch (e) {
+        await finalizar_migracion(id_corrida, {
+            estado_global: "error",
+            fecha_fin: new Date().toISOString(),
+        }).catch(function () {});
+        _notificar_migracion({
+            tipo: "migracion_terminada",
+            id_corrida: id_corrida,
+            estado_global: "error",
+            error: e.message,
+        });
+        return { exito: false, id_corrida: id_corrida, error: e.message };
+    }
+}
+
 function _notificar_corrida_iniciada(id_prueba) {
     try {
         chrome.runtime.sendMessage(
@@ -927,6 +1013,52 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                             func: _refresh_asientos_main_world
                         });
                         sendResponse((r && r[0] && r[0].result) ? r[0].result : { exito: false, error: "sin resultado" });
+                    } catch (e) {
+                        sendResponse({ exito: false, error: e.message });
+                    }
+                    break;
+                }
+
+                case "estado_migracion": {
+                    try {
+                        const estado_mig = await obtener_estado_migracion();
+                        sendResponse({ exito: true, estado: estado_mig });
+                    } catch (e) {
+                        sendResponse({ exito: false, error: e.message });
+                    }
+                    break;
+                }
+
+                case "entorno_actual": {
+                    const es_local = URL_PILOTO.indexOf("localhost") !== -1
+                                  || URL_PILOTO.indexOf("127.0.0.1") !== -1;
+                    sendResponse({ exito: true, entorno: es_local ? "local" : "remoto" });
+                    break;
+                }
+
+                case "correr_migraciones": {
+                    const opciones = mensaje.opciones || {};
+                    const pasos_ya_ok = mensaje.pasos_ya_ok || {};
+                    const r_mig = await _ejecutar_migraciones(opciones, pasos_ya_ok);
+                    sendResponse(r_mig);
+                    break;
+                }
+
+                case "cancelar_migracion": {
+                    _migracion_cancelada = true;
+                    sendResponse({ exito: true });
+                    break;
+                }
+
+                case "abandonar_migracion": {
+                    const id_ab = mensaje.id_corrida;
+                    if (!id_ab) { sendResponse({ exito: false, error: "falta id_corrida" }); break; }
+                    try {
+                        await finalizar_migracion(id_ab, {
+                            estado_global: "abandonada",
+                            fecha_fin: new Date().toISOString(),
+                        });
+                        sendResponse({ exito: true });
                     } catch (e) {
                         sendResponse({ exito: false, error: e.message });
                     }

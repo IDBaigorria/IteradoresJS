@@ -27,7 +27,7 @@
  * contra destrucción accidental del contenedor mientras la
  * prueba corre.
  *
- * @version 1.5plugin.8e
+ * @version 1.5plugin.9a
  * @since 1.5plugin.5t
  */
 
@@ -404,4 +404,256 @@ function _dato_adyacente(nodo, enlace) {
     if (!hijo) return "";
     const d = hijo.dato();
     return d === null || d === undefined ? "" : String(d);
+}
+
+// ============================================================
+// Migraciones (v1.5plugin.9a)
+// ============================================================
+//
+// Estructura en el grafo:
+//   plugin
+//   └── migraciones
+//       ├── actual → corrida_<ts>  (autoenlace, el más reciente)
+//       └── corrida_<ts>           (una corrida)
+//           ├── fecha_inicio
+//           ├── fecha_fin
+//           ├── entorno ("local" | "remoto")
+//           ├── estado_global ("en_curso" | "completa" | "error" | "cancelada" | "abandonada")
+//           ├── opciones → (sub-nodo)
+//           │   ├── migrar_a_sql64 → "1"/"0"
+//           │   ├── ... (una por paso)
+//           │   └── drenar_buzon → "1"/"0"
+//           ├── paso_<id> → (sub-nodo)
+//           │   ├── estado
+//           │   ├── mensaje
+//           │   ├── output
+//           │   └── duracion_ms
+//           └── ...
+//
+// Se conservan las últimas 10 corridas.
+
+const MIGRACION_CORRIDAS_MAX = 10;
+
+/**
+ * Registra el inicio de una corrida de migración. Devuelve el id.
+ */
+export async function registrar_migracion(datos) {
+    await asegurar_grafo_cargado();
+    const Controlador = await obtener_controlador();
+
+    const raiz = Nodo.nodo_por_id("plugin");
+    if (!raiz) throw new Error("Sin raíz del plugin");
+
+    let migraciones = raiz.adyacente("migraciones");
+    if (!migraciones) {
+        migraciones = Nodo.crear_con_dato("");
+        raiz._adyacente_en(migraciones, "migraciones");
+    }
+
+    // Quitar el autoenlace "actual" previo.
+    if (migraciones.adyacente("actual")) {
+        migraciones.eliminar_adyacente("actual");
+    }
+
+    const id_corrida = "corrida_" + Date.now();
+    const corrida = Nodo.crear_con_dato(id_corrida);
+    migraciones._adyacente_en(corrida, id_corrida);
+    migraciones._adyacente_en(corrida, "actual");
+
+    corrida._adyacente_en(Nodo.crear_con_dato(datos.fecha_inicio), "fecha_inicio");
+    corrida._adyacente_en(Nodo.crear_con_dato(datos.entorno), "entorno");
+    corrida._adyacente_en(Nodo.crear_con_dato(datos.estado_global), "estado_global");
+
+    const opciones = Nodo.crear_con_dato("");
+    for (const [k, v] of Object.entries(datos.opciones.pasos || {})) {
+        opciones._adyacente_en(Nodo.crear_con_dato(v ? "1" : "0"), k);
+    }
+    opciones._adyacente_en(Nodo.crear_con_dato(datos.opciones.drenar_buzon ? "1" : "0"), "drenar_buzon");
+    corrida._adyacente_en(opciones, "opciones");
+
+    // Pre-crear los pasos con estado "pendiente".
+    for (const res of datos.resultados || []) {
+        const paso = Nodo.crear_con_dato("");
+        paso._adyacente_en(Nodo.crear_con_dato(res.estado), "estado");
+        if (res.mensaje) paso._adyacente_en(Nodo.crear_con_dato(res.mensaje), "mensaje");
+        if (res.output) paso._adyacente_en(Nodo.crear_con_dato(String(res.output).slice(0, 2000)), "output");
+        if (res.duracion_ms !== undefined) paso._adyacente_en(Nodo.crear_con_dato(String(res.duracion_ms)), "duracion_ms");
+        corrida._adyacente_en(paso, "paso_" + res.paso);
+    }
+
+    _podar_migraciones(migraciones);
+
+    const ok = await Controlador.guardar(NOMBRE_GRAFO);
+    if (!ok) throw new Error("No se pudo guardar la corrida");
+    return id_corrida;
+}
+
+/**
+ * Actualiza el estado de un paso.
+ */
+export async function actualizar_paso_migracion(id_corrida, paso_id, datos) {
+    await asegurar_grafo_cargado();
+    const Controlador = await obtener_controlador();
+
+    const raiz = Nodo.nodo_por_id("plugin");
+    if (!raiz) return;
+    const migraciones = raiz.adyacente("migraciones");
+    if (!migraciones) return;
+    const corrida = migraciones.adyacente(id_corrida);
+    if (!corrida) return;
+
+    let paso = corrida.adyacente("paso_" + paso_id);
+    if (!paso) {
+        paso = Nodo.crear_con_dato("");
+        corrida._adyacente_en(paso, "paso_" + paso_id);
+    }
+
+    let n = paso.adyacente("estado");
+    if (n) n._dato(datos.estado);
+    else paso._adyacente_en(Nodo.crear_con_dato(datos.estado), "estado");
+
+    if (datos.mensaje) {
+        n = paso.adyacente("mensaje");
+        if (n) n._dato(datos.mensaje);
+        else paso._adyacente_en(Nodo.crear_con_dato(datos.mensaje), "mensaje");
+    }
+
+    if (datos.duracion_ms !== undefined) {
+        const s = String(datos.duracion_ms);
+        n = paso.adyacente("duracion_ms");
+        if (n) n._dato(s);
+        else paso._adyacente_en(Nodo.crear_con_dato(s), "duracion_ms");
+    }
+
+    await Controlador.guardar(NOMBRE_GRAFO);
+}
+
+/**
+ * Actualiza el estado global y opcionalmente la fecha_fin.
+ */
+export async function finalizar_migracion(id_corrida, datos) {
+    await asegurar_grafo_cargado();
+    const Controlador = await obtener_controlador();
+
+    const raiz = Nodo.nodo_por_id("plugin");
+    if (!raiz) return;
+    const migraciones = raiz.adyacente("migraciones");
+    if (!migraciones) return;
+    const corrida = migraciones.adyacente(id_corrida);
+    if (!corrida) return;
+
+    let n = corrida.adyacente("estado_global");
+    if (n) n._dato(datos.estado_global);
+    else corrida._adyacente_en(Nodo.crear_con_dato(datos.estado_global), "estado_global");
+
+    if (datos.fecha_fin) {
+        n = corrida.adyacente("fecha_fin");
+        if (n) n._dato(datos.fecha_fin);
+        else corrida._adyacente_en(Nodo.crear_con_dato(datos.fecha_fin), "fecha_fin");
+    }
+
+    await Controlador.guardar(NOMBRE_GRAFO);
+}
+
+/**
+ * Devuelve { actual, historial }.
+ */
+export async function obtener_estado_migracion() {
+    await asegurar_grafo_cargado();
+    const raiz = Nodo.nodo_por_id("plugin");
+    if (!raiz) return { actual: null, historial: [] };
+    const migraciones = raiz.adyacente("migraciones");
+    if (!migraciones) return { actual: null, historial: [] };
+
+    let actual = null;
+    const historial = [];
+    const ady = migraciones.adyacentes();
+    if (ady) {
+        for (const [nombre, corrida] of ady) {
+            if (nombre === "actual") {
+                actual = _formatear_corrida_mig(nombre, corrida);
+                continue;
+            }
+            if (!nombre.startsWith("corrida_")) continue;
+            historial.push(_formatear_corrida_mig(nombre, corrida));
+        }
+    }
+
+    historial.sort((a, b) => (b.fecha_inicio || "").localeCompare(a.fecha_inicio || ""));
+    return { actual, historial: historial.slice(0, 5) };
+}
+
+function _formatear_corrida_mig(nombre, corrida) {
+    const datos = {
+        id: nombre,
+        fecha_inicio: _dato_adyacente(corrida, "fecha_inicio"),
+        fecha_fin: _dato_adyacente(corrida, "fecha_fin"),
+        entorno: _dato_adyacente(corrida, "entorno"),
+        estado_global: _dato_adyacente(corrida, "estado_global"),
+        opciones: {},
+        pasos: {},
+    };
+
+    const opciones = corrida.adyacente("opciones");
+    if (opciones) {
+        const ady_opc = opciones.adyacentes();
+        if (ady_opc) {
+            for (const [k, v] of ady_opc) {
+                datos.opciones[k] = v.dato() === "1";
+            }
+        }
+    }
+
+    const ady_c = corrida.adyacentes();
+    if (ady_c) {
+        for (const [nombre_p, paso] of ady_c) {
+            if (!nombre_p.startsWith("paso_")) continue;
+            datos.pasos[nombre_p.substring(5)] = {
+                estado: _dato_adyacente(paso, "estado"),
+                mensaje: _dato_adyacente(paso, "mensaje"),
+                duracion_ms: _dato_adyacente(paso, "duracion_ms"),
+            };
+        }
+    }
+
+    return datos;
+}
+
+function _podar_migraciones(migraciones) {
+    const actual = migraciones.adyacente("actual");
+    const todas = [];
+    const ady = migraciones.adyacentes();
+    if (!ady) return;
+    for (const [nombre, corrida] of ady) {
+        if (nombre === "actual") continue;
+        if (!nombre.startsWith("corrida_")) continue;
+        todas.push({ nombre: nombre, corrida: corrida });
+    }
+    if (todas.length <= MIGRACION_CORRIDAS_MAX) return;
+
+    todas.sort((a, b) => b.nombre.localeCompare(a.nombre));
+    for (let i = MIGRACION_CORRIDAS_MAX; i < todas.length; i++) {
+        if (actual && todas[i].corrida.id() === actual.id()) continue;
+        _destruir_corrida_mig(migraciones, todas[i]);
+    }
+}
+
+function _destruir_corrida_mig(migraciones, item) {
+    const corrida = item.corrida;
+    const ady = corrida.adyacentes();
+    if (ady) {
+        for (const [nombre, hijo] of ady) {
+            const ady_h = hijo.adyacentes();
+            if (ady_h) {
+                for (const [nh, n] of ady_h) {
+                    hijo.eliminar_adyacente(nh);
+                    Nodo.eliminar(n);
+                }
+            }
+            corrida.eliminar_adyacente(nombre);
+            Nodo.eliminar(hijo);
+        }
+    }
+    migraciones.eliminar_adyacente(item.nombre);
+    Nodo.eliminar(corrida);
 }

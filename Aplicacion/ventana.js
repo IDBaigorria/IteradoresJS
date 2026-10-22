@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.8c
+ * @version 1.5plugin.9a
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -785,6 +785,268 @@ document.addEventListener("DOMContentLoaded", () => {
             : (secciones_cargadas[0] ? secciones_cargadas[0].id : null);
         if (inicial) activar_tab(inicial);
     }
+
+    // ============================================================
+    // Migraciones (v1.5plugin.9a)
+    // ============================================================
+
+    let _migraciones_panel_abierto = false;
+    let _pasos_migracion = [];
+
+    async function _toggle_migraciones() {
+        _migraciones_panel_abierto = !_migraciones_panel_abierto;
+        const panel = document.getElementById("migraciones_panel");
+        if (_migraciones_panel_abierto) {
+            panel.style.display = "block";
+            await _renderizar_migraciones();
+        } else {
+            panel.style.display = "none";
+        }
+    }
+
+    async function _renderizar_migraciones() {
+        const panel = document.getElementById("migraciones_panel");
+        if (!panel) return;
+        panel.innerHTML = '<div class="estado">Cargando estado...</div>';
+
+        let resp;
+        try {
+            resp = await enviar({ tipo: "estado_migracion" });
+        } catch (e) {
+            panel.innerHTML = '<div class="estado">Error: ' + e.message + '</div>';
+            return;
+        }
+
+        if (!resp || !resp.exito) {
+            panel.innerHTML = '<div class="estado">Error: ' + (resp && resp.error ? resp.error : "desconocido") + '</div>';
+            return;
+        }
+
+        const estado = resp.estado;
+        const actual = estado.actual;
+        const historial = estado.historial || [];
+        const en_curso = actual && actual.estado_global === "en_curso";
+
+        // Obtener pasos desde el SW o usar los del catálogo
+        if (_pasos_migracion.length === 0) {
+            try {
+                const r_pasos = await enviar({ tipo: "listar_pasos_migracion" });
+                if (r_pasos && r_pasos.exito && r_pasos.pasos) {
+                    _pasos_migracion = r_pasos.pasos;
+                }
+            } catch (e) { /* fallback: no listar */ }
+        }
+
+        let html = "";
+
+        if (en_curso) {
+            html += '<div class="migracion-aviso">';
+            html += '<strong>Migración en curso</strong> iniciada el ' + _formatear_fecha(actual.fecha_inicio) + '.';
+            html += ' Si cerraste el popup, el proceso sigue en el SW.';
+            html += '</div>';
+
+            html += '<ul class="migracion-lista-pasos">';
+            const pasos_e = actual.pasos || {};
+            for (let i = 0; i < _pasos_migracion.length; i++) {
+                const p = _pasos_migracion[i];
+                const pe = pasos_e[p.id] || { estado: "pendiente" };
+                html += '<li class="migracion-paso">';
+                html += '<span style="flex:1">' + (i+1) + '. ' + p.nombre + '</span>';
+                html += '<span class="estado estado-' + pe.estado + '">' + pe.estado + '</span>';
+                html += '</li>';
+            }
+            const pe_dr = pasos_e["drenar_buzon"] || { estado: "pendiente" };
+            html += '<li class="migracion-paso"><span style="flex:1">10. Drenar buzón</span>';
+            html += '<span class="estado estado-' + pe_dr.estado + '">' + pe_dr.estado + '</span></li>';
+            html += '</ul>';
+
+            html += '<div class="migracion-botones">';
+            html += '<button id="btn_continuar_migracion" class="btn-correr-todas">▶ Continuar</button>';
+            html += '<button id="btn_abandonar_migracion">Abandonar</button>';
+            html += '</div>';
+        } else {
+            html += '<div class="migracion-aviso">';
+            html += '<strong>⚠️ No usar la app durante la migración.</strong> Tarda 1-3 minutos. ';
+            html += 'Si cerrás el popup, el proceso sigue en el SW. ';
+            html += 'El drenado del buzón (si está tildado) hace logout + login + logout: al final quedás deslogueado.';
+            html += '</div>';
+
+            html += '<h3>Configurar migración</h3>';
+            html += '<ul class="migracion-lista-pasos">';
+            for (let i = 0; i < _pasos_migracion.length; i++) {
+                const p = _pasos_migracion[i];
+                const chk = p.default ? ' checked' : '';
+                html += '<li class="migracion-paso' + (p.peligroso ? ' migracion-paso-peligroso' : '') + '">';
+                html += '<label>';
+                html += '<input type="checkbox" class="migracion-check" data-paso="' + p.id + '"' + chk + '>';
+                html += '<span>' + (i+1) + '. ' + p.nombre + '</span>';
+                if (p.peligroso) html += '<span class="tooltip-icon" title="' + (p.tooltip || "") + '">⚠️</span>';
+                html += '</label>';
+                html += '</li>';
+            }
+            html += '<li class="migracion-paso">';
+            html += '<label>';
+            html += '<input type="checkbox" id="migracion_check_drenar" checked>';
+            html += '<span>10. Drenar buzón al final</span>';
+            html += '<span class="tooltip-icon" title="Login como dueño con el código configurado. Si falla, drenar manualmente.'>⚠️</span>';
+            html += '</label>';
+            html += '</li>';
+            html += '</ul>';
+
+            html += '<div class="migracion-botones">';
+            html += '<button id="btn_correr_migracion" class="btn-correr-todas">▶ Correr migraciones</button>';
+            html += '</div>';
+
+            if (actual && actual.estado_global !== "en_curso") {
+                html += '<h3>Última migración</h3>';
+                html += '<div class="migracion-hist-item">';
+                html += '<span>' + _formatear_fecha(actual.fecha_inicio) + ' · ' + (actual.entorno || "") + '</span>';
+                html += '<span class="migracion-hist-estado-' + actual.estado_global + '">' + actual.estado_global + '</span>';
+                html += '</div>';
+            }
+
+            if (historial.length > 1) {
+                html += '<h3>Historial</h3>';
+                for (const h of historial.slice(0, 5)) {
+                    html += '<div class="migracion-hist-item">';
+                    html += '<span>' + _formatear_fecha(h.fecha_inicio) + ' · ' + (h.entorno || "") + '</span>';
+                    html += '<span class="migracion-hist-estado-' + h.estado_global + '">' + h.estado_global + '</span>';
+                    html += '</div>';
+                }
+            }
+        }
+
+        panel.innerHTML = html;
+
+        if (en_curso) {
+            document.getElementById("btn_continuar_migracion").addEventListener("click", () => _continuar_migracion(actual));
+            document.getElementById("btn_abandonar_migracion").addEventListener("click", () => _abandonar_migracion(actual.id));
+        } else {
+            document.getElementById("btn_correr_migracion").addEventListener("click", _correr_migracion);
+        }
+    }
+
+    async function _correr_migracion() {
+        const checks = document.querySelectorAll(".migracion-check");
+        const pasos = {};
+        for (const chk of checks) pasos[chk.dataset.paso] = chk.checked;
+        if (Object.values(pasos).every(v => !v)) {
+            alert("Seleccioná al menos un paso.");
+            return;
+        }
+        const drenar = document.getElementById("migracion_check_drenar").checked;
+
+        let es_local = true;
+        try {
+            const r_env = await enviar({ tipo: "entorno_actual" });
+            es_local = r_env && r_env.entorno === "local";
+        } catch (e) { /* asumir remoto por seguridad */ es_local = false; }
+
+        if (es_local) {
+            if (!confirm("¿Correr las migraciones seleccionadas?\n\nNo usar la app durante el proceso.\nTarda 1-3 minutos.")) return;
+        } else {
+            const resp = prompt("ATENCION: entorno REMOTO (posiblemente produccion).\n\nEl paso 1 reemplaza SQL64 con lo que hay en SQL.\n\nEscribi MIGRAR (mayusculas) para confirmar:");
+            if (resp !== "MIGRAR") return;
+        }
+
+        _renderizar_progreso_migracion();
+        try {
+            const r = await enviar({
+                tipo: "correr_migraciones",
+                opciones: { pasos: pasos, drenar_buzon: drenar },
+            });
+            if (!r || !r.exito) {
+                alert("Error: " + (r && r.error ? r.error : "desconocido"));
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            await _renderizar_migraciones();
+        }
+    }
+
+    async function _continuar_migracion(actual) {
+        const opciones = actual.opciones || { pasos: {}, drenar_buzon: true };
+        const pasos_ya_ok = {};
+        for (const [pid, pe] of Object.entries(actual.pasos || {})) {
+            if (pe.estado === "ok" || pe.estado === "saltado") pasos_ya_ok[pid] = true;
+        }
+        if (!confirm("¿Continuar la migración desde donde quedó?")) return;
+
+        _renderizar_progreso_migracion();
+        try {
+            const r = await enviar({
+                tipo: "correr_migraciones",
+                opciones: opciones,
+                pasos_ya_ok: pasos_ya_ok,
+            });
+            if (!r || !r.exito) {
+                alert("Error: " + (r && r.error ? r.error : "desconocido"));
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            await _renderizar_migraciones();
+        }
+    }
+
+    async function _abandonar_migracion(id_corrida) {
+        if (!confirm("¿Abandonar la migración en curso? Los pasos que ya corrieron no se deshacen.")) return;
+        try {
+            await enviar({ tipo: "abandonar_migracion", id_corrida: id_corrida });
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+        await _renderizar_migraciones();
+    }
+
+    function _renderizar_progreso_migracion() {
+        const panel = document.getElementById("migraciones_panel");
+        if (!panel) return;
+        let html = '<div class="migracion-aviso">Migración en curso. No cerrar el popup.</div>';
+        html += '<ul class="migracion-lista-pasos">';
+        for (let i = 0; i < _pasos_migracion.length; i++) {
+            const p = _pasos_migracion[i];
+            html += '<li class="migracion-paso" id="migracion_paso_' + p.id + '">';
+            html += '<span style="flex:1">' + (i+1) + '. ' + p.nombre + '</span>';
+            html += '<span class="estado estado-pendiente">pendiente</span></li>';
+        }
+        html += '<li class="migracion-paso" id="migracion_paso_drenar_buzon">';
+        html += '<span style="flex:1">10. Drenar buzón</span>';
+        html += '<span class="estado estado-pendiente">pendiente</span></li>';
+        html += '</ul>';
+        html += '<div class="migracion-botones"><button id="btn_cancelar_migracion">Cancelar</button></div>';
+        panel.innerHTML = html;
+        document.getElementById("btn_cancelar_migracion").addEventListener("click", async () => {
+            try { await enviar({ tipo: "cancelar_migracion" }); }
+            catch (e) { /* ignorar */ }
+        });
+    }
+
+    function _actualizar_paso_migracion_ui(payload) {
+        const li = document.getElementById("migracion_paso_" + payload.paso_id);
+        if (!li) return;
+        const span = li.querySelector(".estado");
+        if (!span) return;
+        span.className = "estado estado-" + payload.estado;
+        span.textContent = payload.estado;
+    }
+
+    (function _conectar_boton_migraciones() {
+        const btn = document.getElementById("btn_toggle_migraciones");
+        if (btn) btn.addEventListener("click", _toggle_migraciones);
+    })();
+
+    // Listener de broadcasts
+    const _listener_original = chrome.runtime.onMessage.hasListeners ? null : null;
+    chrome.runtime.onMessage.addListener((msg) => {
+        if (!msg) return;
+        if (msg.tipo === "migracion_progreso") { _actualizar_paso_migracion_ui(msg); return; }
+        if (msg.tipo === "migracion_terminada") {
+            if (_migraciones_panel_abierto) _renderizar_migraciones();
+            return;
+        }
+    });
 
     async function _arrancar() {
         await renderizar();
