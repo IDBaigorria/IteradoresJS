@@ -27,16 +27,16 @@
  * contra destrucción accidental del contenedor mientras la
  * prueba corre.
  *
- * @version 1.5plugin.9n
+ * @version 1.5plugin.9o
  * @since 1.5plugin.5t
  */
 
 import { Nodo } from "../Nodos/index.js";
 import { obtener_controlador } from "./arranque.js";
-import { NOMBRE_GRAFO, CORRIDAS_POR_PRUEBA_MAX } from "./ConfiguracionApli.js";
+import { NOMBRE_GRAFO, NOMBRE_GRAFO_AUDITORIAS, CORRIDAS_POR_PRUEBA_MAX } from "./ConfiguracionApli.js";
 import { _hmi, hmi, hd } from "../miscelaneas/index.js";
 
-let _grafo_cargado = false;
+let _grafo_cargado_actual = null; // null | NOMBRE_GRAFO | NOMBRE_GRAFO_AUDITORIAS
 
 /**
  * Carga el grafo del plugin si existe, o crea la estructura
@@ -50,7 +50,7 @@ let _grafo_cargado = false;
  * @returns {Promise<void>}
  */
 export async function asegurar_grafo_cargado() {
-    if (_grafo_cargado) return;
+    if (_grafo_cargado_actual === NOMBRE_GRAFO) return;
 
     const Controlador = await obtener_controlador();
     const existe = await Controlador.existe(NOMBRE_GRAFO);
@@ -73,7 +73,31 @@ export async function asegurar_grafo_cargado() {
         }
     }
 
-    _grafo_cargado = true;
+    _grafo_cargado_actual = NOMBRE_GRAFO;
+}
+
+/**
+ * Carga el grafo de auditorías (separado del de pruebas).
+ * Si no existe, crea el nodo raíz plugin.
+ */
+async function _asegurar_grafo_auditorias_cargado() {
+    if (_grafo_cargado_actual === NOMBRE_GRAFO_AUDITORIAS) return;
+    const Controlador = await obtener_controlador();
+    const existe = await Controlador.existe(NOMBRE_GRAFO_AUDITORIAS);
+    if (existe) {
+        const ok = await Controlador.cargar(NOMBRE_GRAFO_AUDITORIAS);
+        if (!ok) {
+            throw new Error("El grafo de auditorías existe pero no se pudo cargar");
+        }
+    } else {
+        Nodo.vaciar_superestructura(Controlador.token);
+        Nodo.crear_con_id("plugin");
+        const ok = await Controlador.guardar(NOMBRE_GRAFO_AUDITORIAS);
+        if (!ok) {
+            throw new Error("No se pudo guardar el grafo de auditorías inicial");
+        }
+    }
+    _grafo_cargado_actual = NOMBRE_GRAFO_AUDITORIAS;
 }
 
 function _crear_estructura_inicial() {
@@ -712,7 +736,7 @@ const AUDITORIA_PRIMEROS_N = 5;
  * @returns {Promise<string>}
  */
 export async function registrar_auditoria(datos) {
-    await asegurar_grafo_cargado();
+    await _asegurar_grafo_auditorias_cargado();
     const Controlador = await obtener_controlador();
 
     const raiz = Nodo.nodo_por_id("plugin");
@@ -729,50 +753,34 @@ export async function registrar_auditoria(datos) {
     }
 
     const id_corrida = "auditoria_" + Date.now();
-    const corrida = Nodo.crear_con_dato(id_corrida);
+    const rep = datos.reporte || {};
+    const res = rep.resumen || {};
+    const contenido_json = JSON.stringify({
+        fecha_hora: String(datos.fecha_hora || ""),
+        entorno: String(datos.entorno || ""),
+        duracion_ms: Number(datos.duracion_ms) || 0,
+        nodos_total: Number(res.nodos_total) || 0,
+        aristas_total: Number(res.aristas_total) || 0,
+        criticos_count: Number(res.criticos) || 0,
+        errores_count: Number(res.errores) || 0,
+        warnings_count: Number(res.warnings) || 0,
+        criticos: (rep.criticos || []).slice(0, AUDITORIA_PRIMEROS_N),
+        errores: (rep.errores || []).slice(0, AUDITORIA_PRIMEROS_N),
+        warnings: (rep.warnings || []).slice(0, AUDITORIA_PRIMEROS_N),
+    });
+
+    const corrida = Nodo.crear_con_dato(contenido_json);
     auditorias._adyacente_en(corrida, id_corrida);
     auditorias._adyacente_en(corrida, "actual");
 
-    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.fecha_hora)), "fecha_hora");
-    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.entorno || "")), "entorno");
-    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.duracion_ms || 0)), "duracion_ms");
-
-    const rep = datos.reporte || {};
-    const res = rep.resumen || {};
-    corrida._adyacente_en(Nodo.crear_con_dato(String(res.nodos_total || 0)), "nodos_total");
-    corrida._adyacente_en(Nodo.crear_con_dato(String(res.aristas_total || 0)), "aristas_total");
-    corrida._adyacente_en(Nodo.crear_con_dato(String(res.criticos || 0)), "criticos_count");
-    corrida._adyacente_en(Nodo.crear_con_dato(String(res.errores || 0)), "errores_count");
-    corrida._adyacente_en(Nodo.crear_con_dato(String(res.warnings || 0)), "warnings_count");
-
-    const truncado = ((res.criticos || 0) > AUDITORIA_PRIMEROS_N)
-                  || ((res.errores || 0) > AUDITORIA_PRIMEROS_N)
-                  || ((res.warnings || 0) > AUDITORIA_PRIMEROS_N);
-    corrida._adyacente_en(Nodo.crear_con_dato(truncado ? "1" : "0"), "truncado");
-
-    _agregar_primeros_auditoria(corrida, "primeros_criticos", rep.criticos || [], AUDITORIA_PRIMEROS_N);
-    _agregar_primeros_auditoria(corrida, "primeros_errores", rep.errores || [], AUDITORIA_PRIMEROS_N);
-    _agregar_primeros_auditoria(corrida, "primeros_warnings", rep.warnings || [], AUDITORIA_PRIMEROS_N);
-
     _podar_auditorias(auditorias);
 
-    const ok = await Controlador.guardar(NOMBRE_GRAFO);
+    const ok = await Controlador.guardar(NOMBRE_GRAFO_AUDITORIAS);
     if (!ok) throw new Error("No se pudo guardar la auditoría");
     return id_corrida;
 }
 
-function _agregar_primeros_auditoria(corrida, nombre_contenedor, lista, n) {
-    if (!Array.isArray(lista) || lista.length === 0) return;
-    const cont = Nodo.crear_con_dato("");
-    const primeros = lista.slice(0, n);
-    for (let i = 0; i < primeros.length; i++) {
-        const item = Nodo.crear_con_dato("");
-        item._adyacente_en(Nodo.crear_con_dato(String(primeros[i].tipo || "")), "tipo");
-        item._adyacente_en(Nodo.crear_con_dato(String(primeros[i].detalle || "")), "detalle");
-        cont._adyacente_en(item, "item_" + i);
-    }
-    corrida._adyacente_en(cont, nombre_contenedor);
-}
+// _agregar_primeros_auditoria eliminada en v1.5plugin.9o (JSON string en su lugar).
 
 function _podar_auditorias(auditorias) {
     const actual = auditorias.adyacente("actual");
@@ -794,23 +802,8 @@ function _podar_auditorias(auditorias) {
 }
 
 function _destruir_auditoria(auditorias, item) {
-    const corrida = item.corrida;
-    const ady = corrida.adyacentes();
-    if (ady) {
-        for (const [nombre, hijo] of ady) {
-            const ady_h = hijo.adyacentes();
-            if (ady_h) {
-                for (const [nh, n] of ady_h) {
-                    hijo.eliminar_adyacente(nh);
-                    Nodo.eliminar(n);
-                }
-            }
-            corrida.eliminar_adyacente(nombre);
-            Nodo.eliminar(hijo);
-        }
-    }
     auditorias.eliminar_adyacente(item.nombre);
-    Nodo.eliminar(corrida);
+    Nodo.eliminar(item.corrida);
 }
 
 /**
@@ -820,7 +813,7 @@ function _destruir_auditoria(auditorias, item) {
  * @returns {Promise<{actual: Object|null, historial: Object[]}>}
  */
 export async function obtener_estado_auditorias() {
-    await asegurar_grafo_cargado();
+    await _asegurar_grafo_auditorias_cargado();
     const raiz = Nodo.nodo_por_id("plugin");
     if (!raiz) return { actual: null, historial: [] };
     const auditorias = raiz.adyacente("auditorias");
@@ -831,12 +824,23 @@ export async function obtener_estado_auditorias() {
     const ady = auditorias.adyacentes();
     if (ady) {
         for (const [nombre, corrida] of ady) {
-            if (nombre === "actual") {
-                actual = _formatear_auditoria(nombre, corrida);
+            const raw = corrida.dato();
+            if (!raw) continue;
+            let datos;
+            try {
+                datos = JSON.parse(raw);
+            } catch (e) {
                 continue;
             }
-            if (!nombre.startsWith("auditoria_")) continue;
-            historial.push(_formatear_auditoria(nombre, corrida));
+            datos.id = nombre;
+            datos.truncado = (Number(datos.criticos_count) > (datos.criticos || []).length)
+                          || (Number(datos.errores_count) > (datos.errores || []).length)
+                          || (Number(datos.warnings_count) > (datos.warnings || []).length);
+            if (nombre === "actual") {
+                actual = datos;
+            } else if (nombre.startsWith("auditoria_")) {
+                historial.push(datos);
+            }
         }
     }
 
@@ -844,36 +848,6 @@ export async function obtener_estado_auditorias() {
     return { actual, historial: historial.slice(0, 5) };
 }
 
-function _formatear_auditoria(nombre, corrida) {
-    return {
-        id: nombre,
-        fecha_hora: _dato_adyacente(corrida, "fecha_hora"),
-        entorno: _dato_adyacente(corrida, "entorno"),
-        duracion_ms: _dato_adyacente(corrida, "duracion_ms"),
-        nodos_total: _dato_adyacente(corrida, "nodos_total"),
-        aristas_total: _dato_adyacente(corrida, "aristas_total"),
-        criticos_count: _dato_adyacente(corrida, "criticos_count"),
-        errores_count: _dato_adyacente(corrida, "errores_count"),
-        warnings_count: _dato_adyacente(corrida, "warnings_count"),
-        truncado: _dato_adyacente(corrida, "truncado") === "1",
-        criticos: _leer_primeros_auditoria(corrida, "primeros_criticos"),
-        errores: _leer_primeros_auditoria(corrida, "primeros_errores"),
-        warnings: _leer_primeros_auditoria(corrida, "primeros_warnings"),
-    };
-}
+// _formatear_auditoria eliminada en v1.5plugin.9o.
 
-function _leer_primeros_auditoria(corrida, nombre_contenedor) {
-    const cont = corrida.adyacente(nombre_contenedor);
-    if (!cont) return [];
-    const out = [];
-    const ady = cont.adyacentes();
-    if (!ady) return out;
-    for (const [nombre, item] of ady) {
-        if (!nombre.startsWith("item_")) continue;
-        out.push({
-            tipo: _dato_adyacente(item, "tipo"),
-            detalle: _dato_adyacente(item, "detalle"),
-        });
-    }
-    return out;
-}
+// _leer_primeros_auditoria eliminada en v1.5plugin.9o (JSON string en su lugar).
