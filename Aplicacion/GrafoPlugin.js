@@ -27,7 +27,7 @@
  * contra destrucción accidental del contenedor mientras la
  * prueba corre.
  *
- * @version 1.5plugin.9d
+ * @version 1.5plugin.9n
  * @since 1.5plugin.5t
  */
 
@@ -668,4 +668,212 @@ function _destruir_corrida_mig(migraciones, item) {
     }
     migraciones.eliminar_adyacente(item.nombre);
     Nodo.eliminar(corrida);
+}
+
+// ============================================================
+// Auditorías topológicas (v1.5plugin.9n)
+// ============================================================
+//
+// Estructura en el grafo:
+//   plugin
+//   └── auditorias
+//       ├── actual → auditoria_<ts>   (autoenlace, la última)
+//       └── auditoria_<ts>
+//           ├── fecha_hora
+//           ├── entorno
+//           ├── duracion_ms
+//           ├── nodos_total
+//           ├── aristas_total
+//           ├── criticos_count
+//           ├── errores_count
+//           ├── warnings_count
+//           ├── truncado
+//           ├── primeros_criticos → item_0, item_1, ...
+//           ├── primeros_errores  → item_0, item_1, ...
+//           └── primeros_warnings → item_0, item_1, ...
+//
+// Se guardan solo los primeros N de cada severidad. El
+// reporte completo se muestra en la UI en vivo; el
+// historial guarda solo el resumen.
+//
+// Se conservan las últimas 10 auditorías.
+
+const AUDITORIA_CORRIDAS_MAX = 10;
+const AUDITORIA_PRIMEROS_N = 5;
+
+/**
+ * Registra una auditoría. Devuelve el id.
+ *
+ * @param {Object} datos
+ * @param {string} datos.fecha_hora  ISO
+ * @param {string} datos.entorno     "local" | "remoto"
+ * @param {number} datos.duracion_ms
+ * @param {Object} datos.reporte     respuesta del piloto
+ * @returns {Promise<string>}
+ */
+export async function registrar_auditoria(datos) {
+    await asegurar_grafo_cargado();
+    const Controlador = await obtener_controlador();
+
+    const raiz = Nodo.nodo_por_id("plugin");
+    if (!raiz) throw new Error("Sin raíz del plugin");
+
+    let auditorias = raiz.adyacente("auditorias");
+    if (!auditorias) {
+        auditorias = Nodo.crear_con_dato("");
+        raiz._adyacente_en(auditorias, "auditorias");
+    }
+
+    if (auditorias.adyacente("actual")) {
+        auditorias.eliminar_adyacente("actual");
+    }
+
+    const id_corrida = "auditoria_" + Date.now();
+    const corrida = Nodo.crear_con_dato(id_corrida);
+    auditorias._adyacente_en(corrida, id_corrida);
+    auditorias._adyacente_en(corrida, "actual");
+
+    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.fecha_hora)), "fecha_hora");
+    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.entorno || "")), "entorno");
+    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.duracion_ms || 0)), "duracion_ms");
+
+    const rep = datos.reporte || {};
+    const res = rep.resumen || {};
+    corrida._adyacente_en(Nodo.crear_con_dato(String(res.nodos_total || 0)), "nodos_total");
+    corrida._adyacente_en(Nodo.crear_con_dato(String(res.aristas_total || 0)), "aristas_total");
+    corrida._adyacente_en(Nodo.crear_con_dato(String(res.criticos || 0)), "criticos_count");
+    corrida._adyacente_en(Nodo.crear_con_dato(String(res.errores || 0)), "errores_count");
+    corrida._adyacente_en(Nodo.crear_con_dato(String(res.warnings || 0)), "warnings_count");
+
+    const truncado = ((res.criticos || 0) > AUDITORIA_PRIMEROS_N)
+                  || ((res.errores || 0) > AUDITORIA_PRIMEROS_N)
+                  || ((res.warnings || 0) > AUDITORIA_PRIMEROS_N);
+    corrida._adyacente_en(Nodo.crear_con_dato(truncado ? "1" : "0"), "truncado");
+
+    _agregar_primeros_auditoria(corrida, "primeros_criticos", rep.criticos || [], AUDITORIA_PRIMEROS_N);
+    _agregar_primeros_auditoria(corrida, "primeros_errores", rep.errores || [], AUDITORIA_PRIMEROS_N);
+    _agregar_primeros_auditoria(corrida, "primeros_warnings", rep.warnings || [], AUDITORIA_PRIMEROS_N);
+
+    _podar_auditorias(auditorias);
+
+    const ok = await Controlador.guardar(NOMBRE_GRAFO);
+    if (!ok) throw new Error("No se pudo guardar la auditoría");
+    return id_corrida;
+}
+
+function _agregar_primeros_auditoria(corrida, nombre_contenedor, lista, n) {
+    if (!Array.isArray(lista) || lista.length === 0) return;
+    const cont = Nodo.crear_con_dato("");
+    const primeros = lista.slice(0, n);
+    for (let i = 0; i < primeros.length; i++) {
+        const item = Nodo.crear_con_dato("");
+        item._adyacente_en(Nodo.crear_con_dato(String(primeros[i].tipo || "")), "tipo");
+        item._adyacente_en(Nodo.crear_con_dato(String(primeros[i].detalle || "")), "detalle");
+        cont._adyacente_en(item, "item_" + i);
+    }
+    corrida._adyacente_en(cont, nombre_contenedor);
+}
+
+function _podar_auditorias(auditorias) {
+    const actual = auditorias.adyacente("actual");
+    const todas = [];
+    const ady = auditorias.adyacentes();
+    if (!ady) return;
+    for (const [nombre, corrida] of ady) {
+        if (nombre === "actual") continue;
+        if (!nombre.startsWith("auditoria_")) continue;
+        todas.push({ nombre: nombre, corrida: corrida });
+    }
+    if (todas.length <= AUDITORIA_CORRIDAS_MAX) return;
+
+    todas.sort((a, b) => b.nombre.localeCompare(a.nombre));
+    for (let i = AUDITORIA_CORRIDAS_MAX; i < todas.length; i++) {
+        if (actual && todas[i].corrida.id() === actual.id()) continue;
+        _destruir_auditoria(auditorias, todas[i]);
+    }
+}
+
+function _destruir_auditoria(auditorias, item) {
+    const corrida = item.corrida;
+    const ady = corrida.adyacentes();
+    if (ady) {
+        for (const [nombre, hijo] of ady) {
+            const ady_h = hijo.adyacentes();
+            if (ady_h) {
+                for (const [nh, n] of ady_h) {
+                    hijo.eliminar_adyacente(nh);
+                    Nodo.eliminar(n);
+                }
+            }
+            corrida.eliminar_adyacente(nombre);
+            Nodo.eliminar(hijo);
+        }
+    }
+    auditorias.eliminar_adyacente(item.nombre);
+    Nodo.eliminar(corrida);
+}
+
+/**
+ * Devuelve { actual, historial }. El historial va de la
+ * más reciente a la más vieja, hasta 5 entradas.
+ *
+ * @returns {Promise<{actual: Object|null, historial: Object[]}>}
+ */
+export async function obtener_estado_auditorias() {
+    await asegurar_grafo_cargado();
+    const raiz = Nodo.nodo_por_id("plugin");
+    if (!raiz) return { actual: null, historial: [] };
+    const auditorias = raiz.adyacente("auditorias");
+    if (!auditorias) return { actual: null, historial: [] };
+
+    let actual = null;
+    const historial = [];
+    const ady = auditorias.adyacentes();
+    if (ady) {
+        for (const [nombre, corrida] of ady) {
+            if (nombre === "actual") {
+                actual = _formatear_auditoria(nombre, corrida);
+                continue;
+            }
+            if (!nombre.startsWith("auditoria_")) continue;
+            historial.push(_formatear_auditoria(nombre, corrida));
+        }
+    }
+
+    historial.sort((a, b) => (b.fecha_hora || "").localeCompare(a.fecha_hora || ""));
+    return { actual, historial: historial.slice(0, 5) };
+}
+
+function _formatear_auditoria(nombre, corrida) {
+    return {
+        id: nombre,
+        fecha_hora: _dato_adyacente(corrida, "fecha_hora"),
+        entorno: _dato_adyacente(corrida, "entorno"),
+        duracion_ms: _dato_adyacente(corrida, "duracion_ms"),
+        nodos_total: _dato_adyacente(corrida, "nodos_total"),
+        aristas_total: _dato_adyacente(corrida, "aristas_total"),
+        criticos_count: _dato_adyacente(corrida, "criticos_count"),
+        errores_count: _dato_adyacente(corrida, "errores_count"),
+        warnings_count: _dato_adyacente(corrida, "warnings_count"),
+        truncado: _dato_adyacente(corrida, "truncado") === "1",
+        criticos: _leer_primeros_auditoria(corrida, "primeros_criticos"),
+        errores: _leer_primeros_auditoria(corrida, "primeros_errores"),
+        warnings: _leer_primeros_auditoria(corrida, "primeros_warnings"),
+    };
+}
+
+function _leer_primeros_auditoria(corrida, nombre_contenedor) {
+    const cont = corrida.adyacente(nombre_contenedor);
+    if (!cont) return [];
+    const out = [];
+    const ady = cont.adyacentes();
+    if (!ady) return out;
+    for (const [nombre, item] of ady) {
+        if (!nombre.startsWith("item_")) continue;
+        out.push({
+            tipo: _dato_adyacente(item, "tipo"),
+            detalle: _dato_adyacente(item, "detalle"),
+        });
+    }
+    return out;
 }

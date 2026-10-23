@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.9i
+ * @version 1.5plugin.9n
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1166,4 +1166,182 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     _arrancar();
+
+    // ============================================================
+    // Auditoría topológica (v1.5plugin.9n)
+    // ============================================================
+
+    let _auditoria_panel_abierto = false;
+
+    (function _inyectar_boton_y_panel_auditoria() {
+        const btn_mig = document.getElementById("btn_toggle_migraciones");
+        if (btn_mig) {
+            btn_mig.insertAdjacentHTML(
+                "afterend",
+                ' <button id="btn_toggle_auditoria" type="button" title="Auditar la topología del grafo del piloto (solo lectura)">\uD83D\uDD0D Auditar topolog\u00EDa</button>'
+            );
+        }
+        const panel_mig = document.getElementById("migraciones_panel");
+        if (panel_mig) {
+            panel_mig.insertAdjacentHTML(
+                "afterend",
+                '<div id="auditoria_panel" style="display:none; margin-top:12px; padding:10px; border:1px solid #ccc; border-radius:6px; background:#fafafa;"></div>'
+            );
+        }
+    })();
+
+    async function _toggle_auditoria() {
+        _auditoria_panel_abierto = !_auditoria_panel_abierto;
+        const panel = document.getElementById("auditoria_panel");
+        if (!panel) return;
+        if (_auditoria_panel_abierto) {
+            panel.style.display = "block";
+            await _renderizar_auditorias();
+        } else {
+            panel.style.display = "none";
+        }
+    }
+
+    async function _renderizar_auditorias() {
+        const panel = document.getElementById("auditoria_panel");
+        if (!panel) return;
+        panel.innerHTML = '<div class="estado">Cargando estado...</div>';
+
+        let resp;
+        try {
+            resp = await enviar({ tipo: "estado_auditorias" });
+        } catch (e) {
+            panel.innerHTML = '<div class="estado">Error: ' + _escapar_html(e.message) + '</div>';
+            return;
+        }
+        if (!resp || !resp.exito) {
+            const msg = (resp && resp.error) ? resp.error : "desconocido";
+            panel.innerHTML = '<div class="estado">Error: ' + _escapar_html(msg) + '</div>';
+            return;
+        }
+
+        const estado = resp.estado || { actual: null, historial: [] };
+        const actual = estado.actual;
+        const historial = estado.historial || [];
+
+        let html = "";
+        html += '<div style="margin-bottom:8px;">';
+        html += '<button id="btn_correr_auditoria" class="btn-correr-todas">\uD83D\uDD0D Auditar ahora</button>';
+        html += ' <span class="estado" id="auditoria_estado"></span>';
+        html += '</div>';
+
+        if (actual) {
+            html += _renderizar_resultado_auditoria(actual);
+        } else {
+            html += '<div class="estado">Sin auditorías registradas. Click en "Auditar ahora" para correr la primera.</div>';
+        }
+
+        if (historial.length > 1) {
+            html += '<h3>Historial</h3>';
+            for (const h of historial.slice(0, 5)) {
+                html += '<div class="migracion-hist-item">';
+                html += '<span>' + _formatear_fecha(h.fecha_hora) + ' \u00B7 ' + _escapar_html(h.entorno || "") + '</span>';
+                html += '<span>' + _escapar_html(h.criticos_count) + ' crit / ' + _escapar_html(h.errores_count) + ' err / ' + _escapar_html(h.warnings_count) + ' warn</span>';
+                html += '</div>';
+            }
+        }
+
+        panel.innerHTML = html;
+
+        const btn = document.getElementById("btn_correr_auditoria");
+        if (btn) btn.addEventListener("click", _correr_auditoria);
+    }
+
+    function _renderizar_resultado_auditoria(a) {
+        const n_crit = parseInt(a.criticos_count, 10) || 0;
+        const n_err  = parseInt(a.errores_count, 10) || 0;
+        const n_warn = parseInt(a.warnings_count, 10) || 0;
+        const color_crit = (n_crit > 0) ? "#c5221f" : "#188038";
+        const color_err  = (n_err  > 0) ? "#b06000" : "#188038";
+        const color_warn = (n_warn > 0) ? "#b06000" : "#188038";
+
+        let html = "";
+        html += '<div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px; border:1px solid #ddd;">';
+        html += '<div style="font-weight:bold; margin-bottom:4px;">Auditoría del ' + _formatear_fecha(a.fecha_hora) + ' (' + _escapar_html(a.entorno || "") + ', ' + _escapar_html(a.duracion_ms) + ' ms)</div>';
+        html += '<div>Nodos: <b>' + _escapar_html(a.nodos_total) + '</b> \u00B7 Aristas: <b>' + _escapar_html(a.aristas_total) + '</b></div>';
+        html += '<div style="margin-top:6px;">';
+        html += '<span style="color:' + color_crit + '; font-weight:bold;">' + n_crit + ' cr\u00EDticos</span> \u00B7 ';
+        html += '<span style="color:' + color_err + '; font-weight:bold;">' + n_err + ' errores</span> \u00B7 ';
+        html += '<span style="color:' + color_warn + '; font-weight:bold;">' + n_warn + ' warnings</span>';
+        html += '</div>';
+        html += '</div>';
+
+        html += _renderizar_seccion_auditoria("Cr\u00EDticos", a.criticos, n_crit, a.truncado, "#c5221f");
+        html += _renderizar_seccion_auditoria("Errores", a.errores, n_err, a.truncado, "#b06000");
+        html += _renderizar_seccion_auditoria("Warnings", a.warnings, n_warn, a.truncado, "#8a6d00");
+
+        return html;
+    }
+
+    function _renderizar_seccion_auditoria(titulo, items, total, truncado, color) {
+        if (!items || items.length === 0) return "";
+        let html = '<h4 style="margin:8px 0 4px 0; color:' + color + ';">' + titulo + ' (' + total + ')</h4>';
+        html += '<ul style="margin:0 0 8px 16px; padding:0; font-size:11px;">';
+        for (const it of items) {
+            html += '<li><b>' + _escapar_html(it.tipo) + ':</b> ' + _escapar_html(it.detalle) + '</li>';
+        }
+        html += '</ul>';
+        if (truncado && total > items.length) {
+            html += '<div style="font-size:10px; color:#666;">(mostrando ' + items.length + ' de ' + total + ')</div>';
+        }
+        return html;
+    }
+
+    async function _correr_auditoria() {
+        const est_el = document.getElementById("auditoria_estado");
+        const btn = document.getElementById("btn_correr_auditoria");
+        if (btn) btn.disabled = true;
+        if (est_el) est_el.textContent = "Auditando...";
+
+        let es_local = true;
+        try {
+            const r_env = await enviar({ tipo: "entorno_actual" });
+            es_local = r_env && r_env.entorno === "local";
+        } catch (e) { es_local = false; }
+
+        if (es_local) {
+            if (!confirm("\u00BFCorrer la auditor\u00EDa topol\u00F3gica del grafo?\n\nSolo lectura. No modifica nada. Tarda 5-15s seg\u00FAn el tama\u00F1o del grafo.")) {
+                if (btn) btn.disabled = false;
+                if (est_el) est_el.textContent = "";
+                return;
+            }
+        } else {
+            const resp = prompt("ATENCI\u00D3N: entorno REMOTO.\n\nLa auditor\u00EDa es solo lectura.\n\nEscrib\u00ED AUDITAR (may\u00FAsculas) para confirmar:");
+            if (resp !== "AUDITAR") {
+                if (btn) btn.disabled = false;
+                if (est_el) est_el.textContent = "";
+                return;
+            }
+        }
+
+        try {
+            const r = await enviar({ tipo: "auditar_topologia" });
+            if (!r || !r.exito) {
+                alert("Error: " + (r && r.error ? r.error : "desconocido"));
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            if (btn) btn.disabled = false;
+            if (est_el) est_el.textContent = "";
+            await _renderizar_auditorias();
+        }
+    }
+
+    (function _conectar_boton_auditoria() {
+        const btn = document.getElementById("btn_toggle_auditoria");
+        if (btn) btn.addEventListener("click", _toggle_auditoria);
+    })();
+
+    chrome.runtime.onMessage.addListener((msg) => {
+        if (!msg) return;
+        if (msg.tipo === "auditoria_terminada") {
+            if (_auditoria_panel_abierto) _renderizar_auditorias();
+        }
+    });
 });

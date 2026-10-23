@@ -18,12 +18,14 @@
  * - `correr_prueba`   -> ejecuta una prueba y persiste el resultado.
  * - `estado_pruebas`  -> devuelve el estado consolidado por prueba.
  *
- * @version 1.5plugin.9l
+ * @version 1.5plugin.9n
  */
 
 import { URL_PILOTO } from "./ConfiguracionApli.js";
 import { registrar_corrida, marcar_en_vivo, limpiar_en_vivo, limpiar_autoenlaces_colgados, obtener_estado_por_prueba,
-         registrar_migracion, actualizar_paso_migracion, finalizar_migracion, obtener_estado_migracion } from "./GrafoPlugin.js";
+         registrar_migracion, actualizar_paso_migracion, finalizar_migracion, obtener_estado_migracion,
+         registrar_auditoria, obtener_estado_auditorias } from "./GrafoPlugin.js";
+import { ejecutar_auditoria } from "./Auditoria.js";
 import { CATALOGO, SECCIONES } from "./pruebas/catalogo.js";
 import { limpiar_datos_de_prueba } from "./LimpiezaPrueba.js";
 import { copiar_pasajeros_del_micro } from "./CopiarPasajeros.js";
@@ -166,6 +168,60 @@ async function _ejecutar_migraciones(opciones, pasos_ya_ok) {
         });
         return { exito: false, id_corrida: id_corrida, error: e.message };
     }
+}
+
+// ============================================================
+// Auditoría topológica (v1.5plugin.9n)
+// ============================================================
+
+function _notificar_auditoria(payload) {
+    try {
+        chrome.runtime.sendMessage(payload).catch(function () { /* nadie escuchando */ });
+    } catch (e) { /* ignorar */ }
+}
+
+async function _ejecutar_auditoria() {
+    const pestana = await _obtener_pestana_piloto();
+    if (!pestana) {
+        return { exito: false, error: "No hay una pestaña del piloto abierta. Abrí " + URL_PILOTO + " y reintentá." };
+    }
+    if (!pestana.url || !pestana.url.startsWith(URL_PILOTO)) {
+        return { exito: false, error: "La pestaña seleccionada apunta a " + (pestana.url || "(desconocida)") + " en lugar de " + URL_PILOTO + "." };
+    }
+    const ctx = _crear_ctx(pestana.id);
+
+    let resultado;
+    try {
+        resultado = await ejecutar_auditoria(ctx);
+    } catch (e) {
+        return { exito: false, error: e.message };
+    }
+
+    if (!resultado.exito) {
+        _notificar_auditoria({ tipo: "auditoria_terminada", exito: false, error: resultado.error });
+        return resultado;
+    }
+
+    let id_corrida = null;
+    try {
+        id_corrida = await registrar_auditoria({
+            fecha_hora: new Date().toISOString(),
+            entorno: resultado.entorno,
+            duracion_ms: resultado.duracion_ms,
+            reporte: resultado.reporte,
+        });
+    } catch (e) {
+        console.error("No se pudo persistir la auditoría:", e);
+    }
+
+    _notificar_auditoria({ tipo: "auditoria_terminada", exito: true, id_corrida: id_corrida });
+    return {
+        exito: true,
+        id_corrida: id_corrida,
+        entorno: resultado.entorno,
+        duracion_ms: resultado.duracion_ms,
+        reporte: resultado.reporte,
+    };
 }
 
 function _notificar_corrida_iniciada(id_prueba) {
@@ -1296,6 +1352,21 @@ chrome.runtime.onMessage.addListener((mensaje, sender, sendResponse) => {
                             fecha_fin: new Date().toISOString(),
                         });
                         sendResponse({ exito: true });
+                    } catch (e) {
+                        sendResponse({ exito: false, error: e.message });
+                    }
+                    break;
+                }
+
+                case "auditar_topologia": {
+                    sendResponse(await _ejecutar_auditoria());
+                    break;
+                }
+
+                case "estado_auditorias": {
+                    try {
+                        const estado_aud = await obtener_estado_auditorias();
+                        sendResponse({ exito: true, estado: estado_aud });
                     } catch (e) {
                         sendResponse({ exito: false, error: e.message });
                     }
