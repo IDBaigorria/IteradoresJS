@@ -11,7 +11,7 @@ cambios del grafo, mensajes nuevos). El prompt del plugin
 decisiones técnicas y las lecciones; este archivo guarda
 la foto de la estructura.
 
-Última actualización: v1.5plugin.9m.
+Última actualización: v1.5plugin.9p.
 
 ---
 
@@ -46,6 +46,11 @@ la foto de la estructura.
 - `CopiarPasajeros.js` — copia la tabla del micro abierto.
 - `Migraciones.js` — secuencia de migraciones del piloto
   (botón "🔧 Migraciones"). Ver §7.
+- `Auditoria.js` — cliente del endpoint
+  `?auditar_topologia=1` del piloto. GET dentro del page
+  context, parseo del JSON, validación de 403. Lo usa
+  `servicio.js` en `_ejecutar_auditoria`. Ver
+  `prompt_plugin_piloto.md` §12.
 - `pruebas/`:
   - `catalogo.js` — agrupa pruebas en secciones y grupos.
   - `_helpers.js`, `_<tipo>_helpers.js` — helpers.
@@ -205,6 +210,37 @@ contenedor.
 Si una corrida queda con `estado_global = "en_curso"` (el SW
 se reinició a mitad, o el usuario cerró el popup), el popup
 ofrece "Continuar" al reabrirse.
+
+### 3.3 Auditorías topológicas (v1.5plugin.9o)
+
+Las auditorías viven en un **grafo separado** del de pruebas.
+Nombre: `plugin_auditorias` (`NOMBRE_GRAFO_AUDITORIAS` en
+`ConfiguracionApli.js`).
+
+Estructura:
+
+```
+plugin (especial)
+└── auditorias (contenedor)
+    ├── actual → auditoria_<ts>   (autoenlace, la última)
+    └── auditoria_<ts>
+        └── dato = JSON con { fecha_hora, entorno, duracion_ms,
+                              nodos_total, aristas_total,
+                              criticos_count, errores_count,
+                              warnings_count,
+                              criticos: [...], errores: [...],
+                              warnings: [...] }
+```
+
+Cada auditoría es **1 solo nodo** con el reporte serializado
+a JSON en el `dato`. No tiene hijos. Se conservan las últimas
+10. Los items por severidad se truncan a 5 al guardar (para
+no inflar el JSON). El autoenlace `actual` apunta a la última.
+
+Motivo del grafo separado: `plugin_pruebas` acumula ~2500
+nodos entre corridas y migraciones viejas. Cargarlo para leer
+auditorías tardaba segundos y colgaba el popup. Con el grafo
+propio (13 nodos máximo), la carga es instantánea.
 
 ---
 

@@ -8,7 +8,7 @@
  * La secuencia vive acá. El estado se persiste en el grafo
  * vía GrafoPlugin.js.
  *
- * @version 1.5plugin.9g
+ * @version 1.5plugin.9p
  */
 
 import { URL_PILOTO, CODIGO_DUENO } from "./ConfiguracionApli.js";
@@ -83,6 +83,20 @@ export const PASOS_MIGRACION = [
         url: "index.php?reparar_arboles=1",
         nombre: "Reparar árboles hmi/hd/p",
         default: true,
+    },
+    {
+        id: "reparar_cancelaciones",
+        url: "index.php?reparar_cancelaciones=1",
+        nombre: "Reparar cancelaciones en compartidos",
+        default: true,
+        tooltip: "Reinserta en ambos árboles las cancelaciones que quedaron colgadas solo de un lado. Idempotente.",
+    },
+    {
+        id: "reparar_cancelaciones_arboles",
+        url: "index.php?reparar_cancelaciones_arboles=1",
+        nombre: "Reparar ciclos en árboles de cancelaciones",
+        default: true,
+        tooltip: "Rompe ciclos en las cadenas hd/hd_<term> de cancelaciones. Idempotente.",
     },
 ];
 

@@ -1,498 +1,453 @@
 <?php
 /**
- * Aplicador — Tanda C.1c: auditorías como 1 nodo JSON en grafo propio.
+ * Aplicador — Tanda D.2 v3 (JS): prompt_plugin_piloto.md + estructura_plugin.md.
  *
- * Motivo: cada auditoría creaba ~58 nodos (9 campos + 3 contenedores
- * + 15 items + 30 campos). Con varias corridas, el grafo de pruebas
- * crecía a miles de nodos y la carga se volvía lenta. El popup
- * quedaba en "Cargando estado..." mientras el framework iteraba
- * todo.
+ * Corrige:
+ *   1. La tabla de migraciones aparece DOS veces en prompt_plugin_piloto.md.
+ *      Cada bloque se desambigua con su header (uno es "## 11. MIGRACIONES
+ *      (v1.5plugin.9a-9b)", otro es "## 11. ARCO DEL BOTÓN DE MIGRACIONES
+ *      (v1.5plugin.9a-9m)").
+ *   2. El `buscar` del §12 tampoco matcheaba porque `**FIN DEL PROMPT**`
+ *      aparece dos veces. Se usa "Modo dry-run" como ancla (único en §11.4).
  *
- * Cambios:
- * 1. NOMBRE_GRAFO_AUDITORIAS = "plugin_auditorias" (grafo propio,
- *    separado de plugin_pruebas).
- * 2. _grafo_cargado (bool) -> _grafo_cargado_actual (string|null).
- * 3. _asegurar_grafo_auditorias_cargado() para el nuevo grafo.
- * 4. registrar_auditoria guarda UNA sola cadena JSON en UN nodo
- *    (auditoria_<ts>). Sin hijos.
- * 5. obtener_estado_auditorias parsea el JSON de cada nodo.
- * 6. Se eliminan _agregar_primeros_auditoria, _leer_primeros_auditoria
- *    y _formatear_auditoria. _destruir_auditoria se simplifica.
- *
- * Resultado: cada auditoría suma 1 nodo (antes 58). Con 10 auditorías:
- * 13 nodos en plugin_auditorias (raíz + contenedor + 10 + actual).
- *
- * Uso (raíz del repo iteradoresJS/): php aplicar_cambios.php
+ * Uso (raíz del repo iteradoresJS/): php aplicar_cambios_d2_js_v3.php
  */
 
 $modo_estricto = true;
 $raiz_proyecto = __DIR__;
-$version_nueva = '1.5plugin.9o';
-
+$version_nueva = '';
 $htmls_a_bumpear = [];
 
 $cambios = [
 
 // ============================================================
-// 1. ConfiguracionApli.js: NOMBRE_GRAFO_AUDITORIAS
+// 1. Primera tabla de migraciones (sección §11 original)
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/ConfiguracionApli.js',
-    'descripcion' => 'Agregar NOMBRE_GRAFO_AUDITORIAS',
+    'archivo' => 'prompts/prompt_plugin_piloto.md',
+    'descripcion' => 'Plugin: primera tabla §11.1 (10 -> 12 pasos)',
     'buscar' => [
-        'export const NOMBRE_GRAFO = "plugin_pruebas";',
+        '## 11. MIGRACIONES (v1.5plugin.9a-9b)',
+        '',
+        'El plugin tiene un botón **🔧 Migraciones** en la barra de',
+        'acciones globales del popup. Corre la secuencia de',
+        'migraciones del piloto PHP (9 pasos + drenado del buzón) y',
+        'persiste el estado en el grafo.',
+        '',
+        '### 11.1 Los 10 pasos',
+        '',
+        '| # | Endpoint | Default | Peligroso |',
+        '|---|---|---|---|',
+        '| 1 | `?migrar_a_sql64=1` | ON | sí |',
+        '| 2 | `?migrar_usuarios_especiales=1` | ON | no |',
+        '| 3 | `?migrar_niveles_usuario=1` | ON | no |',
+        '| 4 | `?migrar_compartidos_terminal=1` | ON | no |',
+        '| 5 | `?construir_arboles_compartidos=1` | ON | no |',
+        '| 6 | `?repuntar_terminales_compartido=1` | ON | no |',
+        '| 7 | `?migrar_topologia=1` | OFF | sí |',
+        '| 8 | `?reparar_topologia=1` | ON | no |',
+        '| 9 | `?reparar_arboles=1` | ON | no |',
+        '| 10 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |',
+        '',
+        'Los pasos peligrosos muestran un ⚠️ y un tooltip:',
     ],
     'reemplazar' => [
-        'export const NOMBRE_GRAFO = "plugin_pruebas";',
-        'export const NOMBRE_GRAFO_AUDITORIAS = "plugin_auditorias";',
-    ],
-],
-[
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/ConfiguracionApli.js',
-    'descripcion' => 'Bump VERSION_APP a 9o',
-    'buscar' => [
-        'export const VERSION_APP = "1.5plugin.9n";',
-    ],
-    'reemplazar' => [
-        'export const VERSION_APP = "1.5plugin.9o";',
-    ],
-],
-[
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/ConfiguracionApli.js',
-    'descripcion' => 'Bump VERSION_PLUGIN a 9o',
-    'buscar' => [
-        'export const VERSION_PLUGIN = "1.5plugin.9n";',
-    ],
-    'reemplazar' => [
-        'export const VERSION_PLUGIN = "1.5plugin.9o";',
-    ],
-],
-
-// ============================================================
-// 2. GrafoPlugin.js: import de NOMBRE_GRAFO_AUDITORIAS
-// ============================================================
-[
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'Import de NOMBRE_GRAFO_AUDITORIAS',
-    'buscar' => [
-        'import { NOMBRE_GRAFO, CORRIDAS_POR_PRUEBA_MAX } from "./ConfiguracionApli.js";',
-    ],
-    'reemplazar' => [
-        'import { NOMBRE_GRAFO, NOMBRE_GRAFO_AUDITORIAS, CORRIDAS_POR_PRUEBA_MAX } from "./ConfiguracionApli.js";',
-    ],
-],
-
-// ============================================================
-// 3. GrafoPlugin.js: _grafo_cargado -> _grafo_cargado_actual
-// ============================================================
-[
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'Cambiar cache de grafo a string|null',
-    'buscar' => [
-        'let _grafo_cargado = false;',
-    ],
-    'reemplazar' => [
-        'let _grafo_cargado_actual = null; // null | NOMBRE_GRAFO | NOMBRE_GRAFO_AUDITORIAS',
-    ],
-],
-[
-    'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'asegurar_grafo_cargado con _grafo_cargado_actual',
-    'buscar' => [
-        'export async function asegurar_grafo_cargado() {',
-        '    if (_grafo_cargado) return;',
+        '## 11. MIGRACIONES (v1.5plugin.9a-9b)',
         '',
-        '    const Controlador = await obtener_controlador();',
-        '    const existe = await Controlador.existe(NOMBRE_GRAFO);',
+        'El plugin tiene un botón **🔧 Migraciones** en la barra de',
+        'acciones globales del popup. Corre la secuencia de',
+        'migraciones del piloto PHP (11 pasos + drenado del buzón) y',
+        'persiste el estado en el grafo.',
         '',
-        '    if (existe) {',
-        '        const ok = await Controlador.cargar(NOMBRE_GRAFO);',
-        '        if (!ok) {',
-        '            throw new Error("El grafo existe pero no se pudo cargar");',
-        '        }',
-        '        const migrado = _migrar_estructura_si_hace_falta();',
-        '        if (migrado) {',
-        '            await Controlador.guardar(NOMBRE_GRAFO);',
-        '        }',
-        '    } else {',
-        '        Nodo.vaciar_superestructura(Controlador.token);',
-        '        _crear_estructura_inicial();',
-        '        const ok = await Controlador.guardar(NOMBRE_GRAFO);',
-        '        if (!ok) {',
-        '            throw new Error("No se pudo guardar el grafo inicial");',
-        '        }',
-        '    }',
+        '### 11.1 Los 12 pasos',
         '',
-        '    _grafo_cargado = true;',
-        '}',
-    ],
-    'reemplazar' => [
-        'export async function asegurar_grafo_cargado() {',
-        '    if (_grafo_cargado_actual === NOMBRE_GRAFO) return;',
+        '| # | Endpoint | Default | Peligroso |',
+        '|---|---|---|---|',
+        '| 1 | `?migrar_a_sql64=1` | ON | sí |',
+        '| 2 | `?migrar_usuarios_especiales=1` | ON | no |',
+        '| 3 | `?migrar_niveles_usuario=1` | ON | no |',
+        '| 4 | `?migrar_compartidos_terminal=1` | ON | no |',
+        '| 5 | `?construir_arboles_compartidos=1` | ON | no |',
+        '| 6 | `?repuntar_terminales_compartido=1` | ON | no |',
+        '| 7 | `?migrar_topologia=1` | OFF | sí |',
+        '| 8 | `?reparar_topologia=1` | ON | no |',
+        '| 9 | `?reparar_arboles=1` | ON | no |',
+        '| 10 | `?reparar_cancelaciones=1` | ON | no |',
+        '| 11 | `?reparar_cancelaciones_arboles=1` | ON | no |',
+        '| 12 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |',
         '',
-        '    const Controlador = await obtener_controlador();',
-        '    const existe = await Controlador.existe(NOMBRE_GRAFO);',
+        'Los pasos 10 y 11 (agregados en v1.5plugin.9p) cierran el',
+        'arco de cancelaciones en compartidos. Ambos idempotentes,',
+        'seguros, con `default: true`. Ver `prompt_piloto.md` §5.17',
+        'del proyecto PHP.',
         '',
-        '    if (existe) {',
-        '        const ok = await Controlador.cargar(NOMBRE_GRAFO);',
-        '        if (!ok) {',
-        '            throw new Error("El grafo existe pero no se pudo cargar");',
-        '        }',
-        '        const migrado = _migrar_estructura_si_hace_falta();',
-        '        if (migrado) {',
-        '            await Controlador.guardar(NOMBRE_GRAFO);',
-        '        }',
-        '    } else {',
-        '        Nodo.vaciar_superestructura(Controlador.token);',
-        '        _crear_estructura_inicial();',
-        '        const ok = await Controlador.guardar(NOMBRE_GRAFO);',
-        '        if (!ok) {',
-        '            throw new Error("No se pudo guardar el grafo inicial");',
-        '        }',
-        '    }',
-        '',
-        '    _grafo_cargado_actual = NOMBRE_GRAFO;',
-        '}',
-        '',
-        '/**',
-        ' * Carga el grafo de auditorías (separado del de pruebas).',
-        ' * Si no existe, crea el nodo raíz plugin.',
-        ' */',
-        'async function _asegurar_grafo_auditorias_cargado() {',
-        '    if (_grafo_cargado_actual === NOMBRE_GRAFO_AUDITORIAS) return;',
-        '    const Controlador = await obtener_controlador();',
-        '    const existe = await Controlador.existe(NOMBRE_GRAFO_AUDITORIAS);',
-        '    if (existe) {',
-        '        const ok = await Controlador.cargar(NOMBRE_GRAFO_AUDITORIAS);',
-        '        if (!ok) {',
-        '            throw new Error("El grafo de auditorías existe pero no se pudo cargar");',
-        '        }',
-        '    } else {',
-        '        Nodo.vaciar_superestructura(Controlador.token);',
-        '        Nodo.crear_con_id("plugin");',
-        '        const ok = await Controlador.guardar(NOMBRE_GRAFO_AUDITORIAS);',
-        '        if (!ok) {',
-        '            throw new Error("No se pudo guardar el grafo de auditorías inicial");',
-        '        }',
-        '    }',
-        '    _grafo_cargado_actual = NOMBRE_GRAFO_AUDITORIAS;',
-        '}',
+        'Los pasos peligrosos muestran un ⚠️ y un tooltip:',
     ],
 ],
 
 // ============================================================
-// 4. GrafoPlugin.js: registrar_auditoria con JSON string
+// 2. Segunda tabla de migraciones (sección §11 del arco final)
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'registrar_auditoria: 1 nodo JSON en plugin_auditorias',
+    'archivo' => 'prompts/prompt_plugin_piloto.md',
+    'descripcion' => 'Plugin: segunda tabla §11.1 (10 -> 12 pasos)',
     'buscar' => [
-        'export async function registrar_auditoria(datos) {',
-        '    await asegurar_grafo_cargado();',
-        '    const Controlador = await obtener_controlador();',
+        '## 11. ARCO DEL BOTÓN DE MIGRACIONES (v1.5plugin.9a-9m)',
         '',
-        '    const raiz = Nodo.nodo_por_id("plugin");',
-        '    if (!raiz) throw new Error("Sin raíz del plugin");',
+        'El plugin tiene un botón **🔧 Migraciones** en la barra',
+        'de acciones globales del popup. Corre la secuencia de',
+        'migraciones del piloto (9 pasos + drenado del buzón) y',
+        'persiste el estado en el grafo.',
         '',
-        '    let auditorias = raiz.adyacente("auditorias");',
-        '    if (!auditorias) {',
-        '        auditorias = Nodo.crear_con_dato("");',
-        '        raiz._adyacente_en(auditorias, "auditorias");',
-        '    }',
+        '### 11.1 Los 10 pasos',
         '',
-        '    if (auditorias.adyacente("actual")) {',
-        '        auditorias.eliminar_adyacente("actual");',
-        '    }',
+        '| # | Endpoint | Default | Peligroso |',
+        '|---|---|---|---|',
+        '| 1 | `?migrar_a_sql64=1` | ON | sí |',
+        '| 2 | `?migrar_usuarios_especiales=1` | ON | no |',
+        '| 3 | `?migrar_niveles_usuario=1` | ON | no |',
+        '| 4 | `?migrar_compartidos_terminal=1` | ON | no |',
+        '| 5 | `?construir_arboles_compartidos=1` | ON | no |',
+        '| 6 | `?repuntar_terminales_compartido=1` | ON | no |',
+        '| 7 | `?migrar_topologia=1` | OFF | sí |',
+        '| 8 | `?reparar_topologia=1` | ON | no |',
+        '| 9 | `?reparar_arboles=1` | ON | no |',
+        '| 10 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |',
         '',
-        '    const id_corrida = "auditoria_" + Date.now();',
-        '    const corrida = Nodo.crear_con_dato(id_corrida);',
-        '    auditorias._adyacente_en(corrida, id_corrida);',
-        '    auditorias._adyacente_en(corrida, "actual");',
-        '',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.fecha_hora)), "fecha_hora");',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.entorno || "")), "entorno");',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(datos.duracion_ms || 0)), "duracion_ms");',
-        '',
-        '    const rep = datos.reporte || {};',
-        '    const res = rep.resumen || {};',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(res.nodos_total || 0)), "nodos_total");',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(res.aristas_total || 0)), "aristas_total");',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(res.criticos || 0)), "criticos_count");',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(res.errores || 0)), "errores_count");',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(String(res.warnings || 0)), "warnings_count");',
-        '',
-        '    const truncado = ((res.criticos || 0) > AUDITORIA_PRIMEROS_N)',
-        '                  || ((res.errores || 0) > AUDITORIA_PRIMEROS_N)',
-        '                  || ((res.warnings || 0) > AUDITORIA_PRIMEROS_N);',
-        '    corrida._adyacente_en(Nodo.crear_con_dato(truncado ? "1" : "0"), "truncado");',
-        '',
-        '    _agregar_primeros_auditoria(corrida, "primeros_criticos", rep.criticos || [], AUDITORIA_PRIMEROS_N);',
-        '    _agregar_primeros_auditoria(corrida, "primeros_errores", rep.errores || [], AUDITORIA_PRIMEROS_N);',
-        '    _agregar_primeros_auditoria(corrida, "primeros_warnings", rep.warnings || [], AUDITORIA_PRIMEROS_N);',
-        '',
-        '    _podar_auditorias(auditorias);',
-        '',
-        '    const ok = await Controlador.guardar(NOMBRE_GRAFO);',
-        '    if (!ok) throw new Error("No se pudo guardar la auditoría");',
-        '    return id_corrida;',
-        '}',
+        'Los pasos peligrosos muestran un ⚠️ y un tooltip. El paso',
+        '10 tiene un input editable para el código del dueño (con',
+        '`carmen1` como default).',
     ],
     'reemplazar' => [
-        'export async function registrar_auditoria(datos) {',
-        '    await _asegurar_grafo_auditorias_cargado();',
-        '    const Controlador = await obtener_controlador();',
+        '## 11. ARCO DEL BOTÓN DE MIGRACIONES (v1.5plugin.9a-9p)',
         '',
-        '    const raiz = Nodo.nodo_por_id("plugin");',
-        '    if (!raiz) throw new Error("Sin raíz del plugin");',
+        'El plugin tiene un botón **🔧 Migraciones** en la barra',
+        'de acciones globales del popup. Corre la secuencia de',
+        'migraciones del piloto (11 pasos + drenado del buzón) y',
+        'persiste el estado en el grafo.',
         '',
-        '    let auditorias = raiz.adyacente("auditorias");',
-        '    if (!auditorias) {',
-        '        auditorias = Nodo.crear_con_dato("");',
-        '        raiz._adyacente_en(auditorias, "auditorias");',
-        '    }',
+        '### 11.1 Los 12 pasos',
         '',
-        '    if (auditorias.adyacente("actual")) {',
-        '        auditorias.eliminar_adyacente("actual");',
-        '    }',
+        '| # | Endpoint | Default | Peligroso |',
+        '|---|---|---|---|',
+        '| 1 | `?migrar_a_sql64=1` | ON | sí |',
+        '| 2 | `?migrar_usuarios_especiales=1` | ON | no |',
+        '| 3 | `?migrar_niveles_usuario=1` | ON | no |',
+        '| 4 | `?migrar_compartidos_terminal=1` | ON | no |',
+        '| 5 | `?construir_arboles_compartidos=1` | ON | no |',
+        '| 6 | `?repuntar_terminales_compartido=1` | ON | no |',
+        '| 7 | `?migrar_topologia=1` | OFF | sí |',
+        '| 8 | `?reparar_topologia=1` | ON | no |',
+        '| 9 | `?reparar_arboles=1` | ON | no |',
+        '| 10 | `?reparar_cancelaciones=1` | ON | no |',
+        '| 11 | `?reparar_cancelaciones_arboles=1` | ON | no |',
+        '| 12 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |',
         '',
-        '    const id_corrida = "auditoria_" + Date.now();',
-        '    const rep = datos.reporte || {};',
-        '    const res = rep.resumen || {};',
-        '    const contenido_json = JSON.stringify({',
-        '        fecha_hora: String(datos.fecha_hora || ""),',
-        '        entorno: String(datos.entorno || ""),',
-        '        duracion_ms: Number(datos.duracion_ms) || 0,',
-        '        nodos_total: Number(res.nodos_total) || 0,',
-        '        aristas_total: Number(res.aristas_total) || 0,',
-        '        criticos_count: Number(res.criticos) || 0,',
-        '        errores_count: Number(res.errores) || 0,',
-        '        warnings_count: Number(res.warnings) || 0,',
-        '        criticos: (rep.criticos || []).slice(0, AUDITORIA_PRIMEROS_N),',
-        '        errores: (rep.errores || []).slice(0, AUDITORIA_PRIMEROS_N),',
-        '        warnings: (rep.warnings || []).slice(0, AUDITORIA_PRIMEROS_N),',
-        '    });',
-        '',
-        '    const corrida = Nodo.crear_con_dato(contenido_json);',
-        '    auditorias._adyacente_en(corrida, id_corrida);',
-        '    auditorias._adyacente_en(corrida, "actual");',
-        '',
-        '    _podar_auditorias(auditorias);',
-        '',
-        '    const ok = await Controlador.guardar(NOMBRE_GRAFO_AUDITORIAS);',
-        '    if (!ok) throw new Error("No se pudo guardar la auditoría");',
-        '    return id_corrida;',
-        '}',
+        'Los pasos 10 y 11 (agregados en v1.5plugin.9p) cierran el',
+        'arco de cancelaciones en compartidos. Los pasos peligrosos',
+        'muestran un ⚠️ y un tooltip. El paso 12 tiene un input',
+        'editable para el código del dueño (con `carmen1` como',
+        'default).',
     ],
 ],
 
 // ============================================================
-// 5. GrafoPlugin.js: obtener_estado_auditorias parsea JSON
+// 3. Lecciones 68-70
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'obtener_estado_auditorias: parsear JSON de cada nodo',
+    'archivo' => 'prompts/prompt_plugin_piloto.md',
+    'descripcion' => 'Plugin: 3 lecciones nuevas (68-70)',
     'buscar' => [
-        'export async function obtener_estado_auditorias() {',
-        '    await asegurar_grafo_cargado();',
-        '    const raiz = Nodo.nodo_por_id("plugin");',
-        '    if (!raiz) return { actual: null, historial: [] };',
-        '    const auditorias = raiz.adyacente("auditorias");',
-        '    if (!auditorias) return { actual: null, historial: [] };',
+        '    efecto en el DOM (modal abierto con contenido) es',
+        '    parte del contrato.',
         '',
-        '    let actual = null;',
-        '    const historial = [];',
-        '    const ady = auditorias.adyacentes();',
-        '    if (ady) {',
-        '        for (const [nombre, corrida] of ady) {',
-        '            if (nombre === "actual") {',
-        '                actual = _formatear_auditoria(nombre, corrida);',
-        '                continue;',
-        '            }',
-        '            if (!nombre.startsWith("auditoria_")) continue;',
-        '            historial.push(_formatear_auditoria(nombre, corrida));',
-        '        }',
-        '    }',
+        '---',
         '',
-        '    historial.sort((a, b) => (b.fecha_hora || "").localeCompare(a.fecha_hora || ""));',
-        '    return { actual, historial: historial.slice(0, 5) };',
-        '}',
+        '## 11. MIGRACIONES (v1.5plugin.9a-9b)',
     ],
     'reemplazar' => [
-        'export async function obtener_estado_auditorias() {',
-        '    await _asegurar_grafo_auditorias_cargado();',
-        '    const raiz = Nodo.nodo_por_id("plugin");',
-        '    if (!raiz) return { actual: null, historial: [] };',
-        '    const auditorias = raiz.adyacente("auditorias");',
-        '    if (!auditorias) return { actual: null, historial: [] };',
+        '    efecto en el DOM (modal abierto con contenido) es',
+        '    parte del contrato.',
         '',
-        '    let actual = null;',
-        '    const historial = [];',
-        '    const ady = auditorias.adyacentes();',
-        '    if (ady) {',
-        '        for (const [nombre, corrida] of ady) {',
-        '            const raw = corrida.dato();',
-        '            if (!raw) continue;',
-        '            let datos;',
-        '            try {',
-        '                datos = JSON.parse(raw);',
-        '            } catch (e) {',
-        '                continue;',
-        '            }',
-        '            datos.id = nombre;',
-        '            datos.truncado = (Number(datos.criticos_count) > (datos.criticos || []).length)',
-        '                          || (Number(datos.errores_count) > (datos.errores || []).length)',
-        '                          || (Number(datos.warnings_count) > (datos.warnings || []).length);',
-        '            if (nombre === "actual") {',
-        '                actual = datos;',
-        '            } else if (nombre.startsWith("auditoria_")) {',
-        '                historial.push(datos);',
-        '            }',
-        '        }',
-        '    }',
+        '68. **Un grafo persistido por feature, no todo en uno.**',
+        '    Al principio el plugin guardaba todo (corridas,',
+        '    migraciones, auditorías) en un único grafo',
+        '    (`plugin_pruebas`). Con el tiempo, ese grafo acumuló',
+        '    ~2500 nodos, y cualquier operación que lo cargara',
+        '    tardaba segundos (el framework recorre todo el grafo',
+        '    en cada `cargar`). La carga de auditorías colgaba el',
+        '    popup. **Regla: cada feature con su propio grafo**',
+        '    (`plugin_pruebas`, `plugin_auditorias`,',
+        '    `plugin_<futuro>`). `GrafoPlugin.js` mantiene',
+        '    `_grafo_cargado_actual` (string|null) para saber qué',
+        '    grafo tiene cargado y recargar si cambia.',
         '',
-        '    historial.sort((a, b) => (b.fecha_hora || "").localeCompare(a.fecha_hora || ""));',
-        '    return { actual, historial: historial.slice(0, 5) };',
-        '}',
+        '69. **Guardar reportes completos como JSON string en un',
+        '    solo nodo, no como sub-árbol.** Al principio cada',
+        '    auditoría creaba ~58 nodos (9 campos + 3 contenedores',
+        '    + 15 items + 30 campos). Con 10 auditorías, el grafo',
+        '    tenía 5000 nodos. Reemplazado por un único nodo',
+        '    `auditoria_<ts>` con el reporte serializado a JSON en',
+        '    el `dato`. Se conservan solo los primeros 5 items por',
+        '    severidad en el JSON; el resto se trunca. **Ventajas:**',
+        '    (a) menos nodos, carga más rápida; (b) el nodo no',
+        '    tiene hijos, no hay que recorrerlos para destruirlo.',
+        '    **Desventaja:** si el reporte crece mucho (e.g.',
+        '    1000 items por severidad), el JSON puede pesar varios',
+        '    KB. Solución: truncar al guardar, mostrar completo',
+        '    solo en la UI en vivo.',
+        '',
+        '70. **Los bloques `buscar` con estructura repetida',
+        '    necesitan desambiguación por header.** El prompt tiene',
+        '    DOS tablas de migraciones idénticas (una en §11 y otra',
+        '    en el arco del final). Un `buscar` que arranca en',
+        '    "### 11.1 Los 10 pasos" matchea las dos y aborta por',
+        '    ambigüedad. **Regla: incluir el header `## 11. <título',
+        '    único>` en el `buscar`** para anclar la sección. Lo',
+        '    mismo con `**FIN DEL PROMPT**`, que aparece dos veces',
+        '    (final del bloque grande y final del arco). Usar la',
+        '    última línea del archivo como ancla específica.',
+        '',
+        '---',
+        '',
+        '## 11. MIGRACIONES (v1.5plugin.9a-9b)',
     ],
 ],
 
 // ============================================================
-// 6. GrafoPlugin.js: simplificar _destruir_auditoria
+// 4. Bump "última actualización" (§9 DISCUSIÓN ACTUAL)
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'Simplificar _destruir_auditoria',
+    'archivo' => 'prompts/prompt_plugin_piloto.md',
+    'descripcion' => 'Plugin: bump última actualización',
     'buscar' => [
-        'function _destruir_auditoria(auditorias, item) {',
-        '    const corrida = item.corrida;',
-        '    const ady = corrida.adyacentes();',
-        '    if (ady) {',
-        '        for (const [nombre, hijo] of ady) {',
-        '            const ady_h = hijo.adyacentes();',
-        '            if (ady_h) {',
-        '                for (const [nh, n] of ady_h) {',
-        '                    hijo.eliminar_adyacente(nh);',
-        '                    Nodo.eliminar(n);',
-        '                }',
-        '            }',
-        '            corrida.eliminar_adyacente(nombre);',
-        '            Nodo.eliminar(hijo);',
-        '        }',
-        '    }',
-        '    auditorias.eliminar_adyacente(item.nombre);',
-        '    Nodo.eliminar(corrida);',
-        '}',
+        '**Última actualización de este prompt:** v1.5plugin.9m.',
+        'Botón "🔧 Migraciones" en el plugin (v9a-v9m). Corre los',
+        '9 pasos del piloto + drenado del buzón. Estado persistido',
+        'en el grafo, reanudable. `asegurar_login` 100%',
+        '`executeScript` (v9k). `URLS_PILOTO` estricta (v9l).',
+        'URLs de pruebas y producción actualizadas (v9m). Ver §11.',
     ],
     'reemplazar' => [
-        'function _destruir_auditoria(auditorias, item) {',
-        '    auditorias.eliminar_adyacente(item.nombre);',
-        '    Nodo.eliminar(item.corrida);',
-        '}',
+        '**Última actualización de este prompt:** v1.5plugin.9p.',
+        'Cierre de la línea de auditoría topológica y del arco de',
+        'cancelaciones:',
+        '- v9o: botón "🔍 Auditar topología" + panel + grafo',
+        '  `plugin_auditorias` con 1 nodo JSON por auditoría. Ver §12.',
+        '- v9p: secuencia de migración ampliada de 10 a 12 pasos',
+        '  (`reparar_cancelaciones` y `reparar_cancelaciones_arboles`',
+        '  entre `reparar_arboles` y `drenar_buzon`). Ver §11.1.',
+        '',
+        'Antes (v9m): botón "🔧 Migraciones" con los 9 pasos del',
+        'piloto + drenado. Ver §11.',
     ],
 ],
 
 // ============================================================
-// 7. GrafoPlugin.js: eliminar _agregar_primeros_auditoria
+// 5. §12 nueva (auditoría topológica)
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'Eliminar _agregar_primeros_auditoria',
+    'archivo' => 'prompts/prompt_plugin_piloto.md',
+    'descripcion' => 'Plugin: §12 auditoría topológica',
     'buscar' => [
-        'function _agregar_primeros_auditoria(corrida, nombre_contenedor, lista, n) {',
-        '    if (!Array.isArray(lista) || lista.length === 0) return;',
-        '    const cont = Nodo.crear_con_dato("");',
-        '    const primeros = lista.slice(0, n);',
-        '    for (let i = 0; i < primeros.length; i++) {',
-        '        const item = Nodo.crear_con_dato("");',
-        '        item._adyacente_en(Nodo.crear_con_dato(String(primeros[i].tipo || "")), "tipo");',
-        '        item._adyacente_en(Nodo.crear_con_dato(String(primeros[i].detalle || "")), "detalle");',
-        '        cont._adyacente_en(item, "item_" + i);',
-        '    }',
-        '    corrida._adyacente_en(cont, nombre_contenedor);',
-        '}',
+        '- Modo dry-run: mostrar qué haría cada paso sin ejecutarlo.',
+        '',
+        '**FIN DEL PROMPT**',
     ],
     'reemplazar' => [
-        '// _agregar_primeros_auditoria eliminada en v1.5plugin.9o (JSON string en su lugar).',
+        '- Modo dry-run: mostrar qué haría cada paso sin ejecutarlo.',
+        '',
+        '---',
+        '',
+        '## 12. AUDITORÍA TOPOLÓGICA (v1.5plugin.9o-9p)',
+        '',
+        'El plugin tiene un botón **🔍 Auditar topología** en la barra de',
+        'acciones globales del popup. Corre el endpoint del piloto',
+        '`?auditar_topologia=1` y muestra el reporte en un panel',
+        'colapsable.',
+        '',
+        '### 12.1 Qué hace',
+        '',
+        '- Hace un GET a `index.php?auditar_topologia=1&nombre_solicitante=<nombre>`',
+        '  dentro del page context (para que viajen las cookies del piloto).',
+        '- El nombre del solicitante se resuelve con',
+        '  `ctx.nombre_usuario_actual()` (lee `usuario_actual.nombre_usuario`',
+        '  del page). En local, si no se resuelve, el endpoint lo permite.',
+        '- Parsea el JSON de respuesta. Si `exito: true`, persiste la',
+        '  auditoría en el grafo del plugin.',
+        '- Muestra el reporte agrupado por severidad (críticos, errores,',
+        '  warnings) con colores.',
+        '- Muestra el historial de las últimas 10 auditorías.',
+        '',
+        '### 12.2 Persistencia: grafo propio `plugin_auditorias`',
+        '',
+        '**Las auditorías no comparten el grafo con las pruebas ni con las',
+        'migraciones.** Viven en un grafo separado (`plugin_auditorias`).',
+        'Motivo: el grafo de pruebas (`plugin_pruebas`) acumula ~2500 nodos',
+        'entre corridas y migraciones viejas. Cargar ese grafo para leer',
+        'auditorías tardaba segundos y colgaba el popup.',
+        '',
+        '**1 nodo JSON por auditoría.** Cada auditoría se guarda como un',
+        'único nodo `auditoria_<ts>` con el reporte serializado a JSON en el',
+        '`dato`. Antes se creaban ~58 nodos por corrida (9 campos + 3',
+        'contenedores + 15 items + 30 campos). Con 10 auditorías, el grafo',
+        'crecía a 5000 nodos y la carga se volvía lenta.',
+        '',
+        '**Estructura:**',
+        '',
+        '```',
+        'plugin',
+        '└── auditorias',
+        '    ├── actual → auditoria_<ts>   (autoenlace, la última)',
+        '    └── auditoria_<ts>',
+        '        └── dato = JSON con { fecha_hora, entorno, duracion_ms,',
+        '                              nodos_total, aristas_total,',
+        '                              criticos_count, errores_count,',
+        '                              warnings_count,',
+        '                              criticos: [...], errores: [...],',
+        '                              warnings: [...] }',
+        '```',
+        '',
+        'Se conservan las últimas 10 auditorías. El autoenlace `actual`',
+        'facilita el lookup de la última.',
+        '',
+        '### 12.3 UI',
+        '',
+        '- Botón "🔍 Auditar topología" al lado de "🔧 Migraciones" en la',
+        '  barra de acciones globales.',
+        '- Panel colapsable que se abre al clickear el botón.',
+        '- Dentro del panel:',
+        '  - Contadores coloreados (rojo/naranja/amarillo).',
+        '  - Primeros 5 items por severidad (el resto, truncado).',
+        '  - Botón "🔍 Auditar ahora" con confirmación por entorno:',
+        '    `confirm()` en local, `prompt("AUDITAR")` en remoto.',
+        '  - Historial de las últimas 5 auditorías con fecha, entorno y',
+        '    contadores.',
+        '',
+        '### 12.4 Módulos tocados',
+        '',
+        '- `Aplicacion/Auditoria.js` (nuevo): cliente del endpoint.',
+        '- `Aplicacion/servicio.js`: cases `auditar_topologia` y',
+        '  `estado_auditorias`.',
+        '- `Aplicacion/GrafoPlugin.js`: `registrar_auditoria` y',
+        '  `obtener_estado_auditorias` sobre `plugin_auditorias`.',
+        '- `Aplicacion/ventana.js`: botón + panel + render del reporte.',
+        '- `Aplicacion/ConfiguracionApli.js`: `NOMBRE_GRAFO_AUDITORIAS`.',
+        '',
+        '---',
+        '',
+        '**FIN DEL PROMPT**',
     ],
 ],
 
 // ============================================================
-// 8. GrafoPlugin.js: eliminar _formatear_auditoria
+// 6. estructura_plugin: Aplicacion/Auditoria.js
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'Eliminar _formatear_auditoria',
+    'archivo' => 'prompts/estructura_plugin.md',
+    'descripcion' => 'estructura_plugin: Aplicacion/Auditoria.js',
     'buscar' => [
-        'function _formatear_auditoria(nombre, corrida) {',
-        '    return {',
-        '        id: nombre,',
-        '        fecha_hora: _dato_adyacente(corrida, "fecha_hora"),',
-        '        entorno: _dato_adyacente(corrida, "entorno"),',
-        '        duracion_ms: _dato_adyacente(corrida, "duracion_ms"),',
-        '        nodos_total: _dato_adyacente(corrida, "nodos_total"),',
-        '        aristas_total: _dato_adyacente(corrida, "aristas_total"),',
-        '        criticos_count: _dato_adyacente(corrida, "criticos_count"),',
-        '        errores_count: _dato_adyacente(corrida, "errores_count"),',
-        '        warnings_count: _dato_adyacente(corrida, "warnings_count"),',
-        '        truncado: _dato_adyacente(corrida, "truncado") === "1",',
-        '        criticos: _leer_primeros_auditoria(corrida, "primeros_criticos"),',
-        '        errores: _leer_primeros_auditoria(corrida, "primeros_errores"),',
-        '        warnings: _leer_primeros_auditoria(corrida, "primeros_warnings"),',
-        '    };',
-        '}',
+        '- `LimpiezaPrueba.js` — limpieza de datos de prueba.',
+        '- `CopiarPasajeros.js` — copia la tabla del micro abierto.',
+        '- `Migraciones.js` — secuencia de migraciones del piloto',
+        '  (botón "🔧 Migraciones"). Ver §7.',
     ],
     'reemplazar' => [
-        '// _formatear_auditoria eliminada en v1.5plugin.9o.',
+        '- `LimpiezaPrueba.js` — limpieza de datos de prueba.',
+        '- `CopiarPasajeros.js` — copia la tabla del micro abierto.',
+        '- `Migraciones.js` — secuencia de migraciones del piloto',
+        '  (botón "🔧 Migraciones"). Ver §7.',
+        '- `Auditoria.js` — cliente del endpoint',
+        '  `?auditar_topologia=1` del piloto. GET dentro del page',
+        '  context, parseo del JSON, validación de 403. Lo usa',
+        '  `servicio.js` en `_ejecutar_auditoria`. Ver',
+        '  `prompt_plugin_piloto.md` §12.',
     ],
 ],
 
 // ============================================================
-// 9. GrafoPlugin.js: eliminar _leer_primeros_auditoria
+// 7. estructura_plugin: plugin_auditorias
 // ============================================================
 [
     'tipo' => 'reemplazar',
-    'archivo' => 'Aplicacion/GrafoPlugin.js',
-    'descripcion' => 'Eliminar _leer_primeros_auditoria',
+    'archivo' => 'prompts/estructura_plugin.md',
+    'descripcion' => 'estructura_plugin: plugin_auditorias',
     'buscar' => [
-        'function _leer_primeros_auditoria(corrida, nombre_contenedor) {',
-        '    const cont = corrida.adyacente(nombre_contenedor);',
-        '    if (!cont) return [];',
-        '    const out = [];',
-        '    const ady = cont.adyacentes();',
-        '    if (!ady) return out;',
-        '    for (const [nombre, item] of ady) {',
-        '        if (!nombre.startsWith("item_")) continue;',
-        '        out.push({',
-        '            tipo: _dato_adyacente(item, "tipo"),',
-        '            detalle: _dato_adyacente(item, "detalle"),',
-        '        });',
-        '    }',
-        '    return out;',
-        '}',
+        'Se conservan las últimas 10 corridas. El autoenlace `actual`',
+        'facilita el lookup de la corrida en curso sin recorrer el',
+        'contenedor.',
+        '',
+        'Si una corrida queda con `estado_global = "en_curso"` (el SW',
+        'se reinició a mitad, o el usuario cerró el popup), el popup',
+        'ofrece "Continuar" al reabrirse.',
     ],
     'reemplazar' => [
-        '// _leer_primeros_auditoria eliminada en v1.5plugin.9o (JSON string en su lugar).',
+        'Se conservan las últimas 10 corridas. El autoenlace `actual`',
+        'facilita el lookup de la corrida en curso sin recorrer el',
+        'contenedor.',
+        '',
+        'Si una corrida queda con `estado_global = "en_curso"` (el SW',
+        'se reinició a mitad, o el usuario cerró el popup), el popup',
+        'ofrece "Continuar" al reabrirse.',
+        '',
+        '### 3.3 Auditorías topológicas (v1.5plugin.9o)',
+        '',
+        'Las auditorías viven en un **grafo separado** del de pruebas.',
+        'Nombre: `plugin_auditorias` (`NOMBRE_GRAFO_AUDITORIAS` en',
+        '`ConfiguracionApli.js`).',
+        '',
+        'Estructura:',
+        '',
+        '```',
+        'plugin (especial)',
+        '└── auditorias (contenedor)',
+        '    ├── actual → auditoria_<ts>   (autoenlace, la última)',
+        '    └── auditoria_<ts>',
+        '        └── dato = JSON con { fecha_hora, entorno, duracion_ms,',
+        '                              nodos_total, aristas_total,',
+        '                              criticos_count, errores_count,',
+        '                              warnings_count,',
+        '                              criticos: [...], errores: [...],',
+        '                              warnings: [...] }',
+        '```',
+        '',
+        'Cada auditoría es **1 solo nodo** con el reporte serializado',
+        'a JSON en el `dato`. No tiene hijos. Se conservan las últimas',
+        '10. Los items por severidad se truncan a 5 al guardar (para',
+        'no inflar el JSON). El autoenlace `actual` apunta a la última.',
+        '',
+        'Motivo del grafo separado: `plugin_pruebas` acumula ~2500',
+        'nodos entre corridas y migraciones viejas. Cargarlo para leer',
+        'auditorías tardaba segundos y colgaba el popup. Con el grafo',
+        'propio (13 nodos máximo), la carga es instantánea.',
+    ],
+],
+
+// ============================================================
+// 8. Bump "última actualización" estructura_plugin
+// ============================================================
+[
+    'tipo' => 'reemplazar',
+    'archivo' => 'prompts/estructura_plugin.md',
+    'descripcion' => 'estructura_plugin: bump última actualización',
+    'buscar' => [
+        'Última actualización: v1.5plugin.9m.',
+    ],
+    'reemplazar' => [
+        'Última actualización: v1.5plugin.9p.',
     ],
 ],
 
 ];
 
-// ============================================================
-// Runner v2 (textual, ver prompt_sistema_scripts_v2.md §14)
-// ============================================================
-
-echo "=== Aplicador ===\n\n";
+// Runner
+echo "=== Aplicador — Tanda D.2 v3 (JS) ===\n\n";
 
 function detectar_eol(string $c): string { return (strpos($c, "\r\n") !== false) ? "\r\n" : "\n"; }
 function normalizar_a_unix(string $c): string { return str_replace("\r\n", "\n", $c); }
@@ -504,41 +459,22 @@ function contar_ocurrencias(string $c, string $b): int {
     return $n;
 }
 
-if (!isset($htmls_a_bumpear) || !is_array($htmls_a_bumpear)) {
-    $htmls_a_bumpear = ['aplicacion_GET.html'];
-}
-if (!isset($version_nueva)) $version_nueva = '';
-$version_nueva = trim((string)$version_nueva);
-$bumpear = ($version_nueva !== '');
-
-$creaciones = [];
-$eliminaciones = [];
 $reemplazos_por_archivo = [];
-
 foreach ($cambios as $cambio) {
-    $tipo = $cambio['tipo'] ?? 'reemplazar';
-    if ($tipo === 'crear') { $creaciones[] = $cambio; continue; }
-    if ($tipo === 'eliminar') { $eliminaciones[] = $cambio; continue; }
     if (!isset($cambio['archivo']) || !isset($cambio['buscar']) || !isset($cambio['reemplazar'])) {
         echo "[FALLO] Cambio mal formado.\n"; exit(1);
     }
     $reemplazos_por_archivo[$cambio['archivo']][] = $cambio;
 }
 
-$total_reemplazos = 0;
-foreach ($reemplazos_por_archivo as $l) $total_reemplazos += count($l);
-echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar, "
-    . count($creaciones) . " a crear, " . count($eliminaciones) . " a eliminar.\n\n";
+echo "[INFO] " . count($reemplazos_por_archivo) . " archivo(s) a reemplazar.\n\n";
 
-$archivos_a_escribir = [];
-$bloques_ok = 0;
-$bloques_fallidos = [];
+$archivos_a_escribir = []; $bloques_ok = 0; $bloques_fallidos = [];
 
 foreach ($reemplazos_por_archivo as $archivo_rel => $lista) {
     $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
     if (!file_exists($ruta_abs)) { $bloques_fallidos[] = "Archivo no encontrado: $archivo_rel"; continue; }
     $contenido_original = file_get_contents($ruta_abs);
-    if ($contenido_original === false) { $bloques_fallidos[] = "No se pudo leer: $archivo_rel"; continue; }
     $eol = detectar_eol($contenido_original);
     $contenido = normalizar_a_unix($contenido_original);
     $contenido_antes = $contenido;
@@ -563,80 +499,6 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     exit(1);
 }
 
-$archivos_bump_php_js = [];
-$archivos_bump_js_css = [];
-foreach ($archivos_a_escribir as $ruta_abs => $info) {
-    $rel = substr($ruta_abs, strlen($raiz_proyecto) + 1);
-    $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
-    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $rel;
-    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $rel;
-}
-foreach ($creaciones as $cr) {
-    $ext = strtolower(pathinfo($cr['archivo'], PATHINFO_EXTENSION));
-    if ($ext === 'php' || $ext === 'js') $archivos_bump_php_js[] = $cr['archivo'];
-    if ($ext === 'js' || $ext === 'css') $archivos_bump_js_css[] = $cr['archivo'];
-}
-
-$bumps_atversion = 0;
-$bumps_qv = 0;
-$bumps_detalle = [];
-$info_bumps = [];
-
-if ($bumpear) {
-    foreach (array_unique($archivos_bump_php_js) as $archivo_rel) {
-        $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
-        if (!file_exists($ruta_abs)) continue;
-        if (isset($archivos_a_escribir[$ruta_abs])) {
-            list($contenido, $eol) = $archivos_a_escribir[$ruta_abs];
-        } else {
-            $contenido_original = file_get_contents($ruta_abs);
-            $eol = detectar_eol($contenido_original);
-            $contenido = normalizar_a_unix($contenido_original);
-        }
-        $patron = '/(\*\s+@version\s+)(\S+)/';
-        $viejo = '';
-        $nuevo = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo) {
-            $viejo = $m[2];
-            return $m[1] . $version_nueva;
-        }, $contenido, 1, $count);
-        if ($count === 0) { $info_bumps[] = "$archivo_rel (sin @version)"; continue; }
-        if ($viejo === $version_nueva) { continue; }
-        $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
-        $bumps_atversion++;
-        $bumps_detalle[] = "$archivo_rel  @version $viejo -> $version_nueva";
-    }
-
-    foreach ($htmls_a_bumpear as $html_rel) {
-        $html_abs = $raiz_proyecto . '/' . $html_rel;
-        if (!file_exists($html_abs)) { $info_bumps[] = "$html_rel (no encontrado)"; continue; }
-        if (isset($archivos_a_escribir[$html_abs])) {
-            list($html, $eol) = $archivos_a_escribir[$html_abs];
-        } else {
-            $html_orig = file_get_contents($html_abs);
-            $eol = detectar_eol($html_orig);
-            $html = normalizar_a_unix($html_orig);
-        }
-        $html_antes = $html;
-        foreach (array_unique($archivos_bump_js_css) as $archivo_rel) {
-            $base = basename($archivo_rel);
-            $base_esc = preg_quote($base, '/');
-            $patron = '/(' . $base_esc . '\?v=)([^"\'\s>]+)/';
-            $viejo_qv = '';
-            $html = preg_replace_callback($patron, function($m) use ($version_nueva, &$viejo_qv) {
-                $viejo_qv = $m[2];
-                return $m[1] . $version_nueva;
-            }, $html, 1, $c_qv);
-            if ($c_qv > 0 && $viejo_qv !== $version_nueva) {
-                $bumps_qv++;
-                $bumps_detalle[] = "$html_rel  $base ?v= $viejo_qv -> $version_nueva";
-            }
-        }
-        if ($html !== $html_antes) {
-            $archivos_a_escribir[$html_abs] = [normalizar_a_unix($html), $eol];
-        }
-    }
-}
-
 $archivos_escritos = 0;
 foreach ($archivos_a_escribir as $ruta_abs => $info) {
     list($contenido_unix, $eol) = $info;
@@ -649,39 +511,9 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
-foreach ($creaciones as $creacion) {
-    $ruta_abs = $raiz_proyecto . '/' . $creacion['archivo'];
-    $dir_destino = dirname($ruta_abs);
-    if (!is_dir($dir_destino)) mkdir($dir_destino, 0777, true);
-    $contenido_nuevo = implode("\n", $creacion['contenido']);
-    $ya_existia = file_exists($ruta_abs);
-    if (file_put_contents($ruta_abs, $contenido_nuevo) === false) {
-        echo "[FALLO] No se pudo crear: {$creacion['archivo']}\n"; continue;
-    }
-    $accion = $ya_existia ? 'sobrescrito' : 'creado';
-    echo "[OK] {$creacion['archivo']} ($accion)\n";
-}
-
-foreach ($eliminaciones as $elim) {
-    $ruta_abs = $raiz_proyecto . '/' . $elim['archivo'];
-    if (!file_exists($ruta_abs)) { echo "[INFO] " . $elim['archivo'] . " no existía.\n"; continue; }
-    if (unlink($ruta_abs)) echo "[OK] " . $elim['archivo'] . " (eliminado)\n";
-    else echo "[FALLO] No se pudo eliminar: " . $elim['archivo'] . "\n";
-}
-
-if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
-    echo "\n--- Bumps ---\n";
-    foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
-    foreach ($info_bumps as $i) echo "[INFO] $i\n";
-}
-
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
-if ($bumpear) {
-    echo "Bumps @version:    $bumps_atversion\n";
-    echo "Bumps ?v=:         $bumps_qv\n";
-}
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";

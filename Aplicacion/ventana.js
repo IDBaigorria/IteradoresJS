@@ -21,7 +21,7 @@
  *
  * No usa imports (no es module).
  *
- * @version 1.5plugin.9n
+ * @version 1.5plugin.9p
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -859,7 +859,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 html += '</li>';
             }
             const pe_dr = pasos_e["drenar_buzon"] || { estado: "pendiente" };
-            html += '<li class="migracion-paso"><span style="flex:1">10. Drenar buzón</span>';
+            html += '<li class="migracion-paso"><span style="flex:1">12. Drenar buzón</span>';
             html += '<span class="estado estado-' + pe_dr.estado + '">' + pe_dr.estado + '</span></li>';
             html += '</ul>';
 
@@ -890,7 +890,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += '<li class="migracion-paso">';
             html += '<label style="flex:1;">';
             html += '<input type="checkbox" id="migracion_check_drenar" checked>';
-            html += '<span>10. Drenar buzón al final</span>';
+            html += '<span>12. Drenar buzón al final</span>';
             html += '<span class="tooltip-icon" title="Login como dueño, ir a Vendidos, logout.">⚠️</span>';
             html += '</label>';
             html += '<input type="text" id="migracion_codigo_drenar" placeholder="código dueño" style="width:90px; padding:2px 4px; font-size:11px; font-family:Consolas,monospace;" title="Código de acceso del dueño en este grafo.">';
@@ -1124,7 +1124,7 @@ document.addEventListener("DOMContentLoaded", () => {
             html += '<span class="estado estado-pendiente">pendiente</span></li>';
         }
         html += '<li class="migracion-paso" id="migracion_paso_drenar_buzon">';
-        html += '<span style="flex:1">10. Drenar buzón</span>';
+        html += '<span style="flex:1">12. Drenar buzón</span>';
         html += '<span class="estado estado-pendiente">pendiente</span></li>';
         html += '</ul>';
         html += '<div class="migracion-botones"><button id="btn_cancelar_migracion">Cancelar</button></div>';
