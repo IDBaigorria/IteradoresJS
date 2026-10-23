@@ -109,7 +109,7 @@ export const URL_PILOTO_PRODUCCION = "https://viajespquiadelcarmen.infy.click/";
 
 // URL activa. Cambiar a URL_PILOTO_PRUEBAS o
 // URL_PILOTO_PRODUCCION segun donde se vaya a probar.
-export const URL_PILOTO = URL_PILOTO_LOCAL;
+export const URL_PILOTO = URL_PILOTO_PRUEBAS;
 
 // Códigos de acceso de los usuarios del piloto, para las pruebas.
 export const CODIGO_ADMIN     = "IDB";

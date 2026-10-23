@@ -1299,11 +1299,12 @@ proyecto.
 
 ## 9. DISCUSIÓN ACTUAL
 
-**Última actualización de este prompt:** v1.5plugin.9b.
-Botón "🔧 Migraciones" en el plugin (v9a-9b). Corre los
+**Última actualización de este prompt:** v1.5plugin.9m.
+Botón "🔧 Migraciones" en el plugin (v9a-v9m). Corre los
 9 pasos del piloto + drenado del buzón. Estado persistido
-en el grafo. Reanudable. Manifest con dominios de pruebas
-y producción. Ver §11.
+en el grafo, reanudable. `asegurar_login` 100%
+`executeScript` (v9k). `URLS_PILOTO` estricta (v9l).
+URLs de pruebas y producción actualizadas (v9m). Ver §11.
 
 **Cierre de la línea del grafo (v8b-v8g):**
 
@@ -1956,5 +1957,85 @@ completo con todo lo aprendido a la fuerza).
 - No asumir indentación. Copiar del pegado real.
 
 ---
+
+---
+
+## 11. ARCO DEL BOTÓN DE MIGRACIONES (v1.5plugin.9a-9m)
+
+El plugin tiene un botón **🔧 Migraciones** en la barra
+de acciones globales del popup. Corre la secuencia de
+migraciones del piloto (9 pasos + drenado del buzón) y
+persiste el estado en el grafo.
+
+### 11.1 Los 10 pasos
+
+| # | Endpoint | Default | Peligroso |
+|---|---|---|---|
+| 1 | `?migrar_a_sql64=1` | ON | sí |
+| 2 | `?migrar_usuarios_especiales=1` | ON | no |
+| 3 | `?migrar_niveles_usuario=1` | ON | no |
+| 4 | `?migrar_compartidos_terminal=1` | ON | no |
+| 5 | `?construir_arboles_compartidos=1` | ON | no |
+| 6 | `?repuntar_terminales_compartido=1` | ON | no |
+| 7 | `?migrar_topologia=1` | OFF | sí |
+| 8 | `?reparar_topologia=1` | ON | no |
+| 9 | `?reparar_arboles=1` | ON | no |
+| 10 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |
+
+Los pasos peligrosos muestran un ⚠️ y un tooltip. El paso
+10 tiene un input editable para el código del dueño (con
+`carmen1` como default).
+
+### 11.2 Persistencia y reanudación
+
+Cada corrida se guarda en `plugin → migraciones →
+corrida_<ts>` (ver `estructura_plugin.md` §3.2). Al abrir
+el panel:
+
+- Si la corrida `actual` está en `en_curso`, ofrece
+  "▶ Continuar" (usa los pasos ya OK como saltados y retoma
+  desde el primero pendiente).
+- Si no, muestra el formulario de configuración con los
+  checkboxes (defaults de §11.1) y el historial de las
+  últimas corridas.
+
+### 11.3 Estado del arco
+
+- **v9a**: módulo `Migraciones.js`, persistencia en
+  IndexedDB, panel de UI.
+- **v9b**: manifest con dominios, case
+  `listar_pasos_migracion` faltante, tres URLs de entorno
+  (`URL_PILOTO_LOCAL`, `URL_PILOTO_PRUEBAS`,
+  `URL_PILOTO_PRODUCCION`).
+- **v9c**: capturador de errores en el popup.
+- **v9d**: propagación del error + output en el panel.
+- **v9e**: parser de output corregido (`saltados => N`
+  no matcheaba, `errores:` matcheaba como error).
+- **v9f**: resumen final persistente en el panel.
+- **v9g**: código de drenado configurable, drenado como
+  advertencia.
+- **v9h**: fix de race condition entre `salir()` y
+  escribir el código.
+- **v9i**: mensaje del drenado visible en advertencias.
+- **v9j**: `asegurar_login` con `executeScript` (elimina
+  content script para el logout + login).
+- **v9k**: `asegurar_login` 100% `executeScript`, logout
+  incondicional (sin chequear `esta_visible`, que fallaba
+  después del logout).
+- **v9l**: `URLS_PILOTO` estricta (en localhost, solo
+  `/iteradores/`), chequeo de pestaña en `asegurar_login`
+  y `_ejecutar_migraciones`.
+- **v9m**: URLs nuevas de pruebas
+  (`https://viajespquiadelcarmen.rf.gd/`) y producción
+  (`https://viajespquiadelcarmen.infy.click/`).
+
+### 11.4 Pendientes del arco
+
+- Selector de entorno en el popup (local/pruebas/producción)
+  para no tener que editar `ConfiguracionApli.js` a mano.
+- Botón "Probar conexión" antes de correr.
+- Export/import del grafo del plugin (backup del estado
+  de migraciones).
+- Modo dry-run: mostrar qué haría cada paso sin ejecutarlo.
 
 **FIN DEL PROMPT**

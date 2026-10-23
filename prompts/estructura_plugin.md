@@ -11,7 +11,7 @@ cambios del grafo, mensajes nuevos). El prompt del plugin
 decisiones técnicas y las lecciones; este archivo guarda
 la foto de la estructura.
 
-Última actualización: v1.5plugin.9b.
+Última actualización: v1.5plugin.9m.
 
 ---
 

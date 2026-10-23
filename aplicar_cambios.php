@@ -1,9 +1,9 @@
 <?php
 /**
- * Aplicador — v1.5plugin.9m (v3): URLs nuevas + bump desde 9i.
- * Runner corregido para escribir cambios parciales en modo no estricto.
+ * Aplicador — actualización de prompts del plugin a v1.5plugin.9m.
  *
- * Uso (raíz de iteradoresJS/): php aplicar_cambios.php
+ * Uso (raíz del proyecto JS, iteradoresJS/codigo.worktrees/v1.5i/):
+ *   php aplicar_cambios.php
  */
 
 $modo_estricto = false;
@@ -14,78 +14,143 @@ $htmls_a_bumpear = [];
 $cambios = [
 
     // ============================================================
-    // 1. ConfiguracionApli.js: URLs de entorno
+    // 1. prompt_plugin_piloto.md: agregar §11 (arco v9a-v9m)
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: URLs de pruebas y producción',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt_plugin_piloto.md: agregar §11 (arco migraciones)',
         'buscar' => [
-            'export const URL_PILOTO_PRUEBAS = "https://viajesdelcarmen.rf.gd/";',
-            'export const URL_PILOTO_PRODUCCION = "https://viajesdelcarmen.click.gd/";',
+            '**FIN DEL PROMPT**',
         ],
         'reemplazar' => [
-            'export const URL_PILOTO_PRUEBAS = "https://viajespquiadelcarmen.rf.gd/";',
-            'export const URL_PILOTO_PRODUCCION = "https://viajespquiadelcarmen.infy.click/";',
+            '---',
+            '',
+            '## 11. ARCO DEL BOTÓN DE MIGRACIONES (v1.5plugin.9a-9m)',
+            '',
+            'El plugin tiene un botón **🔧 Migraciones** en la barra',
+            'de acciones globales del popup. Corre la secuencia de',
+            'migraciones del piloto (9 pasos + drenado del buzón) y',
+            'persiste el estado en el grafo.',
+            '',
+            '### 11.1 Los 10 pasos',
+            '',
+            '| # | Endpoint | Default | Peligroso |',
+            '|---|---|---|---|',
+            '| 1 | `?migrar_a_sql64=1` | ON | sí |',
+            '| 2 | `?migrar_usuarios_especiales=1` | ON | no |',
+            '| 3 | `?migrar_niveles_usuario=1` | ON | no |',
+            '| 4 | `?migrar_compartidos_terminal=1` | ON | no |',
+            '| 5 | `?construir_arboles_compartidos=1` | ON | no |',
+            '| 6 | `?repuntar_terminales_compartido=1` | ON | no |',
+            '| 7 | `?migrar_topologia=1` | OFF | sí |',
+            '| 8 | `?reparar_topologia=1` | ON | no |',
+            '| 9 | `?reparar_arboles=1` | ON | no |',
+            '| 10 | Drenar buzón (login dueño → Vendidos → logout) | ON | no |',
+            '',
+            'Los pasos peligrosos muestran un ⚠️ y un tooltip. El paso',
+            '10 tiene un input editable para el código del dueño (con',
+            '`carmen1` como default).',
+            '',
+            '### 11.2 Persistencia y reanudación',
+            '',
+            'Cada corrida se guarda en `plugin → migraciones →',
+            'corrida_<ts>` (ver `estructura_plugin.md` §3.2). Al abrir',
+            'el panel:',
+            '',
+            '- Si la corrida `actual` está en `en_curso`, ofrece',
+            '  "▶ Continuar" (usa los pasos ya OK como saltados y retoma',
+            '  desde el primero pendiente).',
+            '- Si no, muestra el formulario de configuración con los',
+            '  checkboxes (defaults de §11.1) y el historial de las',
+            '  últimas corridas.',
+            '',
+            '### 11.3 Estado del arco',
+            '',
+            '- **v9a**: módulo `Migraciones.js`, persistencia en',
+            '  IndexedDB, panel de UI.',
+            '- **v9b**: manifest con dominios, case',
+            '  `listar_pasos_migracion` faltante, tres URLs de entorno',
+            '  (`URL_PILOTO_LOCAL`, `URL_PILOTO_PRUEBAS`,',
+            '  `URL_PILOTO_PRODUCCION`).',
+            '- **v9c**: capturador de errores en el popup.',
+            '- **v9d**: propagación del error + output en el panel.',
+            '- **v9e**: parser de output corregido (`saltados => N`',
+            '  no matcheaba, `errores:` matcheaba como error).',
+            '- **v9f**: resumen final persistente en el panel.',
+            '- **v9g**: código de drenado configurable, drenado como',
+            '  advertencia.',
+            '- **v9h**: fix de race condition entre `salir()` y',
+            '  escribir el código.',
+            '- **v9i**: mensaje del drenado visible en advertencias.',
+            '- **v9j**: `asegurar_login` con `executeScript` (elimina',
+            '  content script para el logout + login).',
+            '- **v9k**: `asegurar_login` 100% `executeScript`, logout',
+            '  incondicional (sin chequear `esta_visible`, que fallaba',
+            '  después del logout).',
+            '- **v9l**: `URLS_PILOTO` estricta (en localhost, solo',
+            '  `/iteradores/`), chequeo de pestaña en `asegurar_login`',
+            '  y `_ejecutar_migraciones`.',
+            '- **v9m**: URLs nuevas de pruebas',
+            '  (`https://viajespquiadelcarmen.rf.gd/`) y producción',
+            '  (`https://viajespquiadelcarmen.infy.click/`).',
+            '',
+            '### 11.4 Pendientes del arco',
+            '',
+            '- Selector de entorno en el popup (local/pruebas/producción)',
+            '  para no tener que editar `ConfiguracionApli.js` a mano.',
+            '- Botón "Probar conexión" antes de correr.',
+            '- Export/import del grafo del plugin (backup del estado',
+            '  de migraciones).',
+            '- Modo dry-run: mostrar qué haría cada paso sin ejecutarlo.',
+            '',
+            '**FIN DEL PROMPT**',
         ],
     ],
 
     // ============================================================
-    // 2. ConfiguracionApli.js: @version header
+    // 2. prompt_plugin_piloto.md: bump versión de la última actualización
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: @version header 9i → 9m',
+        'archivo' => 'prompts/prompt_plugin_piloto.md',
+        'descripcion' => 'prompt_plugin_piloto.md: bump versión al cierre',
         'buscar' => [
-            ' * @version 1.5plugin.9i',
+            '**Última actualización de este prompt:** v1.5plugin.9b.',
+            'Botón "🔧 Migraciones" en el plugin (v9a-9b). Corre los',
+            '9 pasos del piloto + drenado del buzón. Estado persistido',
+            'en el grafo. Reanudable. Manifest con dominios de pruebas',
+            'y producción. Ver §11.',
         ],
         'reemplazar' => [
-            ' * @version 1.5plugin.9m',
+            '**Última actualización de este prompt:** v1.5plugin.9m.',
+            'Botón "🔧 Migraciones" en el plugin (v9a-v9m). Corre los',
+            '9 pasos del piloto + drenado del buzón. Estado persistido',
+            'en el grafo, reanudable. `asegurar_login` 100%',
+            '`executeScript` (v9k). `URLS_PILOTO` estricta (v9l).',
+            'URLs de pruebas y producción actualizadas (v9m). Ver §11.',
         ],
     ],
 
     // ============================================================
-    // 3. ConfiguracionApli.js: VERSION_APP 9i → 9m
+    // 3. estructura_plugin.md: bump versión
     // ============================================================
     [
         'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: VERSION_APP 9i → 9m',
+        'archivo' => 'prompts/estructura_plugin.md',
+        'descripcion' => 'estructura_plugin.md: bump versión a 9m',
         'buscar' => [
-            'export const VERSION_APP = "1.5plugin.9i";',
+            'Última actualización: v1.5plugin.9b.',
         ],
         'reemplazar' => [
-            'export const VERSION_APP = "1.5plugin.9m";',
-        ],
-    ],
-
-    // ============================================================
-    // 4. ConfiguracionApli.js: VERSION_PLUGIN 9i → 9m
-    // ============================================================
-    [
-        'tipo' => 'reemplazar',
-        'archivo' => 'Aplicacion/ConfiguracionApli.js',
-        'descripcion' => 'ConfiguracionApli.js: VERSION_PLUGIN 9i → 9m',
-        'buscar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.9i";',
-        ],
-        'reemplazar' => [
-            'export const VERSION_PLUGIN = "1.5plugin.9m";',
+            'Última actualización: v1.5plugin.9m.',
         ],
     ],
 
 ];
 
 // ============================================================
-// Runner v2 (corregido)
-// ============================================================
-// Cambio respecto del runner estándar: en modo no estricto
-// (strict=false), si hay fallos, los archivos con cambios
-// efectivos SÍ se escriben. El bug anterior era que
-// `$hubo_error` (por archivo) bloqueaba la escritura incluso
-// cuando otros bloques del mismo archivo habían matcheado.
-// En modo estricto, se sigue abortando antes de escribir.
+// Runner v2 (corregido: escribe cambios parciales en no estricto)
 // ============================================================
 
 echo "=== Aplicador ===\n\n";
@@ -100,7 +165,7 @@ function contar_ocurrencias(string $c, string $b): int {
     return $n;
 }
 
-if (!isset($htmls_a_bumpear) || !is_array($htmls_a_bumpear)) { $htmls_a_bumpear = []; }
+if (!isset($htmls_a_bumpear) || !is_array($htmls_a_bumpear)) $htmls_a_bumpear = [];
 if (!isset($version_nueva)) $version_nueva = '';
 $version_nueva = trim((string)$version_nueva);
 $bumpear = ($version_nueva !== '');
@@ -135,7 +200,6 @@ foreach ($reemplazos_por_archivo as $archivo_rel => $lista) {
         $contenido = str_replace($buscar_str, $reemplazar_str, $contenido);
         $bloques_ok++;
     }
-    // CORRECCIÓN: escribir aunque haya fallos, si hubo cambios efectivos.
     if ($contenido !== $contenido_antes) {
         $archivos_a_escribir[$ruta_abs] = [$contenido, $eol];
     }
@@ -145,30 +209,6 @@ if ($modo_estricto && !empty($bloques_fallidos)) {
     echo "=== ABORTADO ===\n";
     foreach ($bloques_fallidos as $f) echo "  [FALLO] $f\n";
     exit(1);
-}
-
-$archivos_bump = [];
-foreach ($archivos_a_escribir as $ruta_abs => $info) {
-    $ext = strtolower(pathinfo($ruta_abs, PATHINFO_EXTENSION));
-    if ($ext === 'php' || $ext === 'js') $archivos_bump[] = substr($ruta_abs, strlen($raiz_proyecto) + 1);
-}
-
-$bumps = 0; $bumps_detalle = []; $info_bumps = [];
-if ($bumpear) {
-    foreach (array_unique($archivos_bump) as $archivo_rel) {
-        $ruta_abs = $raiz_proyecto . '/' . $archivo_rel;
-        if (!file_exists($ruta_abs)) continue;
-        if (isset($archivos_a_escribir[$ruta_abs])) { list($contenido, $eol) = $archivos_a_escribir[$ruta_abs]; }
-        else { $contenido = normalizar_a_unix(file_get_contents($ruta_abs)); $eol = detectar_eol($contenido); }
-        $viejo = '';
-        $nuevo = preg_replace_callback('/(\*\s+@version\s+)(\S+)/', function($m) use ($version_nueva, &$viejo) {
-            $viejo = $m[2]; return $m[1] . $version_nueva;
-        }, $contenido, 1, $count);
-        if ($count === 0) { $info_bumps[] = "$archivo_rel (sin @version)"; continue; }
-        if ($viejo === $version_nueva) continue;
-        $archivos_a_escribir[$ruta_abs] = [normalizar_a_unix($nuevo), $eol];
-        $bumps++; $bumps_detalle[] = "$archivo_rel  @version $viejo → $version_nueva";
-    }
 }
 
 $archivos_escritos = 0;
@@ -181,16 +221,9 @@ foreach ($archivos_a_escribir as $ruta_abs => $info) {
     echo "[OK] " . substr($ruta_abs, strlen($raiz_proyecto) + 1) . "\n";
 }
 
-if ($bumpear && (!empty($bumps_detalle) || !empty($info_bumps))) {
-    echo "\n--- Bumps ---\n";
-    foreach ($bumps_detalle as $d) echo "[BUMP] $d\n";
-    foreach ($info_bumps as $i) echo "[INFO] $i\n";
-}
-
 echo "\n=== Resumen ===\n";
 echo "Bloques aplicados: $bloques_ok\n";
 echo "Archivos escritos: $archivos_escritos\n";
-if ($bumpear) echo "Bumps @version:    $bumps\n";
 if (!empty($bloques_fallidos)) {
     echo "Fallos: " . count($bloques_fallidos) . "\n";
     foreach ($bloques_fallidos as $f) echo "  - $f\n";
